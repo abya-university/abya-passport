@@ -20,20 +20,20 @@ ABYA Passport introduces a multichain DID system that allows learners to:
 
 ## Tech Stack
 
-**`Smart Contracts`**: Motoko (ICP) and Solidity (EVM) for credential anchoring.
-**`Authentication`**: Internet Identity (ICP), MetaMask, Phantom, Keplr.
-**`DID Methods`**: did:icp, did:key, did:ethr, did:web.
-**`Credential Format`**: W3C Verifiable Credentials.
-**`Privacy Layer`**: ZKPs (e.g., BBS+, zk-SNARKs).
-**`Storage`**: On-chain metadata + IPFS/Filecoin for encrypted credential storage.
-**`Frontend`**: React with ICP Agent and EVM wallet connectors.
+- **`Smart Contracts`**: Motoko (ICP) and Solidity (EVM) for credential anchoring.
+- **`Authentication`**: Internet Identity (ICP), MetaMask, Phantom, Keplr.
+- **`DID Methods`**: did:icp, did:key, did:ethr, did:web.
+- **`Credential Format`**: W3C Verifiable Credentials.
+- **`Privacy Layer`**: ZKPs (e.g., BBS+, zk-SNARKs).
+- **`Storage`**: On-chain metadata + IPFS/Filecoin for encrypted credential storage.
+- **`Frontend`**: React with ICP Agent and EVM wallet connectors.
 
 ## Innovation Highlights
 
-**`Cross-chain interoperability`**: Works seamlessly across ICP, Ethereum, Polygon, and Solana.
-**`User sovereignty`**: Learners own and control their identity and credentials.
-**`AI-powered insights (bonus)`**: Recommends learning paths based on verified credentials.
-**`Reputation layer (bonus)`**: Builds a non-transferable, on-chain reputation for learners and educators.
+- **`Cross-chain interoperability`**: Works seamlessly across ICP, Ethereum, Polygon, and Solana.
+- **`User sovereignty`**: Learners own and control their identity and credentials.
+- **`AI-powered insights (bonus)`**: Recommends learning paths based on verified credentials.
+- **`Reputation layer (bonus)`**: Builds a non-transferable, on-chain reputation for learners and educators.
 
 ## Use Cases
 
