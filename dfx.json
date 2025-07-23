@@ -1,25 +1,40 @@
 {
-  "canisters": {
-    "abya-passport-backend": {
-      "main": "src/abya-passport-backend/main.mo",
-      "type": "motoko"
+    "canisters": 
+    {
+        "abya-passport-backend": 
+        {
+            "main": "src/abya-passport-backend/main.mo",
+            "type": "motoko"
+        },
+        "abya-passport-frontend": 
+        {
+            "dependencies": 
+            [
+                "abya-passport-backend"
+            ],
+            "frontend": 
+            {
+                "entrypoint": "src/abya-passport-frontend/dist/index.html"
+            },
+            "source": 
+            [
+                "src/abya-passport-frontend/dist"
+            ],
+            "type": "assets"
+        }
     },
-    "abya-passport-frontend": {
-      "dependencies": [
-        "abya-passport-backend"
-      ],
-      "source": [
-        "src/abya-passport-frontend/assets"
-      ],
-      "type": "assets"
-    }
-  },
-  "defaults": {
-    "build": {
-      "args": "",
-      "packtool": ""
-    }
-  },
-  "output_env_file": ".env",
-  "version": 1
+    "defaults": 
+    {
+        "build": 
+        {
+            "args": "",
+            "packtool": ""
+        }
+    },
+    "output_env_file": ".env",
+    "outputs": 
+    [
+        "src/abya-passport-frontend/src/declarations"
+    ],
+    "version": 1
 }
