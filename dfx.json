@@ -1,40 +1,29 @@
 {
-    "canisters": 
-    {
-        "abya-passport-backend": 
-        {
-            "main": "src/abya-passport-backend/main.mo",
-            "type": "motoko"
-        },
-        "abya-passport-frontend": 
-        {
-            "dependencies": 
-            [
-                "abya-passport-backend"
-            ],
-            "frontend": 
-            {
-                "entrypoint": "src/abya-passport-frontend/dist/index.html"
-            },
-            "source": 
-            [
-                "src/abya-passport-frontend/dist"
-            ],
-            "type": "assets"
-        }
+  "canisters": {
+    "internet_identity": {
+      "type": "pull",
+      "id": "rdmx6-jaaaa-aaaaa-aaadq-cai"
     },
-    "defaults": 
-    {
-        "build": 
-        {
-            "args": "",
-            "packtool": ""
-        }
+    "abya-passport-backend": {
+      "main": "src/abya-passport-backend/main.mo",
+      "type": "motoko"
     },
-    "output_env_file": ".env",
-    "outputs": 
-    [
-        "src/abya-passport-frontend/src/declarations"
-    ],
-    "version": 1
+    "abya-passport-frontend": {
+      "dependencies": ["abya-passport-backend"],
+      "frontend": {
+        "entrypoint": "src/abya-passport-frontend/dist/index.html"
+      },
+      "source": ["src/abya-passport-frontend/dist"],
+      "type": "assets"
+    }
+  },
+  "defaults": {
+    "build": {
+      "args": "",
+      "packtool": ""
+    }
+  },
+  "output_env_file": ".env",
+  "outputs": ["src/declarations"],
+  "version": 1
 }

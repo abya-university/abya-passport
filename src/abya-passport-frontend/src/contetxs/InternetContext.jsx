@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import { AuthClient } from "@dfinity/auth-client";
+import { HttpAgent } from "@dfinity/agent";
+import { createActor } from "../../../declarations/abya-passport-backend";
 
 const InternetIdentityContext = createContext();
 
@@ -8,6 +10,7 @@ export const InternetIdentityProvider = ({ children }) => {
   const [identity, setIdentity] = useState(null);
   const [principal, setPrincipal] = useState(null);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [did, setDid] = useState(null);
 
   // Initialize auth client
   useEffect(() => {
@@ -19,12 +22,14 @@ export const InternetIdentityProvider = ({ children }) => {
     });
   }, []);
 
+  const canisterId = "uxrrr-q7777-77774-qaaaq-cai";
+
   const login = async () => {
     setIsAuthenticating(true);
+
     authClient.login({
-      identityProvider: import.meta.env.VITE_APP_BACKEND_CANISTER_ID
-        ? `https://${import.meta.env.VITE_APP_BACKEND_CANISTER_ID}.ic0.app`
-        : "https://identity.ic0.app",
+      identityProvider: `http://rdmx6-jaaaa-aaaaa-aaadq-cai.localhost:4943`,
+      maxTimeToLive: BigInt(7 * 24 * 60 * 60 * 1000 * 1000 * 1000), // 7 days
       onSuccess: () => handleLoginSuccess(authClient),
       onError: (err) => {
         console.error("II Login failed:", err);
@@ -37,6 +42,30 @@ export const InternetIdentityProvider = ({ children }) => {
     const identity = client.getIdentity();
     setIdentity(identity);
     setPrincipal(identity.getPrincipal().toString());
+
+    // Generate DID after login
+    try {
+      // Create agent for local development
+      const agent = new HttpAgent({
+        host: "http://127.0.0.1:4943",
+        identity,
+      });
+
+      // Disable certificate verification for local development
+      await agent.fetchRootKey();
+
+      // Initialize actor with the authenticated identity
+      const actor = createActor(canisterId, { agent });
+
+      const did = await actor.getMyDid(); // Call canister method
+      console.log("My DID:", did);
+      setDid(did);
+    } catch (error) {
+      console.error("Error getting DID:", error);
+      console.error("Error details:", error.message);
+      setDid(null); // Reset on failure
+    }
+
     setIsAuthenticating(false);
   };
 
@@ -51,6 +80,7 @@ export const InternetIdentityProvider = ({ children }) => {
       value={{
         identity,
         principal,
+        did,
         isAuthenticating,
         login,
         logout,

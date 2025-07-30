@@ -9,8 +9,14 @@ function Navbar(props) {
   const dropdownRef = useRef(null);
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
-  const { identity, principal, isAuthenticating, login, logout } =
+  const { did, principal, isAuthenticating, login, logout } =
     useInternetIdentity();
+
+  const canisterId = "uxrrr-q7777-77774-qaaaq-cai";
+
+  console.log("DID2:", did);
+  console.log("Principal:", principal);
+  console.log("Canister ID:", canisterId);
 
   // Function to shorten wallet address or principal
   const shortenAddress = (address) => {
@@ -207,30 +213,150 @@ function Navbar(props) {
 
                     {/* Connected Internet Identity Info */}
                     {principal && !isConnected && (
-                      <div className="p-3 rounded-xl bg-purple-50/50 border border-purple-200/50">
-                        <div className="flex items-center gap-2 mb-2">
-                          <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="currentColor"
-                            className="text-purple-600"
+                      <div className="p-4 rounded-xl bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200/60 shadow-sm">
+                        <div className="flex items-center gap-3 mb-3">
+                          <div className="p-1.5 bg-purple-100 rounded-lg">
+                            <svg
+                              width="16"
+                              height="16"
+                              viewBox="0 0 24 24"
+                              fill="currentColor"
+                              className="text-purple-600"
+                            >
+                              <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" />
+                            </svg>
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-semibold text-gray-800">
+                                Internet Identity
+                              </span>
+                              <div className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded-full flex items-center gap-1">
+                                <div className="w-1.5 h-1.5 bg-green-500 rounded-full"></div>
+                                Connected
+                              </div>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              Decentralized Identity
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          {/* Principal ID */}
+                          <div className="bg-white/70 backdrop-blur-sm rounded-lg p-3 border border-purple-100">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-xs font-medium text-gray-600 uppercase tracking-wide">
+                                Principal ID
+                              </span>
+                              <button
+                                onClick={() =>
+                                  navigator.clipboard.writeText(principal)
+                                }
+                                className="text-gray-400 hover:text-purple-600 transition-colors p-1 rounded hover:bg-purple-50"
+                                title="Copy Principal ID"
+                              >
+                                <svg
+                                  width="14"
+                                  height="14"
+                                  viewBox="0 0 24 24"
+                                  fill="currentColor"
+                                >
+                                  <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" />
+                                </svg>
+                              </button>
+                            </div>
+                            <div className="text-sm text-gray-700 font-mono bg-gray-50 p-2 rounded border break-all">
+                              {shortenAddress(principal)}
+                            </div>
+                          </div>
+
+                          {/* DID Section */}
+                          {did ? (
+                            <div className="bg-white/70 backdrop-blur-sm rounded-lg p-3 border border-purple-100">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-xs font-medium text-gray-600 uppercase tracking-wide">
+                                  Decentralized ID
+                                </span>
+                                <button
+                                  onClick={() =>
+                                    navigator.clipboard.writeText(did)
+                                  }
+                                  className="text-gray-400 hover:text-purple-600 transition-colors p-1 rounded hover:bg-purple-50"
+                                  title="Copy DID"
+                                >
+                                  <svg
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 24 24"
+                                    fill="currentColor"
+                                  >
+                                    <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" />
+                                  </svg>
+                                </button>
+                              </div>
+                              <div className="text-sm text-gray-700 font-mono bg-gradient-to-r from-blue-50 to-purple-50 p-2 rounded border break-all">
+                                {did}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                              <div className="flex items-center gap-2">
+                                <svg
+                                  width="16"
+                                  height="16"
+                                  viewBox="0 0 24 24"
+                                  fill="currentColor"
+                                  className="text-orange-500"
+                                >
+                                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+                                </svg>
+                                <span className="text-sm text-orange-700 font-medium">
+                                  DID Generation Pending
+                                </span>
+                              </div>
+                              <p className="text-xs text-orange-600 mt-1">
+                                Your decentralized identity is being
+                                generated...
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex gap-2 mt-4">
+                          <button
+                            onClick={() => {
+                              // Refresh DID if needed
+                              window.location.reload();
+                            }}
+                            className="flex-1 bg-white hover:bg-purple-50 text-purple-600 border border-purple-200 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2"
                           >
-                            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          <span className="text-sm font-medium text-gray-700">
-                            Internet Identity
-                          </span>
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="currentColor"
+                            >
+                              <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" />
+                            </svg>
+                            Refresh
+                          </button>
+                          <button
+                            onClick={logout}
+                            className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2"
+                          >
+                            <svg
+                              width="14"
+                              height="14"
+                              viewBox="0 0 24 24"
+                              fill="currentColor"
+                            >
+                              <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.59L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z" />
+                            </svg>
+                            Disconnect
+                          </button>
                         </div>
-                        <div className="text-sm text-gray-600 font-mono bg-gray-100 p-2 rounded-lg break-all">
-                          {principal}
-                        </div>
-                        <button
-                          onClick={logout}
-                          className="mt-2 w-full text-sm text-red-600 hover:text-red-700 font-medium"
-                        >
-                          Disconnect
-                        </button>
                       </div>
                     )}
 
