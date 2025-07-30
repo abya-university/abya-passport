@@ -3,7 +3,7 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useAccount, useDisconnect } from "wagmi";
 import { useInternetIdentity } from "../contetxs/InternetContext";
 
-function Navbar(props) {
+function Navbar({ currentPage, setCurrentPage }) {
   const [showConnectOptions, setShowConnectOptions] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const dropdownRef = useRef(null);
@@ -83,15 +83,30 @@ function Navbar(props) {
 
           {/* Navigation Links */}
           <li className="hidden md:flex items-center space-x-8">
-            {["Home", "About", "Services", "Contact"].map((item) => (
-              <a
-                key={item}
-                href={`/${item.toLowerCase()}`}
-                className="relative text-gray-700 hover:text-blue-600 font-medium transition-all duration-200 group"
+            {[
+              { name: "Home", page: "home" },
+              { name: "DID Documents", page: "did" },
+              { name: "About", page: "about" },
+              { name: "Contact", page: "contact" },
+            ].map((item) => (
+              <button
+                key={item.name}
+                onClick={() => setCurrentPage && setCurrentPage(item.page)}
+                className={`relative font-medium transition-all duration-200 group ${
+                  currentPage === item.page
+                    ? "text-blue-600"
+                    : "text-gray-700 hover:text-blue-600"
+                }`}
               >
-                {item}
-                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-600 to-purple-600 transition-all duration-200 group-hover:w-full"></span>
-              </a>
+                {item.name}
+                <span
+                  className={`absolute -bottom-1 left-0 h-0.5 bg-gradient-to-r from-blue-600 to-purple-600 transition-all duration-200 ${
+                    currentPage === item.page
+                      ? "w-full"
+                      : "w-0 group-hover:w-full"
+                  }`}
+                ></span>
+              </button>
             ))}
           </li>
 

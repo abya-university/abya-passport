@@ -11,6 +11,8 @@ export const InternetIdentityProvider = ({ children }) => {
   const [principal, setPrincipal] = useState(null);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [did, setDid] = useState(null);
+  const [didDocument, setDidDocument] = useState(null);
+  const [isResolvingDid, setIsResolvingDid] = useState(false);
 
   // Initialize auth client
   useEffect(() => {
@@ -73,6 +75,49 @@ export const InternetIdentityProvider = ({ children }) => {
     await authClient?.logout();
     setIdentity(null);
     setPrincipal(null);
+    setDid(null);
+    setDidDocument(null);
+  };
+
+  const resolveDid = async (didToResolve = null) => {
+    const targetDid = didToResolve || did;
+
+    if (!targetDid) {
+      console.error("No DID available to resolve");
+      return null;
+    }
+
+    setIsResolvingDid(true);
+
+    try {
+      // Create agent (can work without authentication for public resolution)
+      const agent = new HttpAgent({
+        host: "http://127.0.0.1:4943",
+        identity: identity || undefined,
+      });
+
+      // Disable certificate verification for local development
+      await agent.fetchRootKey();
+
+      // Initialize actor
+      const actor = createActor(canisterId, { agent });
+
+      const document = await actor.resolveDid(targetDid);
+      console.log("Resolved DID Document:", document);
+
+      // Parse the JSON string to make it more usable
+      const parsedDocument = JSON.parse(document);
+      setDidDocument(parsedDocument);
+
+      return parsedDocument;
+    } catch (error) {
+      console.error("Error resolving DID:", error);
+      console.error("Error details:", error.message);
+      setDidDocument(null);
+      return null;
+    } finally {
+      setIsResolvingDid(false);
+    }
   };
 
   return (
@@ -81,9 +126,12 @@ export const InternetIdentityProvider = ({ children }) => {
         identity,
         principal,
         did,
+        didDocument,
         isAuthenticating,
+        isResolvingDid,
         login,
         logout,
+        resolveDid,
       }}
     >
       {/* <WagmiConfig config={wagmiConfig}> */}
