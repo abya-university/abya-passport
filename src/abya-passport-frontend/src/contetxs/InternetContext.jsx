@@ -30,7 +30,7 @@ export const InternetIdentityProvider = ({ children }) => {
     setIsAuthenticating(true);
 
     authClient.login({
-      identityProvider: `http://rdmx6-jaaaa-aaaaa-aaadq-cai.localhost:4943`,
+      identityProvider: "https://identity.ic0.app",
       maxTimeToLive: BigInt(7 * 24 * 60 * 60 * 1000 * 1000 * 1000), // 7 days
       onSuccess: () => handleLoginSuccess(authClient),
       onError: (err) => {
@@ -45,27 +45,16 @@ export const InternetIdentityProvider = ({ children }) => {
     setIdentity(identity);
     setPrincipal(identity.getPrincipal().toString());
 
-    // Generate DID after login
+    // Generate DID after login - use simple DID generation instead of calling backend
     try {
-      // Create agent for local development
-      const agent = new HttpAgent({
-        host: "http://127.0.0.1:4943",
-        identity,
-      });
-
-      // Disable certificate verification for local development
-      await agent.fetchRootKey();
-
-      // Initialize actor with the authenticated identity
-      const actor = createActor(canisterId, { agent });
-
-      const did = await actor.getMyDid(); // Call canister method
-      console.log("My DID:", did);
+      // For test purposes, generate DID locally to avoid certificate issues
+      const did = "did:icp:" + identity.getPrincipal().toString();
+      console.log("Generated DID:", did);
       setDid(did);
     } catch (error) {
-      console.error("Error getting DID:", error);
+      console.error("Error generating DID:", error);
       console.error("Error details:", error.message);
-      setDid(null); // Reset on failure
+      setDid(null);
     }
 
     setIsAuthenticating(false);
@@ -90,16 +79,17 @@ export const InternetIdentityProvider = ({ children }) => {
     setIsResolvingDid(true);
 
     try {
-      // Create agent (can work without authentication for public resolution)
+      // Create anonymous agent for public DID resolution
+      // This avoids certificate verification issues with mainnet II + local backend
       const agent = new HttpAgent({
         host: "http://127.0.0.1:4943",
-        identity: identity || undefined,
+        // Don't pass identity for public resolution
       });
 
       // Disable certificate verification for local development
       await agent.fetchRootKey();
 
-      // Initialize actor
+      // Initialize actor with anonymous agent
       const actor = createActor(canisterId, { agent });
 
       const document = await actor.resolveDid(targetDid);

@@ -1,9 +1,5 @@
 {
   "canisters": {
-    "internet_identity": {
-      "type": "pull",
-      "id": "rdmx6-jaaaa-aaaaa-aaadq-cai"
-    },
     "abya-passport-backend": {
       "main": "src/abya-passport-backend/main.mo",
       "type": "motoko"
