@@ -181,7 +181,7 @@ const DIDDocument = () => {
 
           {showRawJson ? (
             <pre className="bg-gray-50 border rounded-lg p-4 text-sm overflow-x-auto">
-              <code>{formatJson(didDocument)}</code>
+              <code className="text-left">{formatJson(didDocument)}</code>
             </pre>
           ) : (
             <div className="space-y-4">
