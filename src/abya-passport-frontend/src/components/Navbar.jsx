@@ -1,11 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useAccount, useDisconnect } from "wagmi";
-import { useInternetIdentity } from "../contetxs/InternetContext";
+import { useInternetIdentity } from "../contexts/InternetContext";
+
+const API_URL = process.env.REACT_APP_VERAMO_API_URL || "http://localhost:3000";
 
 function Navbar({ currentPage, setCurrentPage }) {
   const [showConnectOptions, setShowConnectOptions] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [walletDid, setWalletDid] = useState(null);
+  const [didLoading, setDidLoading] = useState(false);
   const dropdownRef = useRef(null);
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
@@ -23,6 +27,42 @@ function Navbar({ currentPage, setCurrentPage }) {
     if (!address) return "";
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
+  const shorten = (str) => str?.length > 10 ? `${str.slice(0,16)}…${str.slice(-6)}` : str;
+
+  // Fetch or create a did:ethr for the connected wallet
+  useEffect(() => {
+    const createDidForWallet = async (walletAddress) => {
+      setDidLoading(true);
+      try {
+        const res = await fetch(`${API_URL}/did/create`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            provider: "did:ethr",
+            walletAddress,
+          }),
+        });
+        const { success, identifier } = await res.json();
+        if (success && identifier.did) {
+          setWalletDid(identifier.did);
+        }
+      } catch (err) {
+        console.error("Error creating DID for wallet:", err);
+      } finally {
+        setDidLoading(false);
+      }
+    };
+
+    if (isConnected && address) {
+      // Only fetch once per connection
+      if (!walletDid) {
+        createDidForWallet(address);
+      }
+    } else {
+      setWalletDid(null);
+      setDidLoading(false);
+    }
+  }, [isConnected, address, walletDid]);
 
   // Check if any authentication method is active
   const isAnyConnected = isConnected || !!principal;
@@ -216,7 +256,10 @@ function Navbar({ currentPage, setCurrentPage }) {
                           </span>
                         </div>
                         <div className="text-sm text-gray-600 font-mono bg-gray-100 p-2 rounded-lg break-all">
-                          {address}
+                          {shorten(address)}
+                        </div>
+                        <div className="text-sm text-gray-600 font-mono bg-gray-100 p-2 rounded-lg break-all">
+                          {shorten(walletDid)}
                         </div>
                         <button
                           onClick={() => disconnect()}
