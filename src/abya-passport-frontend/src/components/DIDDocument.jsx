@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useInternetIdentity } from "../contetxs/InternetContext";
+import { useInternetIdentity } from "../contexts/InternetContext";
 
 const DIDDocument = () => {
   const { did, didDocument, isResolvingDid, resolveDid, principal } =

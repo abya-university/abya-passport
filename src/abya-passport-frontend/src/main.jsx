@@ -4,7 +4,7 @@ import "./index.css";
 import App from "./App.jsx";
 import Providers from "./providers/Provider";
 import { BrowserRouter } from "react-router-dom";
-import { InternetIdentityProvider } from "./contetxs/InternetContext";
+import { InternetIdentityProvider } from "./contexts/InternetContext";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
