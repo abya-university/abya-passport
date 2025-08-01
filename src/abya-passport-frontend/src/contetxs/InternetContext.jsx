@@ -14,6 +14,11 @@ export const InternetIdentityProvider = ({ children }) => {
   const [didDocument, setDidDocument] = useState(null);
   const [isResolvingDid, setIsResolvingDid] = useState(false);
 
+  // VC-related state
+  const [myIssuedVCs, setMyIssuedVCs] = useState([]);
+  const [myReceivedVCs, setMyReceivedVCs] = useState([]);
+  const [isLoadingVCs, setIsLoadingVCs] = useState(false);
+
   // Initialize auth client
   useEffect(() => {
     AuthClient.create().then(async (client) => {
@@ -29,8 +34,14 @@ export const InternetIdentityProvider = ({ children }) => {
   const login = async () => {
     setIsAuthenticating(true);
 
+    // Use local Internet Identity for development
+    const identityProvider =
+      process.env.DFX_NETWORK === "ic"
+        ? "https://identity.ic0.app"
+        : `http://127.0.0.1:4943/?canisterId=rdmx6-jaaaa-aaaaa-aaadq-cai`;
+
     authClient.login({
-      identityProvider: "https://identity.ic0.app",
+      identityProvider: identityProvider,
       maxTimeToLive: BigInt(7 * 24 * 60 * 60 * 1000 * 1000 * 1000), // 7 days
       onSuccess: () => handleLoginSuccess(authClient),
       onError: (err) => {
@@ -39,7 +50,6 @@ export const InternetIdentityProvider = ({ children }) => {
       },
     });
   };
-
   const handleLoginSuccess = async (client) => {
     const identity = client.getIdentity();
     setIdentity(identity);
@@ -66,6 +76,8 @@ export const InternetIdentityProvider = ({ children }) => {
     setPrincipal(null);
     setDid(null);
     setDidDocument(null);
+    setMyIssuedVCs([]);
+    setMyReceivedVCs([]);
   };
 
   const resolveDid = async (didToResolve = null) => {
@@ -110,6 +122,187 @@ export const InternetIdentityProvider = ({ children }) => {
     }
   };
 
+  // ==================== VC FUNCTIONS ====================
+
+  // Issue a new VC
+  const issueVC = async (recipientDid, claims, expiresInHours = 24) => {
+    if (!identity) {
+      throw new Error("Must be authenticated to issue VCs");
+    }
+
+    try {
+      // Use local development setup
+      const agent = new HttpAgent({
+        host: "http://127.0.0.1:4943",
+        identity: identity,
+      });
+
+      // Fetch root key for local development
+      if (process.env.DFX_NETWORK !== "ic") {
+        await agent.fetchRootKey();
+      }
+
+      const actor = createActor(canisterId, { agent });
+
+      // Convert claims object to array of tuples
+      const claimsArray = Object.entries(claims);
+
+      // Convert expiresInHours to optional bigint
+      const expirationOption = expiresInHours ? [BigInt(expiresInHours)] : [];
+
+      const vcJson = await actor.issueVC(
+        recipientDid,
+        claimsArray,
+        expirationOption
+      );
+
+      // Refresh the issued VCs list
+      await loadMyIssuedVCs();
+
+      return JSON.parse(vcJson);
+    } catch (error) {
+      console.error("Error issuing VC:", error);
+      throw error;
+    }
+  };
+
+  // Load VCs issued by the current user
+  const loadMyIssuedVCs = async () => {
+    if (!identity) return;
+
+    setIsLoadingVCs(true);
+    try {
+      const agent = new HttpAgent({
+        host: "http://127.0.0.1:4943",
+        identity: identity,
+      });
+
+      if (process.env.DFX_NETWORK !== "ic") {
+        await agent.fetchRootKey();
+      }
+
+      const actor = createActor(canisterId, { agent });
+
+      const vcJsonArray = await actor.getMyIssuedVCs();
+      const vcs = vcJsonArray.map((vcJson) => JSON.parse(vcJson));
+      setMyIssuedVCs(vcs);
+    } catch (error) {
+      console.error("Error loading issued VCs:", error);
+      setMyIssuedVCs([]);
+    } finally {
+      setIsLoadingVCs(false);
+    }
+  };
+
+  // Load VCs received by the current user (based on their DID)
+  const loadMyReceivedVCs = async () => {
+    if (!did) return;
+
+    setIsLoadingVCs(true);
+    try {
+      const agent = new HttpAgent({
+        host: "http://127.0.0.1:4943",
+      });
+
+      if (process.env.DFX_NETWORK !== "ic") {
+        await agent.fetchRootKey();
+      }
+
+      const actor = createActor(canisterId, { agent });
+
+      const vcJsonArray = await actor.getVCsForDid(did);
+      const vcs = vcJsonArray.map((vcJson) => JSON.parse(vcJson));
+      setMyReceivedVCs(vcs);
+    } catch (error) {
+      console.error("Error loading received VCs:", error);
+      setMyReceivedVCs([]);
+    } finally {
+      setIsLoadingVCs(false);
+    }
+  };
+
+  // Verify a VC
+  const verifyVC = async (vcId) => {
+    try {
+      const agent = new HttpAgent({
+        host: "http://127.0.0.1:4943",
+      });
+
+      if (process.env.DFX_NETWORK !== "ic") {
+        await agent.fetchRootKey();
+      }
+
+      const actor = createActor(canisterId, { agent });
+
+      const verification = await actor.verifyVC(vcId);
+      return verification;
+    } catch (error) {
+      console.error("Error verifying VC:", error);
+      throw error;
+    }
+  };
+
+  // Revoke a VC (only for issuers)
+  const revokeVC = async (vcId) => {
+    if (!identity) {
+      throw new Error("Must be authenticated to revoke VCs");
+    }
+
+    try {
+      const agent = new HttpAgent({
+        host: "http://127.0.0.1:4943",
+        identity: identity,
+      });
+
+      if (process.env.DFX_NETWORK !== "ic") {
+        await agent.fetchRootKey();
+      }
+
+      const actor = createActor(canisterId, { agent });
+
+      const success = await actor.revokeVC(vcId);
+
+      if (success) {
+        // Refresh the issued VCs list
+        await loadMyIssuedVCs();
+      }
+
+      return success;
+    } catch (error) {
+      console.error("Error revoking VC:", error);
+      throw error;
+    }
+  };
+
+  // Get a specific VC by ID
+  const getVC = async (vcId) => {
+    try {
+      const agent = new HttpAgent({
+        host: "http://127.0.0.1:4943",
+      });
+
+      if (process.env.DFX_NETWORK !== "ic") {
+        await agent.fetchRootKey();
+      }
+
+      const actor = createActor(canisterId, { agent });
+
+      const vcJson = await actor.getVC(vcId);
+      return vcJson ? JSON.parse(vcJson) : null;
+    } catch (error) {
+      console.error("Error getting VC:", error);
+      throw error;
+    }
+  };
+
+  // Load VCs when user logs in
+  useEffect(() => {
+    if (identity && did) {
+      loadMyIssuedVCs();
+      loadMyReceivedVCs();
+    }
+  }, [identity, did]);
+
   return (
     <InternetIdentityContext.Provider
       value={{
@@ -122,6 +315,16 @@ export const InternetIdentityProvider = ({ children }) => {
         login,
         logout,
         resolveDid,
+        // VC functions
+        myIssuedVCs,
+        myReceivedVCs,
+        isLoadingVCs,
+        issueVC,
+        loadMyIssuedVCs,
+        loadMyReceivedVCs,
+        verifyVC,
+        revokeVC,
+        getVC,
       }}
     >
       {/* <WagmiConfig config={wagmiConfig}> */}

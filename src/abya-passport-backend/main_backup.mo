@@ -10,7 +10,7 @@ import Array "mo:base/Array";
 import Debug "mo:base/Debug";
 import Nat8 "mo:base/Nat8";
 
-actor DIDRegistry {
+persistent actor class DIDRegistry() = this {
   
   // VC Type Definition
   type VC = {
@@ -33,7 +33,7 @@ actor DIDRegistry {
 
   // Storage for issued VCs
   private stable var vcEntries : [(Text, VC)] = [];
-  private var vcs = Map.HashMap<Text, VC>(0, Text.equal, Text.hash);
+  private var vcs : Map.HashMap<Text, VC> = Map.HashMap<Text, VC>(0, Text.equal, Text.hash);
 
   // Pre/post upgrade hooks
   system func preupgrade() {
@@ -47,9 +47,6 @@ actor DIDRegistry {
     };
     vcEntries := [];
   };
-
-  // ==================== DID FUNCTIONS ====================
-
   // Public function to get DID for the CALLER's principal
   public shared(msg) func getMyDid() : async Text {
     let did = "did:icp:" # Principal.toText(msg.caller);
@@ -58,16 +55,17 @@ actor DIDRegistry {
 
   // Optional: Get DID for any principal (authenticated)
   public shared(_msg) func getDidForPrincipal(principal : Principal) : async Text {
+    // Add admin/auth checks here if needed
     let did = "did:icp:" # Principal.toText(principal);
     return did;
   };
 
   // Returns a minimal W3C-compliant DID document
   public shared func resolveDid(did : Text) : async Text {
-    assert(isValidDid(did));
+    assert(isValidDid(did)); // Verify DID format
 
-    let principal = extractPrincipal(did);
-    let publicKey = await getPublicKey(principal);
+    let principal = extractPrincipal(did); // Extract from "did:icp:xyz"
+    let publicKey = await getPublicKey(principal); // Get user's public key
 
     let didDocument : Text = 
       "{" #
@@ -83,6 +81,24 @@ actor DIDRegistry {
       "}";
 
     didDocument
+  };
+
+  // Helper: Extract Principal from DID string
+  func extractPrincipal(did : Text) : Principal {
+    let parts = Text.split(did, #char ':');
+    let principalPart = Iter.toArray(parts)[2]; // "did:icp:PRINCIPAL"
+    Principal.fromText(principalPart)
+  };
+
+  // Helper: Validate DID format
+  func isValidDid(did : Text) : Bool {
+    Text.startsWith(did, #text "did:icp:")
+  };
+
+  // Mock: Replace with actual public key fetch (e.g., from Internet Identity)
+  func getPublicKey(_principal : Principal) : async Text {
+    // In production, fetch from Internet Identity or threshold ECDSA
+    "z6Mk...abc123" // Multibase-encoded Ed25519 key
   };
 
   // ==================== VC ISSUANCE FUNCTIONS ====================
@@ -110,7 +126,7 @@ actor DIDRegistry {
       credentialSubject = { id = recipientDid; claims };
       issuanceDate = now;
       expirationDate = expiration;
-      proof = null;
+      proof = null; // Added after signing
     };
 
     let signedVC = await signVC(vc);
@@ -178,6 +194,7 @@ actor DIDRegistry {
         let isExpired = switch (vc.expirationDate) {
           case null false;
           case (?expDate) {
+            // Parse expiration timestamp and compare with current time
             switch (textToInt(expDate)) {
               case null { 
                 errors := Array.append(errors, ["Invalid expiration date format"]); 
@@ -200,7 +217,7 @@ actor DIDRegistry {
           errors := Array.append(errors, ["Invalid recipient DID"]);
         };
 
-        // Check signature
+        // Check signature (mock implementation)
         let signatureValid = await verifySignature(vc);
         if (not signatureValid) {
           errors := Array.append(errors, ["Invalid signature"]);
@@ -228,7 +245,7 @@ actor DIDRegistry {
       case null false;
       case (?vc) {
         if (vc.issuer != callerDid) {
-          false
+          false // Only issuer can revoke
         } else {
           vcs.delete(vcId);
           true
@@ -239,29 +256,13 @@ actor DIDRegistry {
 
   // ==================== HELPER FUNCTIONS ====================
 
-  // Helper: Extract Principal from DID string
-  func extractPrincipal(did : Text) : Principal {
-    let parts = Text.split(did, #char ':');
-    let principalPart = Iter.toArray(parts)[2];
-    Principal.fromText(principalPart)
-  };
-
-  // Helper: Validate DID format
-  func isValidDid(did : Text) : Bool {
-    Text.startsWith(did, #text "did:icp:")
-  };
-
-  // Helper: Get public key (mock)
-  func getPublicKey(_principal : Principal) : async Text {
-    "z6Mk...abc123"
-  };
-
   // Helper: Parse text to integer
   func textToInt(text: Text) : ?Int {
     var result: Int = 0;
     var negative = false;
     let chars = Text.toIter(text);
     
+    // Check for negative sign
     switch (chars.next()) {
       case null return null;
       case (?'-') { negative := true };
@@ -273,6 +274,7 @@ actor DIDRegistry {
       };
     };
     
+    // Parse remaining digits
     for (c in chars) {
       switch (charToDigit(c)) {
         case null return null;
@@ -294,7 +296,7 @@ actor DIDRegistry {
     }
   };
 
-  // Helper: Sign VC
+  // Helper: Sign VC with canister's key (mock implementation)
   func signVC(vc: VC) : async VC {
     let signature = await generateSignature(vc);
     {
@@ -309,14 +311,15 @@ actor DIDRegistry {
     }
   };
 
-  // Helper: Generate signature
+  // Helper: Generate mock signature
   func generateSignature(vc: VC) : async Text {
+    // In production, use threshold ECDSA or Internet Identity
     let content = vc.id # vc.issuer # vc.credentialSubject.id # vc.issuanceDate;
     let truncated = truncateText(content, 16);
     "sig_" # truncated # "_mock"
   };
 
-  // Helper: Truncate text
+  // Helper: Truncate text to specified length
   func truncateText(text: Text, maxLength: Nat) : Text {
     let chars = Text.toIter(text);
     var result = "";
@@ -332,11 +335,12 @@ actor DIDRegistry {
     result
   };
 
-  // Helper: Verify signature
+  // Helper: Verify signature (mock implementation)
   func verifySignature(vc: VC) : async Bool {
     switch (vc.proof) {
       case null false;
       case (?proof) {
+        // In production, verify using public key from DID document
         let expectedSig = await generateSignature(vc);
         proof.signature == expectedSig
       };
@@ -358,7 +362,7 @@ actor DIDRegistry {
     uuid
   };
 
-  // Helper: Convert VC to JSON
+  // Helper: Convert VC to JSON string
   func vcToJson(vc: VC) : Text {
     let proofJson = switch (vc.proof) {
       case null "null";
