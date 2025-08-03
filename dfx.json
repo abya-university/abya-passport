@@ -23,6 +23,12 @@
       "packtool": ""
     }
   },
+  "networks": {
+    "local": {
+      "bind": "127.0.0.1:4943",
+      "type": "ephemeral"
+    }
+  },
   "output_env_file": ".env",
   "outputs": ["src/declarations"],
   "version": 1

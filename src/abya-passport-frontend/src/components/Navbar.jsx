@@ -9,7 +9,7 @@ function Navbar({ currentPage, setCurrentPage }) {
   const dropdownRef = useRef(null);
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
-  const { did, principal, isAuthenticating, login, logout } =
+  const { did, principal, isAuthenticating, login, loginAsDeveloper, logout } =
     useInternetIdentity();
 
   const canisterId = "uxrrr-q7777-77774-qaaaq-cai";
@@ -484,6 +484,39 @@ function Navbar({ currentPage, setCurrentPage }) {
                                 Internet Identity
                               </>
                             )}
+                          </button>
+                        </div>
+
+                        {/* Developer Login (for testing) */}
+                        <div className="p-3 rounded-xl bg-orange-50/50 border border-orange-200/50">
+                          <div className="flex items-center gap-2 mb-3">
+                            <svg
+                              width="16"
+                              height="16"
+                              viewBox="0 0 24 24"
+                              fill="currentColor"
+                              className="text-orange-600"
+                            >
+                              <path d="M13 3h8v18h-8v-2h6V5h-6V3zM3 12l4 4v-3h11v-2H7V8l-4 4z" />
+                            </svg>
+                            <span className="text-sm font-medium text-gray-700">
+                              Developer Mode
+                            </span>
+                          </div>
+                          <button
+                            onClick={loginAsDeveloper}
+                            disabled={isAuthenticating}
+                            className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:from-gray-400 disabled:to-gray-500 text-white px-4 py-3 rounded-xl font-semibold transition-all duration-200 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-[1.02] disabled:transform-none disabled:cursor-not-allowed"
+                          >
+                            <svg
+                              width="18"
+                              height="18"
+                              viewBox="0 0 24 24"
+                              fill="currentColor"
+                            >
+                              <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z" />
+                            </svg>
+                            Dev Login (Testing)
                           </button>
                         </div>
                       </>

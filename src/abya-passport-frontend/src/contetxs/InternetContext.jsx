@@ -31,24 +31,87 @@ export const InternetIdentityProvider = ({ children }) => {
 
   const canisterId = "uxrrr-q7777-77774-qaaaq-cai";
 
+  // Development mode bypass (for testing without Internet Identity)
+  const loginAsDeveloper = async () => {
+    setIsAuthenticating(true);
+
+    try {
+      // Import the Ed25519KeyIdentity for creating a test identity
+      const { Ed25519KeyIdentity } = await import("@dfinity/identity");
+
+      // Create a deterministic test identity for development
+      const seed = new Uint8Array(32);
+      // Fill with a deterministic pattern for consistent testing
+      for (let i = 0; i < 32; i++) {
+        seed[i] = i;
+      }
+
+      // Create the test identity
+      const testIdentity = Ed25519KeyIdentity.fromSecretKey(seed);
+      const testPrincipal = testIdentity.getPrincipal().toString();
+
+      console.log("Created test identity with principal:", testPrincipal);
+
+      setIdentity(testIdentity);
+      setPrincipal(testPrincipal);
+
+      // Generate DID for development
+      const did = "did:icp:" + testPrincipal;
+      setDid(did);
+
+      setIsAuthenticating(false);
+      console.log("Logged in as developer with DID:", did);
+    } catch (error) {
+      console.error("Error creating developer identity:", error);
+      setIsAuthenticating(false);
+    }
+  };
+
   const login = async () => {
     setIsAuthenticating(true);
 
-    // Use local Internet Identity for development
-    const identityProvider =
-      process.env.DFX_NETWORK === "ic"
-        ? "https://identity.ic0.app"
-        : `http://127.0.0.1:4943/?canisterId=rdmx6-jaaaa-aaaaa-aaadq-cai`;
+    try {
+      // For development, we'll use a simpler approach
+      // First try local Internet Identity, fallback to mainnet if local fails
+      const localIdentityProvider = `http://127.0.0.1:4943/?canisterId=rdmx6-jaaaa-aaaaa-aaadq-cai`;
+      const mainnetIdentityProvider = "https://identity.ic0.app";
 
-    authClient.login({
-      identityProvider: identityProvider,
-      maxTimeToLive: BigInt(7 * 24 * 60 * 60 * 1000 * 1000 * 1000), // 7 days
-      onSuccess: () => handleLoginSuccess(authClient),
-      onError: (err) => {
-        console.error("II Login failed:", err);
-        setIsAuthenticating(false);
-      },
-    });
+      // Try local first, fallback to mainnet
+      const identityProvider =
+        process.env.DFX_NETWORK === "ic"
+          ? mainnetIdentityProvider
+          : localIdentityProvider;
+
+      console.log("Using identity provider:", identityProvider);
+
+      authClient.login({
+        identityProvider: identityProvider,
+        maxTimeToLive: BigInt(7 * 24 * 60 * 60 * 1000 * 1000 * 1000), // 7 days
+        onSuccess: () => handleLoginSuccess(authClient),
+        onError: (err) => {
+          console.error("II Login failed:", err);
+          console.log("Trying fallback authentication...");
+
+          // Fallback: try mainnet Internet Identity for development
+          if (identityProvider !== mainnetIdentityProvider) {
+            authClient.login({
+              identityProvider: mainnetIdentityProvider,
+              maxTimeToLive: BigInt(7 * 24 * 60 * 60 * 1000 * 1000 * 1000),
+              onSuccess: () => handleLoginSuccess(authClient),
+              onError: (fallbackErr) => {
+                console.error("Fallback login also failed:", fallbackErr);
+                setIsAuthenticating(false);
+              },
+            });
+          } else {
+            setIsAuthenticating(false);
+          }
+        },
+      });
+    } catch (error) {
+      console.error("Login error:", error);
+      setIsAuthenticating(false);
+    }
   };
   const handleLoginSuccess = async (client) => {
     const identity = client.getIdentity();
@@ -131,7 +194,7 @@ export const InternetIdentityProvider = ({ children }) => {
     }
 
     try {
-      // Use local development setup
+      // Create authenticated agent with the current identity
       const agent = new HttpAgent({
         host: "http://127.0.0.1:4943",
         identity: identity,
@@ -172,6 +235,7 @@ export const InternetIdentityProvider = ({ children }) => {
 
     setIsLoadingVCs(true);
     try {
+      // Create authenticated agent with the current identity
       const agent = new HttpAgent({
         host: "http://127.0.0.1:4943",
         identity: identity,
@@ -249,6 +313,7 @@ export const InternetIdentityProvider = ({ children }) => {
     }
 
     try {
+      // Create authenticated agent with the current identity
       const agent = new HttpAgent({
         host: "http://127.0.0.1:4943",
         identity: identity,
@@ -313,6 +378,7 @@ export const InternetIdentityProvider = ({ children }) => {
         isAuthenticating,
         isResolvingDid,
         login,
+        loginAsDeveloper, // Add developer login option
         logout,
         resolveDid,
         // VC functions
