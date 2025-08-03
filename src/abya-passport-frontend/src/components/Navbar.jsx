@@ -9,7 +9,7 @@ function Navbar({ currentPage, setCurrentPage }) {
   const dropdownRef = useRef(null);
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
-  const { did, principal, isAuthenticating, login, loginAsDeveloper, logout } =
+  const { did, principal, isAuthenticating, login, developerLogin, logout } =
     useInternetIdentity();
 
   const canisterId = "uxrrr-q7777-77774-qaaaq-cai";
@@ -504,7 +504,7 @@ function Navbar({ currentPage, setCurrentPage }) {
                             </span>
                           </div>
                           <button
-                            onClick={loginAsDeveloper}
+                            onClick={developerLogin}
                             disabled={isAuthenticating}
                             className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:from-gray-400 disabled:to-gray-500 text-white px-4 py-3 rounded-xl font-semibold transition-all duration-200 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-[1.02] disabled:transform-none disabled:cursor-not-allowed"
                           >
