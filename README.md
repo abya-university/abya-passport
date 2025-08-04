@@ -95,6 +95,7 @@ Before deploying ABYA Passport, ensure you have the following tools installed:
 3. **Deploy Internet Identity (for authentication)**
 
    ```bash
+   dfx deps pull
    dfx deps deploy internet_identity
    dfx generate internet_identity
    ```

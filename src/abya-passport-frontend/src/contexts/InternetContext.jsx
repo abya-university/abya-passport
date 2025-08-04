@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import { AuthClient } from "@dfinity/auth-client";
 import { HttpAgent } from "@dfinity/agent";
+import { Ed25519KeyIdentity } from "@dfinity/identity";
 import { createActor } from "../../../declarations/abya-passport-backend";
 
 const InternetIdentityContext = createContext();
@@ -9,6 +10,8 @@ export const InternetIdentityProvider = ({ children }) => {
   const [authClient, setAuthClient] = useState(null);
   const [identity, setIdentity] = useState(null);
   const [principal, setPrincipal] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loginMethod, setLoginMethod] = useState(null);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [did, setDid] = useState(null);
   const [didDocument, setDidDocument] = useState(null);
@@ -31,29 +34,64 @@ export const InternetIdentityProvider = ({ children }) => {
 
   const canisterId = "uxrrr-q7777-77774-qaaaq-cai";
 
+  // Developer login with debugging
+  const developerLogin = async () => {
+    try {
+      console.log("🔧 Starting developer login...");
+
+      const devIdentity = Ed25519KeyIdentity.generate();
+      const principal = devIdentity.getPrincipal();
+
+      console.log("🔧 Developer identity created:", {
+        principal: principal.toString(),
+        identityType: devIdentity.constructor.name,
+      });
+
+      setIdentity(devIdentity);
+      setPrincipal(principal.toString());
+      setIsAuthenticated(true);
+      setLoginMethod("developer");
+
+      // Generate DID for developer identity
+      const did = "did:icp:" + principal.toString();
+      setDid(did);
+      console.log("🔧 Generated DID:", did);
+
+      console.log("✅ Developer login successful");
+    } catch (error) {
+      console.error("❌ Developer login failed:", error);
+    }
+  };
+
   const login = async () => {
     setIsAuthenticating(true);
 
-    // Use local Internet Identity for development
-    const identityProvider =
-      process.env.DFX_NETWORK === "ic"
-        ? "https://identity.ic0.app"
-        : `http://127.0.0.1:4943/?canisterId=rdmx6-jaaaa-aaaaa-aaadq-cai`;
+    try {
+      // Always use mainnet Internet Identity for better compatibility
+      const identityProvider = "https://identity.ic0.app";
 
-    authClient.login({
-      identityProvider: identityProvider,
-      maxTimeToLive: BigInt(7 * 24 * 60 * 60 * 1000 * 1000 * 1000), // 7 days
-      onSuccess: () => handleLoginSuccess(authClient),
-      onError: (err) => {
-        console.error("II Login failed:", err);
-        setIsAuthenticating(false);
-      },
-    });
+      console.log("Using identity provider:", identityProvider);
+
+      authClient.login({
+        identityProvider: identityProvider,
+        maxTimeToLive: BigInt(7 * 24 * 60 * 60 * 1000 * 1000 * 1000), // 7 days
+        onSuccess: () => handleLoginSuccess(authClient),
+        onError: (err) => {
+          console.error("II Login failed:", err);
+          setIsAuthenticating(false);
+        },
+      });
+    } catch (error) {
+      console.error("Login error:", error);
+      setIsAuthenticating(false);
+    }
   };
   const handleLoginSuccess = async (client) => {
     const identity = client.getIdentity();
     setIdentity(identity);
     setPrincipal(identity.getPrincipal().toString());
+    setIsAuthenticated(true);
+    setLoginMethod("internet-identity");
 
     // Generate DID after login - use simple DID generation instead of calling backend
     try {
@@ -71,9 +109,13 @@ export const InternetIdentityProvider = ({ children }) => {
   };
 
   const logout = async () => {
-    await authClient?.logout();
+    if (authClient && loginMethod === "internet-identity") {
+      await authClient.logout();
+    }
     setIdentity(null);
     setPrincipal(null);
+    setIsAuthenticated(false);
+    setLoginMethod(null);
     setDid(null);
     setDidDocument(null);
     setMyIssuedVCs([]);
@@ -131,24 +173,35 @@ export const InternetIdentityProvider = ({ children }) => {
     }
 
     try {
-      // Use local development setup
+      console.log(
+        "Issuing VC with identity:",
+        identity.getPrincipal().toString()
+      );
+
+      // Create authenticated agent with proper configuration
       const agent = new HttpAgent({
         host: "http://127.0.0.1:4943",
         identity: identity,
       });
 
-      // Fetch root key for local development
-      if (process.env.DFX_NETWORK !== "ic") {
-        await agent.fetchRootKey();
-      }
+      // Always fetch root key for local development
+      await agent.fetchRootKey();
 
       const actor = createActor(canisterId, { agent });
 
       // Convert claims object to array of tuples
       const claimsArray = Object.entries(claims);
+      console.log("Claims array:", claimsArray);
 
       // Convert expiresInHours to optional bigint
       const expirationOption = expiresInHours ? [BigInt(expiresInHours)] : [];
+      console.log("Expiration option:", expirationOption);
+
+      console.log("Calling issueVC with:", {
+        recipientDid,
+        claimsArray,
+        expirationOption,
+      });
 
       const vcJson = await actor.issueVC(
         recipientDid,
@@ -156,12 +209,16 @@ export const InternetIdentityProvider = ({ children }) => {
         expirationOption
       );
 
+      console.log("VC issued successfully:", vcJson);
+
       // Refresh the issued VCs list
       await loadMyIssuedVCs();
 
       return JSON.parse(vcJson);
     } catch (error) {
       console.error("Error issuing VC:", error);
+      console.error("Error details:", error.message);
+      console.error("Error stack:", error.stack);
       throw error;
     }
   };
@@ -172,14 +229,14 @@ export const InternetIdentityProvider = ({ children }) => {
 
     setIsLoadingVCs(true);
     try {
+      // Create authenticated agent with the current identity
       const agent = new HttpAgent({
         host: "http://127.0.0.1:4943",
         identity: identity,
       });
 
-      if (process.env.DFX_NETWORK !== "ic") {
-        await agent.fetchRootKey();
-      }
+      // Always fetch root key for local development
+      await agent.fetchRootKey();
 
       const actor = createActor(canisterId, { agent });
 
@@ -204,9 +261,8 @@ export const InternetIdentityProvider = ({ children }) => {
         host: "http://127.0.0.1:4943",
       });
 
-      if (process.env.DFX_NETWORK !== "ic") {
-        await agent.fetchRootKey();
-      }
+      // Always fetch root key for local development
+      await agent.fetchRootKey();
 
       const actor = createActor(canisterId, { agent });
 
@@ -228,9 +284,8 @@ export const InternetIdentityProvider = ({ children }) => {
         host: "http://127.0.0.1:4943",
       });
 
-      if (process.env.DFX_NETWORK !== "ic") {
-        await agent.fetchRootKey();
-      }
+      // Always fetch root key for local development
+      await agent.fetchRootKey();
 
       const actor = createActor(canisterId, { agent });
 
@@ -249,14 +304,14 @@ export const InternetIdentityProvider = ({ children }) => {
     }
 
     try {
+      // Create authenticated agent with the current identity
       const agent = new HttpAgent({
         host: "http://127.0.0.1:4943",
         identity: identity,
       });
 
-      if (process.env.DFX_NETWORK !== "ic") {
-        await agent.fetchRootKey();
-      }
+      // Always fetch root key for local development
+      await agent.fetchRootKey();
 
       const actor = createActor(canisterId, { agent });
 
@@ -281,9 +336,8 @@ export const InternetIdentityProvider = ({ children }) => {
         host: "http://127.0.0.1:4943",
       });
 
-      if (process.env.DFX_NETWORK !== "ic") {
-        await agent.fetchRootKey();
-      }
+      // Always fetch root key for local development
+      await agent.fetchRootKey();
 
       const actor = createActor(canisterId, { agent });
 
@@ -310,9 +364,12 @@ export const InternetIdentityProvider = ({ children }) => {
         principal,
         did,
         didDocument,
+        isAuthenticated,
+        loginMethod,
         isAuthenticating,
         isResolvingDid,
         login,
+        developerLogin,
         logout,
         resolveDid,
         // VC functions

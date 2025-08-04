@@ -1,58 +1,118 @@
+// src/abya-passport-frontend/src/components/Navbar.jsx
+
 import React, { useState, useEffect, useRef } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useAccount, useDisconnect } from "wagmi";
-import { useInternetIdentity } from "../contetxs/InternetContext";
+import { useInternetIdentity } from "../contexts/InternetContext";
+
+const API_URL = process.env.REACT_APP_VERAMO_API_URL || "http://localhost:3000";
 
 function Navbar({ currentPage, setCurrentPage }) {
   const [showConnectOptions, setShowConnectOptions] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [walletDid, setWalletDid] = useState(null);
+  const [didLoading, setDidLoading] = useState(false);
   const dropdownRef = useRef(null);
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
-  const { did, principal, isAuthenticating, login, logout } =
+  const { did, principal, isAuthenticating, login, developerLogin, logout } =
     useInternetIdentity();
-
+  
   const canisterId = "uxrrr-q7777-77774-qaaaq-cai";
 
   console.log("DID2:", did);
   console.log("Principal:", principal);
   console.log("Canister ID:", canisterId);
 
-  // Function to shorten wallet address or principal
-  const shortenAddress = (address) => {
-    if (!address) return "";
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
-  };
+  // Shorteners
+  const shortenAddress = (addr) => (addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : "");
+  const shorten = (str) =>
+    str
+      ? str.length > 10
+        ? `${str.slice(0, 16)}…${str.slice(-6)}`
+        : str
+      : "";
 
-  // Check if any authentication method is active
-  const isAnyConnected = isConnected || !!principal;
-
-  // Handle scroll effect for navbar background
+  // Fetch or create DID for connected wallet
   useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20);
-    };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+    if (!isConnected || !address || walletDid) {
+      if (!isConnected || !address) {
+        setWalletDid(null);
+        setDidLoading(false);
+      }
+      return;
+    }
 
-  // Handle click outside to close dropdown
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setShowConnectOptions(false);
+    const alias = `issuer-wallet-${address}`;
+
+    const fetchOrCreateDid = async () => {
+      setDidLoading(true);
+      try {
+        // Try list first
+        const listRes = await fetch(`${API_URL}/did/list`);
+        const { success, identifiers } = await listRes.json();
+        if (success && Array.isArray(identifiers)) {
+          const existing = identifiers.find((i) =>
+            i.did.toLowerCase().endsWith(address.toLowerCase())
+          );
+          if (existing) {
+            setWalletDid(existing.did);
+            return;
+          }
+        }
+
+        // Attempt create with alias
+        const createRes = await fetch(`${API_URL}/did/create`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ provider: "did:ethr", walletAddress: address, alias }),
+        });
+        const createJson = await createRes.json();
+
+        if (createJson.success && createJson.identifier?.did) {
+          setWalletDid(createJson.identifier.did);
+        } else if (
+          !createJson.success &&
+          createJson.error?.includes("already exists")
+        ) {
+          // Alias exists: fetch list again to get DID
+          const retryList = await fetch(`${API_URL}/did/list`);
+          const { identifiers: retryIds } = await retryList.json();
+          const found = retryIds.find((i) => i.alias === alias);
+          if (found) setWalletDid(found.did);
+        } else {
+          console.error("Unexpected DID create response:", createJson);
+        }
+      } catch (err) {
+        console.error("Error fetching/creating DID:", err);
+      } finally {
+        setDidLoading(false);
       }
     };
 
-    if (showConnectOptions) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
+    fetchOrCreateDid();
+  }, [isConnected, address, walletDid]);
 
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
+  // Scroll effect
+  useEffect(() => {
+    const onScroll = () => setIsScrolled(window.scrollY > 20);
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Click outside dropdown
+  useEffect(() => {
+    const handler = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setShowConnectOptions(false);
+      }
     };
+    if (showConnectOptions) document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, [showConnectOptions]);
 
+  const isAnyConnected = isConnected || !!principal;
+  
   const handleInternetIdentityLogin = async () => {
     try {
       await login();
@@ -216,7 +276,10 @@ function Navbar({ currentPage, setCurrentPage }) {
                           </span>
                         </div>
                         <div className="text-sm text-gray-600 font-mono bg-gray-100 p-2 rounded-lg break-all">
-                          {address}
+                          {shorten(address)}
+                        </div>
+                        <div className="text-sm text-gray-600 font-mono bg-gray-100 p-2 rounded-lg break-all">
+                          {shorten(walletDid)}
                         </div>
                         <button
                           onClick={() => disconnect()}
@@ -484,6 +547,39 @@ function Navbar({ currentPage, setCurrentPage }) {
                                 Internet Identity
                               </>
                             )}
+                          </button>
+                        </div>
+
+                        {/* Developer Login (for testing) */}
+                        <div className="p-3 rounded-xl bg-orange-50/50 border border-orange-200/50">
+                          <div className="flex items-center gap-2 mb-3">
+                            <svg
+                              width="16"
+                              height="16"
+                              viewBox="0 0 24 24"
+                              fill="currentColor"
+                              className="text-orange-600"
+                            >
+                              <path d="M13 3h8v18h-8v-2h6V5h-6V3zM3 12l4 4v-3h11v-2H7V8l-4 4z" />
+                            </svg>
+                            <span className="text-sm font-medium text-gray-700">
+                              Developer Mode
+                            </span>
+                          </div>
+                          <button
+                            onClick={developerLogin}
+                            disabled={isAuthenticating}
+                            className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:from-gray-400 disabled:to-gray-500 text-white px-4 py-3 rounded-xl font-semibold transition-all duration-200 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-[1.02] disabled:transform-none disabled:cursor-not-allowed"
+                          >
+                            <svg
+                              width="18"
+                              height="18"
+                              viewBox="0 0 24 24"
+                              fill="currentColor"
+                            >
+                              <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z" />
+                            </svg>
+                            Dev Login (Testing)
                           </button>
                         </div>
                       </>
