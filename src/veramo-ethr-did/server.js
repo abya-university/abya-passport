@@ -1,3 +1,5 @@
+// src/veramo-ethr-did/server.js
+
 import express from "express";
 import cors from "cors";
 import { createAgent } from "@veramo/core";
