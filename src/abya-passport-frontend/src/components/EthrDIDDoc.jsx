@@ -1,6 +1,7 @@
 // src/abya-passport-frontend/src/components/EthrDIDDoc.jsx
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useEthr } from "../contexts/EthrContext";
 
 const API_URL = process.env.REACT_APP_VERAMO_API_URL || 'http://localhost:3000';
 
@@ -12,23 +13,37 @@ const API_URL = process.env.REACT_APP_VERAMO_API_URL || 'http://localhost:3000';
  * <EthrDIDDoc />
  */
 export default function EthrDIDDoc() {
-  const [didInput, setDidInput] = useState('');
-  const [didDoc, setDidDoc] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [didInput, setDidInput]     = useState('');
+  const [didDoc, setDidDoc]         = useState(null);
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState(null);
+
+  // pull in everything from context
+  const ethrContext = useEthr();
+  const { walletAddress, walletDid, didLoading } = ethrContext;
+
+  // Optional: when ethrDid arrives, auto-fill the input
+  useEffect(() => {
+    if (walletDid) {
+      setDidInput(walletDid);
+    }
+  }, [walletDid]);
 
   const handleResolve = async () => {
     if (!didInput) return;
     setLoading(true);
     setError(null);
     setDidDoc(null);
+
     try {
-      const response = await fetch(`${API_URL}/did/${encodeURIComponent(didInput)}/resolve`);
-      if (!response.ok) {
-        const err = await response.json();
+      const res = await fetch(
+        `${API_URL}/did/${encodeURIComponent(didInput)}/resolve`
+      );
+      if (!res.ok) {
+        const err = await res.json();
         throw new Error(err.error || 'Failed to resolve DID');
       }
-      const json = await response.json();
+      const json = await res.json();
       setDidDoc(json.resolution || json);
     } catch (err) {
       setError(err.message);
@@ -37,10 +52,30 @@ export default function EthrDIDDoc() {
     }
   };
 
+  if (didLoading) return <p>Loading your DID…</p>;
+  if (!walletAddress) return <p>Please connect your wallet.</p>;
+
   return (
     <div className="max-w-xl mx-auto p-4 bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg">
       <h2 className="text-xl font-semibold mb-4">Resolve Ethereum DID</h2>
 
+      {/* 1. Display basic pieces */}
+      <div className="mb-4">
+        <p><strong>Wallet Address:</strong> {walletAddress || '–'}</p>
+        {/* <p><strong>Ethereum DID:</strong> {walletDid || '–'}</p> */}
+      </div>
+
+      {/* 2. (Optional) Show entire context as JSON */}
+      <details className="mb-4 bg-gray-50 p-3 rounded-lg">
+        <summary className="cursor-pointer text-sm font-medium">
+          Show full EthrContext
+        </summary>
+        <pre className="text-xs font-mono mt-2 overflow-auto">
+          {JSON.stringify(ethrContext, null, 2)}
+        </pre>
+      </details>
+
+      {/* 3. Resolve form */}
       <div className="flex gap-2 mb-4">
         <input
           type="text"
@@ -54,12 +89,14 @@ export default function EthrDIDDoc() {
           disabled={loading}
           className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg font-medium disabled:opacity-50"
         >
-          {loading ? 'Resolving...' : 'Resolve'}
+          {loading ? 'Resolving…' : 'Resolve'}
         </button>
       </div>
 
       {error && (
-        <div className="mb-4 text-red-600 font-medium">Error: {error}</div>
+        <div className="mb-4 text-red-600 font-medium">
+          Error: {error}
+        </div>
       )}
 
       {didDoc && (

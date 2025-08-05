@@ -1,3 +1,5 @@
+// src/abya-passport-frontend/src/components/VCManager.jsx
+
 import React, { useState, useEffect } from "react";
 import { useInternetIdentity } from "../contexts/InternetContext";
 
