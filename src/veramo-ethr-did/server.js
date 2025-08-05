@@ -1,11 +1,13 @@
 // src/veramo-ethr-did/server.js
 
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from "express";
 import cors from "cors";
 import { createAgent } from "@veramo/core";
 import { CredentialPlugin } from "@veramo/credential-w3c";
 import {
-  DataStore,
   DataStoreORM,
   KeyStore,
   DIDStore,
@@ -24,6 +26,14 @@ import { Resolver } from "did-resolver";
 import { getResolver as ethrDidResolver } from "ethr-did-resolver";
 import { getResolver as keyDidResolver } from "key-did-resolver";
 
+console.log("ENV:", {
+  ETH_NETWORK: process.env.ETH_NETWORK,
+  ETH_PROVIDER_URL: process.env.ETH_PROVIDER_URL,
+  ETH_REGISTRY_ADDRESS: process.env.ETH_REGISTRY_ADDRESS,
+  INFURA_PROJECT_ID: process.env.INFURA_PROJECT_ID,
+});
+
+
 
 // Initialize Express app
 const app = express();
@@ -38,14 +48,12 @@ let dbConnection;
 let agent;
 
 // Secret key for encryption - In production, use environment variables
-const SECRET_KEY =
-  process.env.SECRET_KEY ||
+const SECRET_KEY = process.env.SECRET_KEY ||
   "29739248cad1bd1a0fc4d9b75cd4d2990de535baf5caadfdf8d8f86664aa830c";
 
-// Initialize Veramo agent
+// Initialize Veramo agent with Sepolia configuration
 async function initializeAgent() {
   try {
-    // Create database connection
     dbConnection = await createConnection({
       type: "sqlite",
       database: "./database.sqlite",
@@ -53,10 +61,8 @@ async function initializeAgent() {
       logging: false,
       entities: Entities,
     });
-
     console.log("Database connected successfully");
 
-    // Create Veramo agent
     agent = createAgent({
       plugins: [
         new KeyManager({
@@ -73,15 +79,13 @@ async function initializeAgent() {
           providers: {
             "did:ethr": new EthrDIDProvider({
               defaultKms: "local",
-              network: process.env.ETH_NETWORK || "skale",
+              network: process.env.ETH_NETWORK || "sepolia",
               rpcUrl:
                 process.env.ETH_PROVIDER_URL ||
-                "https://testnet.skalenodes.com/v1/aware-fake-trim-testnet",
-              registry: process.env.ETH_REGISTRY_ADDRESS, // Optional: custom registry address
+                `https://sepolia.infura.io/v3/${process.env.INFURA_PROJECT_ID}`,
+              registry: process.env.ETH_REGISTRY_ADDRESS,
             }),
-            "did:key": new KeyDIDProvider({
-              defaultKms: "local",
-            }),
+            "did:key": new KeyDIDProvider({ defaultKms: "local" }),
           },
         }),
         new DIDResolverPlugin({
@@ -89,23 +93,15 @@ async function initializeAgent() {
             ...ethrDidResolver({
               networks: [
                 {
-                  name: process.env.ETH_NETWORK || "skale",
+                  name: process.env.ETH_NETWORK || "sepolia",
                   rpcUrl:
                     process.env.ETH_PROVIDER_URL ||
-                    "https://testnet.skalenodes.com/v1/aware-fake-trim-testnet",
+                    `https://sepolia.infura.io/v3/${process.env.INFURA_PROJECT_ID}`,
                   registry: process.env.ETH_REGISTRY_ADDRESS,
                 },
                 {
-                  name: "goerli",
-                  rpcUrl:
-                    "https://goerli.infura.io/v3/" +
-                    (process.env.INFURA_PROJECT_ID || "demo"),
-                },
-                {
                   name: "mainnet",
-                  rpcUrl:
-                    "https://mainnet.infura.io/v3/" +
-                    (process.env.INFURA_PROJECT_ID || "demo"),
+                  rpcUrl: `https://mainnet.infura.io/v3/${process.env.INFURA_PROJECT_ID}`,
                 },
               ],
             }),
@@ -114,14 +110,9 @@ async function initializeAgent() {
         }),
         new CredentialPlugin(),
         new DataStoreORM(dbConnection),
-        new MessageHandler({
-          messageHandlers: [
-            // Add message handlers here if needed
-          ],
-        }),
+        new MessageHandler({ messageHandlers: [] }),
       ],
     });
-
     console.log("Veramo agent initialized successfully");
   } catch (error) {
     console.error("Error initializing agent:", error);
