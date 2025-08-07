@@ -18,6 +18,7 @@ import {
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 import { IPFSProvider } from "../contetxs/IPFSContext";
 import { InternetIdentityProvider } from "../contetxs/InternetContext";
+import { ToastProvider } from "../components/Toast";
 
 export default function Providers({ children }) {
   const config = getDefaultConfig({
@@ -42,21 +43,23 @@ export default function Providers({ children }) {
   };
 
   return (
-    <IPFSProvider>
-      <InternetIdentityProvider>
-        <WagmiProvider config={config}>
-          <QueryClientProvider client={queryClient}>
-            <RainbowKitProvider
-              theme={lightTheme({
-                accentColor: "#780fa3",
-                accentColorForeground: "white",
-              })}
-            >
-              {children}
-            </RainbowKitProvider>
-          </QueryClientProvider>
-        </WagmiProvider>
-      </InternetIdentityProvider>
-    </IPFSProvider>
+    <ToastProvider>
+      <IPFSProvider>
+        <InternetIdentityProvider>
+          <WagmiProvider config={config}>
+            <QueryClientProvider client={queryClient}>
+              <RainbowKitProvider
+                theme={lightTheme({
+                  accentColor: "#780fa3",
+                  accentColorForeground: "white",
+                })}
+              >
+                {children}
+              </RainbowKitProvider>
+            </QueryClientProvider>
+          </WagmiProvider>
+        </InternetIdentityProvider>
+      </IPFSProvider>
+    </ToastProvider>
   );
 }

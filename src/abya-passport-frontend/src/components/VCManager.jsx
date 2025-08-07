@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useInternetIdentity } from "../contetxs/InternetContext";
+import { useToast } from "./Toast";
 
 const VCManager = () => {
   const {
@@ -15,10 +16,15 @@ const VCManager = () => {
     loadMyReceivedVCs,
   } = useInternetIdentity();
 
+  const { showSuccess, showError, showInfo, showWarning } = useToast();
+
   const [activeTab, setActiveTab] = useState("received");
   const [showIssueForm, setShowIssueForm] = useState(false);
   const [verificationResults, setVerificationResults] = useState({});
   const [isVerifying, setIsVerifying] = useState({});
+  const [showRevokeConfirm, setShowRevokeConfirm] = useState(null);
+
+  console.log("Issued VC: ", myIssuedVCs);
 
   // Issue VC form state
   const [issueForm, setIssueForm] = useState({
@@ -102,10 +108,10 @@ const VCManager = () => {
         customType: "",
       });
       setShowIssueForm(false);
-      alert("VC issued successfully!");
+      showSuccess("VC issued successfully!");
     } catch (error) {
       console.error("Error issuing VC:", error);
-      alert("Error issuing VC: " + error.message);
+      showError("Error issuing VC: " + error.message);
     } finally {
       setIsIssuing(false);
     }
@@ -116,10 +122,11 @@ const VCManager = () => {
     navigator.clipboard
       .writeText(text)
       .then(() => {
-        alert(`${label} copied to clipboard!`);
+        showSuccess(`${label} copied to clipboard!`);
       })
       .catch((err) => {
         console.error("Failed to copy: ", err);
+        showError("Failed to copy to clipboard");
       });
   };
 
@@ -130,9 +137,14 @@ const VCManager = () => {
     try {
       const result = await verifyVC(vcId);
       setVerificationResults((prev) => ({ ...prev, [vcId]: result }));
+      if (result.isValid) {
+        showSuccess("VC verification successful!");
+      } else {
+        showWarning(`VC verification failed: ${result.status}`);
+      }
     } catch (error) {
       console.error("Error verifying VC:", error);
-      alert("Error verifying VC: " + error.message);
+      showError("Error verifying VC: " + error.message);
     } finally {
       setIsVerifying((prev) => ({ ...prev, [vcId]: false }));
     }
@@ -140,24 +152,22 @@ const VCManager = () => {
 
   // Handle VC revocation
   const handleRevokeVC = async (vcId) => {
-    if (
-      !confirm(
-        "Are you sure you want to revoke this VC? This action cannot be undone."
-      )
-    ) {
-      return;
-    }
+    setShowRevokeConfirm(vcId);
+  };
 
+  const confirmRevokeVC = async (vcId) => {
     try {
       const success = await revokeVC(vcId);
       if (success) {
-        alert("VC revoked successfully!");
+        showSuccess("VC revoked successfully!");
       } else {
-        alert("Failed to revoke VC. You may not be the issuer.");
+        showError("Failed to revoke VC. You may not be the issuer.");
       }
     } catch (error) {
       console.error("Error revoking VC:", error);
-      alert("Error revoking VC: " + error.message);
+      showError("Error revoking VC: " + error.message);
+    } finally {
+      setShowRevokeConfirm(null);
     }
   };
 
@@ -173,6 +183,20 @@ const VCManager = () => {
     return text.substring(0, maxLength) + "...";
   };
 
+  // JSON stringify with BigInt support
+  const stringifyWithBigInt = (obj, space = 2) => {
+    return JSON.stringify(
+      obj,
+      (key, value) => {
+        if (typeof value === "bigint") {
+          return value.toString() + "n";
+        }
+        return value;
+      },
+      space
+    );
+  };
+
   // VC Card Component with improved UI
   const VCCard = ({ vc, isIssued = false }) => {
     const [isExpanded, setIsExpanded] = useState(false);
@@ -180,6 +204,7 @@ const VCManager = () => {
       claims: false,
       verification: false,
       details: false,
+      rawJson: false,
     });
 
     const isVerified = verificationResults[vc.id];
@@ -354,50 +379,58 @@ const VCManager = () => {
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div
                         className={`flex items-center space-x-2 ${
-                          isVerified.isExpired
+                          isVerified?.isExpired !== false
                             ? "text-red-600"
                             : "text-green-600"
                         }`}
                       >
-                        <span>{isVerified.isExpired ? "⚠️" : "✅"}</span>
                         <span>
-                          {isVerified.isExpired ? "Expired" : "Valid Period"}
+                          {isVerified?.isExpired !== false ? "⚠️" : "✅"}
+                        </span>
+                        <span>
+                          {isVerified?.isExpired !== false
+                            ? "Check Expiry"
+                            : "Valid Period"}
                         </span>
                       </div>
                       <div
                         className={`flex items-center space-x-2 ${
-                          isVerified.signatureValid
-                            ? "text-green-600"
-                            : "text-red-600"
+                          isVerified?.signatureValid === false
+                            ? "text-red-600"
+                            : "text-green-600"
                         }`}
                       >
-                        <span>{isVerified.signatureValid ? "🔐" : "❌"}</span>
                         <span>
-                          {isVerified.signatureValid
-                            ? "Signature Valid"
-                            : "Invalid Signature"}
+                          {isVerified?.signatureValid === false ? "❌" : "🔐"}
+                        </span>
+                        <span>
+                          {isVerified?.signatureValid === false
+                            ? "Invalid Signature"
+                            : "Signature Valid"}
                         </span>
                       </div>
                     </div>
 
-                    {isVerified.errors.length > 0 && (
-                      <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                        <div className="text-sm font-medium text-red-800 mb-1">
-                          Issues Found:
+                    {isVerified &&
+                      isVerified.errors &&
+                      isVerified.errors.length > 0 && (
+                        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                          <div className="text-sm font-medium text-red-800 mb-1">
+                            Issues Found:
+                          </div>
+                          <ul className="text-sm text-red-700 space-y-1">
+                            {isVerified.errors.map((error, index) => (
+                              <li
+                                key={index}
+                                className="flex items-start space-x-1"
+                              >
+                                <span>•</span>
+                                <span>{error}</span>
+                              </li>
+                            ))}
+                          </ul>
                         </div>
-                        <ul className="text-sm text-red-700 space-y-1">
-                          {isVerified.errors.map((error, index) => (
-                            <li
-                              key={index}
-                              className="flex items-start space-x-1"
-                            >
-                              <span>•</span>
-                              <span>{error}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
+                      )}
                   </div>
                 )}
               </div>
@@ -537,6 +570,8 @@ const VCManager = () => {
                     </div>
                   </div>
 
+                  {/* <p>{vc}</p> */}
+
                   {/* Issuer DID */}
                   <div className="bg-gray-50 rounded-lg p-3">
                     <div className="text-sm font-medium text-gray-700 mb-1">
@@ -545,14 +580,14 @@ const VCManager = () => {
                     <div className="flex items-center space-x-2">
                       <code className="text-xs text-gray-600 bg-white px-2 py-1 rounded border flex-1 break-all">
                         {truncateText(
-                          vc.issuerDid || vc.issuer || "Unknown",
+                          vc.issueDid || vc.document?.issuer.id || "Unknown",
                           40
                         )}
                       </code>
                       <button
                         onClick={() =>
                           copyToClipboard(
-                            vc.issuerDid || vc.issuer,
+                            vc.issuerDid || vc.issuer?.id,
                             "Issuer DID"
                           )
                         }
@@ -611,6 +646,93 @@ const VCManager = () => {
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+            </div>
+
+            {/* Raw JSON Display */}
+            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+              <button
+                onClick={() => toggleSection("rawJson")}
+                className="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 flex items-center justify-between text-left transition-colors"
+              >
+                <div className="flex items-center space-x-2">
+                  <span>📄</span>
+                  <span className="font-medium text-gray-900">
+                    Raw JSON Document
+                  </span>
+                  <span className="text-sm text-gray-500">
+                    (Full credential data)
+                  </span>
+                </div>
+                <span className="text-gray-400">
+                  {expandedSections.rawJson ? "🔼" : "🔽"}
+                </span>
+              </button>
+
+              {expandedSections.rawJson && (
+                <div className="p-4">
+                  <div className="bg-gray-200 rounded-lg p-4 overflow-auto">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-sm text-gray-600">
+                        Complete VC Document (W3C Format)
+                      </span>
+                      <button
+                        onClick={() =>
+                          copyToClipboard(
+                            stringifyWithBigInt(vc.document || vc),
+                            "Raw JSON"
+                          )
+                        }
+                        className="px-3 py-1 bg-gray-500 hover:cursor-pointer hover:bg-gray-600 text-white text-xs rounded transition-colors"
+                      >
+                        📋 Copy JSON
+                      </button>
+                    </div>
+                    <pre className="text-xs text-gray-700 overflow-x-auto whitespace-pre-wrap break-words">
+                      <code>{stringifyWithBigInt(vc.document || vc)}</code>
+                    </pre>
+                  </div>
+
+                  {/* Metadata Display if available */}
+                  {vc.metadata && (
+                    <div className="mt-4">
+                      <div className="bg-blue-900 rounded-lg p-4 overflow-auto">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-sm text-blue-200">
+                            On-Chain Metadata
+                          </span>
+                          <button
+                            onClick={() =>
+                              copyToClipboard(
+                                stringifyWithBigInt(vc.metadata),
+                                "Metadata JSON"
+                              )
+                            }
+                            className="px-3 py-1 bg-blue-700 hover:bg-blue-600 text-white text-xs rounded transition-colors"
+                          >
+                            📋 Copy Metadata
+                          </button>
+                        </div>
+                        <pre className="text-xs text-blue-100 overflow-x-auto whitespace-pre-wrap break-words">
+                          <code>{stringifyWithBigInt(vc.metadata)}</code>
+                        </pre>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mt-3 text-xs text-gray-500 bg-gray-50 p-3 rounded-lg">
+                    <p className="mb-1">
+                      <strong>Document:</strong> The complete W3C Verifiable
+                      Credential stored on IPFS
+                    </p>
+                    {vc.metadata && (
+                      <p>
+                        <strong>Metadata:</strong> On-chain metadata including
+                        IPFS CID and indexing information
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -947,6 +1069,38 @@ const VCManager = () => {
             myIssuedVCs.map((vc) => (
               <VCCard key={vc.id} vc={vc} isIssued={true} />
             ))}
+        </div>
+      )}
+
+      {/* Revoke Confirmation Modal */}
+      {showRevokeConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-mx-4 shadow-xl">
+            <div className="text-center">
+              <div className="text-red-500 text-4xl mb-4">⚠️</div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Revoke Verifiable Credential?
+              </h3>
+              <p className="text-gray-600 mb-6">
+                This action cannot be undone. The credential will be permanently
+                revoked and marked as invalid.
+              </p>
+              <div className="flex space-x-4">
+                <button
+                  onClick={() => confirmRevokeVC(showRevokeConfirm)}
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-lg font-semibold transition-colors"
+                >
+                  Revoke Credential
+                </button>
+                <button
+                  onClick={() => setShowRevokeConfirm(null)}
+                  className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 py-2 px-4 rounded-lg font-semibold transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
