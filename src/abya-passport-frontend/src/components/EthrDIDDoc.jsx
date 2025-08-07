@@ -1,32 +1,22 @@
-// src/abya-passport-frontend/src/components/EthrDIDDoc.jsx
-
+// src/components/EthrDIDDoc.jsx
 import React, { useState, useEffect } from 'react';
 import { useEthr } from "../contexts/EthrContext";
+import { storeDidDocument, registerDidOnIpfs } from "../service/ipfsService";
 
 const API_URL = process.env.REACT_APP_VERAMO_API_URL || 'http://localhost:3000';
 
-/**
- * EthrDIDDoc
- * A component to resolve and display the DID Document for a given Ethereum-based DID.
- *
- * Usage:
- * <EthrDIDDoc />
- */
 export default function EthrDIDDoc() {
   const [didInput, setDidInput]     = useState('');
   const [didDoc, setDidDoc]         = useState(null);
+  const [ipfsCid, setIpfsCid]       = useState('');
+  const [registryCid, setRegistryCid] = useState('');
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState(null);
 
-  // pull in everything from context
-  const ethrContext = useEthr();
-  const { walletAddress, walletDid, didLoading } = ethrContext;
+  const { walletAddress, walletDid, didLoading } = useEthr();
 
-  // Optional: when ethrDid arrives, auto-fill the input
   useEffect(() => {
-    if (walletDid) {
-      setDidInput(walletDid);
-    }
+    if (walletDid) setDidInput(walletDid);
   }, [walletDid]);
 
   const handleResolve = async () => {
@@ -34,18 +24,33 @@ export default function EthrDIDDoc() {
     setLoading(true);
     setError(null);
     setDidDoc(null);
+    setIpfsCid('');
+    setRegistryCid('');
 
     try {
-      const res = await fetch(
-        `${API_URL}/did/${encodeURIComponent(didInput)}/resolve`
-      );
+      // 1. Resolve via Veramo
+      const res = await fetch(`${API_URL}/did/${encodeURIComponent(didInput)}/resolve`);
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Failed to resolve DID');
+        const errJson = await res.json();
+        throw new Error(errJson.error || 'Failed to resolve DID');
       }
       const json = await res.json();
-      setDidDoc(json.resolution || json);
+      const doc = json.resolution || json;
+      setDidDoc(doc);
+
+      // 2. Store resolved document on IPFS
+      console.log('Storing DID document on IPFS...', doc);
+      const cid = await storeDidDocument(didInput, doc);
+      console.log('Received IPFS CID:', cid);
+      setIpfsCid(cid);
+
+      // 3. Register DID + CID in a global registry
+      console.log('Registering DID on IPFS:', didInput);
+      const regCid = await registerDidOnIpfs(didInput, cid);
+      console.log('Received registry CID:', regCid);
+      setRegistryCid(regCid);
     } catch (err) {
+      console.error(err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -57,53 +62,37 @@ export default function EthrDIDDoc() {
 
   return (
     <div className="max-w-xl mx-auto p-4 bg-white/80 backdrop-blur-lg rounded-2xl shadow-lg">
-      <h2 className="text-xl font-semibold mb-4">Resolve Ethereum DID</h2>
+      <h2 className="text-xl font-semibold mb-4">Resolve & Store Ethereum DID</h2>
 
-      {/* 1. Display basic pieces */}
       <div className="mb-4">
-        <p><strong>Wallet Address:</strong> {walletAddress || '–'}</p>
-        {/* <p><strong>Ethereum DID:</strong> {walletDid || '–'}</p> */}
+        <p><strong>Wallet Address:</strong> {walletAddress}</p>
       </div>
 
-      {/* 2. (Optional) Show entire context as JSON */}
-      <details className="mb-4 bg-gray-50 p-3 rounded-lg">
-        <summary className="cursor-pointer text-sm font-medium">
-          Show full EthrContext
-        </summary>
-        <pre className="text-xs font-mono mt-2 overflow-auto">
-          {JSON.stringify(ethrContext, null, 2)}
-        </pre>
-      </details>
-
-      {/* 3. Resolve form */}
       <div className="flex gap-2 mb-4">
         <input
           type="text"
-          placeholder="Enter your DID (e.g. did:ethr:sepolia:0x...)"
+          placeholder="Enter DID (e.g. did:ethr:sepolia:0x...)"
           value={didInput}
-          onChange={(e) => setDidInput(e.target.value)}
-          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+          onChange={e => setDidInput(e.target.value)}
+          className="flex-1 border px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-400"
         />
         <button
           onClick={handleResolve}
           disabled={loading}
-          className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg font-medium disabled:opacity-50"
-        >
-          {loading ? 'Resolving…' : 'Resolve'}
-        </button>
+          className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg disabled:opacity-50"
+        >{loading ? 'Processing…' : 'Resolve & Store'}</button>
       </div>
 
-      {error && (
-        <div className="mb-4 text-red-600 font-medium">
-          Error: {error}
-        </div>
-      )}
+      {error && <div className="text-red-600 mb-4">Error: {error}</div>}
 
       {didDoc && (
-        <div className="bg-gray-50 p-4 rounded-lg overflow-auto">
-          <pre className="text-sm font-mono whitespace-pre-wrap">
-            {JSON.stringify(didDoc, null, 2)}
-          </pre>
+        <div className="space-y-4">
+          <div className="bg-gray-50 p-4 rounded-lg overflow-auto">
+            <h3 className="font-semibold">DID Document</h3>
+            <pre className="text-sm font-mono whitespace-pre-wrap">{JSON.stringify(didDoc, null, 2)}</pre>
+          </div>
+          <p><strong>IPFS CID:</strong> {ipfsCid || '–'}</p>
+          <p><strong>Registry CID:</strong> {registryCid || '–'}</p>
         </div>
       )}
     </div>
