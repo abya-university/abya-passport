@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import Navbar from "./components/Navbar";
 import DIDDocument from "./components/DIDDocument";
 import VCManager from "./components/VCManager";
+import VCVerifier from "./components/VCVerifier";
 
 function App() {
   const [currentPage, setCurrentPage] = useState("home");
@@ -13,6 +14,8 @@ function App() {
         return <DIDDocument />;
       case "vc":
         return <VCManager />;
+      case "verify":
+        return <VCVerifier />;
       case "home":
       default:
         return (
@@ -102,6 +105,12 @@ function App() {
                   className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
                 >
                   Manage Credentials
+                </button>
+                <button
+                  onClick={() => setCurrentPage("verify")}
+                  className="bg-gradient-to-r from-purple-600 to-green-600 hover:from-purple-700 hover:to-green-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
+                >
+                  Verify Credentials
                 </button>
               </div>
             </div>

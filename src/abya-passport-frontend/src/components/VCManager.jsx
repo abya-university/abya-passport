@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useInternetIdentity } from "../contetxs/InternetContext";
 import { useToast } from "./Toast";
+import VCSharer from "./VCSharer";
 
 const VCManager = () => {
   const {
@@ -23,8 +24,9 @@ const VCManager = () => {
   const [verificationResults, setVerificationResults] = useState({});
   const [isVerifying, setIsVerifying] = useState({});
   const [showRevokeConfirm, setShowRevokeConfirm] = useState(null);
+  const [sharingVC, setSharingVC] = useState(null);
 
-  console.log("Issued VC: ", myIssuedVCs);
+  // console.log("Issued VC: ", myIssuedVCs);
 
   // Issue VC form state
   const [issueForm, setIssueForm] = useState({
@@ -312,6 +314,13 @@ const VCManager = () => {
 
             {/* Action Buttons */}
             <div className="flex items-center space-x-2 ml-4">
+              <button
+                onClick={() => setSharingVC(vc)}
+                className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                title="Share credential"
+              >
+                📤
+              </button>
               <button
                 onClick={() => handleVerifyVC(vc.id)}
                 disabled={isVerifyingVC}
@@ -1103,6 +1112,13 @@ const VCManager = () => {
           </div>
         </div>
       )}
+
+      {/* VC Sharing Modal */}
+      <VCSharer
+        vc={sharingVC}
+        isOpen={!!sharingVC}
+        onClose={() => setSharingVC(null)}
+      />
     </div>
   );
 };

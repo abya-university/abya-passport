@@ -87,7 +87,7 @@ function Navbar({ currentPage, setCurrentPage }) {
               { name: "Home", page: "home" },
               { name: "DID Documents", page: "did" },
               { name: "Credentials", page: "vc" },
-              { name: "About", page: "about" },
+              { name: "Verify", page: "verify" },
               { name: "Contact", page: "contact" },
             ].map((item) => (
               <button
