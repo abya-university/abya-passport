@@ -16,6 +16,8 @@ import {
   skaleTitanTestnet,
 } from "wagmi/chains";
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
+import { IPFSProvider } from "../contetxs/IPFSContext";
+import { InternetIdentityProvider } from "../contetxs/InternetContext";
 
 export default function Providers({ children }) {
   const config = getDefaultConfig({
@@ -40,17 +42,21 @@ export default function Providers({ children }) {
   };
 
   return (
-    <WagmiProvider config={config}>
-      <QueryClientProvider client={queryClient}>
-        <RainbowKitProvider
-          theme={lightTheme({
-            accentColor: "#780fa3",
-            accentColorForeground: "white",
-          })}
-        >
-          {children}
-        </RainbowKitProvider>
-      </QueryClientProvider>
-    </WagmiProvider>
+    <IPFSProvider>
+      <InternetIdentityProvider>
+        <WagmiProvider config={config}>
+          <QueryClientProvider client={queryClient}>
+            <RainbowKitProvider
+              theme={lightTheme({
+                accentColor: "#780fa3",
+                accentColorForeground: "white",
+              })}
+            >
+              {children}
+            </RainbowKitProvider>
+          </QueryClientProvider>
+        </WagmiProvider>
+      </InternetIdentityProvider>
+    </IPFSProvider>
   );
 }

@@ -3,6 +3,7 @@ import { AuthClient } from "@dfinity/auth-client";
 import { HttpAgent } from "@dfinity/agent";
 import { Ed25519KeyIdentity } from "@dfinity/identity";
 import { createActor } from "../../../declarations/abya-passport-backend";
+import { useIPFS } from "./IPFSContext";
 
 const InternetIdentityContext = createContext();
 
@@ -22,6 +23,15 @@ export const InternetIdentityProvider = ({ children }) => {
   const [myReceivedVCs, setMyReceivedVCs] = useState([]);
   const [isLoadingVCs, setIsLoadingVCs] = useState(false);
 
+  // IPFS integration
+  const {
+    createAndUploadDID,
+    createAndUploadVC,
+    retrieveDIDDocument,
+    retrieveVCDocument,
+    rollbackIPFS,
+  } = useIPFS();
+
   // Initialize auth client
   useEffect(() => {
     AuthClient.create().then(async (client) => {
@@ -34,7 +44,7 @@ export const InternetIdentityProvider = ({ children }) => {
 
   const canisterId = "uxrrr-q7777-77774-qaaaq-cai";
 
-  // Developer login with debugging
+  // Developer login with IPFS DID creation
   const developerLogin = async () => {
     try {
       console.log("🔧 Starting developer login...");
@@ -52,25 +62,28 @@ export const InternetIdentityProvider = ({ children }) => {
       setIsAuthenticated(true);
       setLoginMethod("developer");
 
-      // Generate DID for developer identity
-      const did = "did:icp:" + principal.toString();
-      setDid(did);
-      console.log("🔧 Generated DID:", did);
+      // Create DID with IPFS storage for developer identity
+      await createOrRetrieveDID(devIdentity);
 
       console.log("✅ Developer login successful");
     } catch (error) {
       console.error("❌ Developer login failed:", error);
     }
   };
-
   const login = async () => {
     setIsAuthenticating(true);
 
     try {
-      // Always use mainnet Internet Identity for better compatibility
-      const identityProvider = "https://identity.ic0.app";
+      // Always use local Internet Identity for local development
+      const identityProvider =
+        "http://rdmx6-jaaaa-aaaaa-aaadq-cai.localhost:4943";
 
       console.log("Using identity provider:", identityProvider);
+
+      // Clear any cached Internet Identity data to avoid mainnet/local conflicts
+      localStorage.removeItem("ic-identity");
+      localStorage.removeItem("ic-delegation");
+      sessionStorage.clear();
 
       authClient.login({
         identityProvider: identityProvider,
@@ -93,25 +106,80 @@ export const InternetIdentityProvider = ({ children }) => {
     setIsAuthenticated(true);
     setLoginMethod("internet-identity");
 
-    // Generate DID after login - use simple DID generation instead of calling backend
-    try {
-      // For test purposes, generate DID locally to avoid certificate issues
-      const did = "did:icp:" + identity.getPrincipal().toString();
-      console.log("Generated DID:", did);
-      setDid(did);
-    } catch (error) {
-      console.error("Error generating DID:", error);
-      console.error("Error details:", error.message);
-      setDid(null);
-    }
+    // Check if DID already exists and create with IPFS if needed
+    await createOrRetrieveDID(identity);
 
     setIsAuthenticating(false);
+  };
+
+  // Create DID with IPFS storage or retrieve existing one
+  const createOrRetrieveDID = async (identity) => {
+    try {
+      const principalText = identity.getPrincipal().toString();
+      const did = "did:icp:" + principalText;
+
+      // Check if DID already exists on-chain
+      const agent = new HttpAgent({
+        host: "http://127.0.0.1:4943",
+        identity: identity,
+      });
+      await agent.fetchRootKey();
+      const actor = createActor(canisterId, { agent });
+
+      const hasExistingDID = await actor.hasMyDID();
+
+      if (hasExistingDID) {
+        console.log("📋 DID already exists, retrieving from IPFS...");
+
+        // Get DID metadata from on-chain
+        const didMetadata = await actor.getDIDMetadata(did);
+        if (didMetadata) {
+          // Retrieve DID document from IPFS
+          const didDoc = await retrieveDIDDocument(didMetadata.ipfsCid);
+          setDid(did);
+          setDidDocument(didDoc);
+          console.log("✅ DID retrieved successfully:", did);
+        }
+      } else {
+        console.log("🆔 Creating new DID with IPFS storage...");
+
+        // Create new DID document and upload to IPFS
+        const {
+          did: newDid,
+          ipfsCid,
+          document,
+        } = await createAndUploadDID(principalText);
+
+        // Store DID metadata on-chain
+        const result = await actor.storeDIDDocument(ipfsCid);
+
+        if (result.ok) {
+          setDid(newDid);
+          setDidDocument(document);
+          console.log("✅ DID created and stored successfully:", newDid);
+        } else {
+          throw new Error(result.err);
+        }
+      }
+    } catch (error) {
+      console.error("❌ Error with DID creation/retrieval:", error);
+      // Fallback to simple DID generation
+      const did = "did:icp:" + identity.getPrincipal().toString();
+      setDid(did);
+      setDidDocument(null);
+    }
   };
 
   const logout = async () => {
     if (authClient && loginMethod === "internet-identity") {
       await authClient.logout();
     }
+
+    // Clear all cached Internet Identity data
+    localStorage.removeItem("ic-identity");
+    localStorage.removeItem("ic-delegation");
+    sessionStorage.clear();
+
     setIdentity(null);
     setPrincipal(null);
     setIsAuthenticated(false);
@@ -166,134 +234,253 @@ export const InternetIdentityProvider = ({ children }) => {
 
   // ==================== VC FUNCTIONS ====================
 
-  // Issue a new VC
+  // Issue a new VC with IPFS storage
   const issueVC = async (recipientDid, claims, expiresInHours = 24) => {
     if (!identity) {
       throw new Error("Must be authenticated to issue VCs");
     }
 
-    try {
-      console.log(
-        "Issuing VC with identity:",
-        identity.getPrincipal().toString()
-      );
+    let vcId = null;
+    let ipfsCid = null;
+    let document = null;
 
-      // Create authenticated agent with proper configuration
+    try {
+      console.log("📜 Issuing VC with IPFS storage...");
+      console.log("Issuer:", identity.getPrincipal().toString());
+      console.log("Recipient:", recipientDid);
+      console.log("Claims:", claims);
+
+      // Create authenticated agent
       const agent = new HttpAgent({
         host: "http://127.0.0.1:4943",
         identity: identity,
       });
-
-      // Always fetch root key for local development
       await agent.fetchRootKey();
-
       const actor = createActor(canisterId, { agent });
 
-      // Convert claims object to array of tuples
-      const claimsArray = Object.entries(claims);
-      console.log("Claims array:", claimsArray);
-
-      // Convert expiresInHours to optional bigint
-      const expirationOption = expiresInHours ? [BigInt(expiresInHours)] : [];
-      console.log("Expiration option:", expirationOption);
-
-      console.log("Calling issueVC with:", {
+      // Step 1: Create VC document and upload to IPFS
+      const vcData = {
+        issuerPrincipal: identity.getPrincipal().toString(),
         recipientDid,
-        claimsArray,
-        expirationOption,
-      });
+        claims,
+        credentialTypes: ["VerifiableCredential"],
+        expiresInHours,
+      };
 
-      const vcJson = await actor.issueVC(
-        recipientDid,
-        claimsArray,
-        expirationOption
-      );
+      const uploadResult = await createAndUploadVC(vcData);
+      vcId = uploadResult.vcId;
+      ipfsCid = uploadResult.ipfsCid;
+      document = uploadResult.document;
 
-      console.log("VC issued successfully:", vcJson);
+      console.log("📁 VC uploaded to IPFS:", ipfsCid);
 
-      // Refresh the issued VCs list
-      await loadMyIssuedVCs();
+      // Step 2: Store VC metadata on-chain (atomic transaction)
+      try {
+        const result = await actor.issueVCWithIPFS(
+          vcId,
+          ipfsCid,
+          recipientDid,
+          ["VerifiableCredential"],
+          expiresInHours ? [BigInt(expiresInHours)] : []
+        );
 
-      return JSON.parse(vcJson);
+        if (result.ok) {
+          console.log("✅ VC issued successfully:", vcId);
+
+          // Refresh the issued VCs list
+          await loadMyIssuedVCs();
+
+          return {
+            id: vcId,
+            ipfsCid: ipfsCid,
+            document: document,
+          };
+        } else {
+          throw new Error(result.err);
+        }
+      } catch (onChainError) {
+        // Rollback: Remove from IPFS since on-chain storage failed
+        console.warn(
+          "⚠️  On-chain storage failed, rolling back IPFS upload..."
+        );
+        if (ipfsCid) {
+          try {
+            await rollbackIPFS(ipfsCid);
+            console.log("✅ IPFS rollback completed");
+          } catch (rollbackError) {
+            console.error("❌ Failed to rollback IPFS content:", rollbackError);
+            // Still throw the original on-chain error
+          }
+        }
+        throw onChainError;
+      }
     } catch (error) {
-      console.error("Error issuing VC:", error);
+      console.error("❌ Error issuing VC:", error);
       console.error("Error details:", error.message);
       console.error("Error stack:", error.stack);
       throw error;
     }
   };
 
-  // Load VCs issued by the current user
+  // Load VCs issued by the current user from IPFS
   const loadMyIssuedVCs = async () => {
     if (!identity) return;
 
     setIsLoadingVCs(true);
     try {
-      // Create authenticated agent with the current identity
+      console.log("📋 Loading issued VCs from IPFS...");
+
+      // Create authenticated agent
       const agent = new HttpAgent({
         host: "http://127.0.0.1:4943",
         identity: identity,
       });
-
-      // Always fetch root key for local development
       await agent.fetchRootKey();
-
       const actor = createActor(canisterId, { agent });
 
-      const vcJsonArray = await actor.getMyIssuedVCs();
-      const vcs = vcJsonArray.map((vcJson) => JSON.parse(vcJson));
-      setMyIssuedVCs(vcs);
+      // Get VC metadata (includes IPFS CIDs)
+      const vcMetadataArray = await actor.getMyIssuedVCsMetadata();
+
+      // Retrieve full VC documents from IPFS
+      const vcsWithDocuments = await Promise.all(
+        vcMetadataArray.map(async (metadata) => {
+          try {
+            const document = await retrieveVCDocument(metadata.ipfsCid);
+            return {
+              metadata,
+              document,
+              // Legacy format for compatibility
+              id: metadata.id,
+              issuer: metadata.issuer,
+              credentialSubject: document.credentialSubject || {},
+              issuanceDate: document.issuanceDate,
+              expirationDate: document.expirationDate,
+              type: document.type,
+            };
+          } catch (error) {
+            console.error(
+              `Failed to retrieve VC ${metadata.id} from IPFS:`,
+              error
+            );
+            // Return metadata only if IPFS retrieval fails
+            return {
+              metadata,
+              document: null,
+              id: metadata.id,
+              issuer: metadata.issuer,
+              credentialSubject: { id: metadata.subject },
+              issuanceDate: new Date(
+                Number(metadata.issuedAt / 1000000n)
+              ).toISOString(),
+              expirationDate: null,
+              type: ["VerifiableCredential"],
+            };
+          }
+        })
+      );
+
+      setMyIssuedVCs(vcsWithDocuments);
+      console.log("✅ Loaded issued VCs:", vcsWithDocuments.length);
     } catch (error) {
-      console.error("Error loading issued VCs:", error);
+      console.error("❌ Error loading issued VCs:", error);
       setMyIssuedVCs([]);
     } finally {
       setIsLoadingVCs(false);
     }
   };
 
-  // Load VCs received by the current user (based on their DID)
+  // Load VCs received by the current user from IPFS
   const loadMyReceivedVCs = async () => {
     if (!did) return;
 
     setIsLoadingVCs(true);
     try {
+      console.log("📥 Loading received VCs from IPFS...");
+
       const agent = new HttpAgent({
         host: "http://127.0.0.1:4943",
       });
-
-      // Always fetch root key for local development
       await agent.fetchRootKey();
-
       const actor = createActor(canisterId, { agent });
 
-      const vcJsonArray = await actor.getVCsForDid(did);
-      const vcs = vcJsonArray.map((vcJson) => JSON.parse(vcJson));
-      setMyReceivedVCs(vcs);
+      // Get VC metadata for this DID (includes IPFS CIDs)
+      const vcMetadataArray = await actor.getVCsForDidMetadata(did);
+
+      // Retrieve full VC documents from IPFS
+      const vcsWithDocuments = await Promise.all(
+        vcMetadataArray.map(async (metadata) => {
+          try {
+            const document = await retrieveVCDocument(metadata.ipfsCid);
+            return {
+              metadata,
+              document,
+              // Legacy format for compatibility
+              id: metadata.id,
+              issuer: metadata.issuer,
+              credentialSubject: document.credentialSubject || {},
+              issuanceDate: document.issuanceDate,
+              expirationDate: document.expirationDate,
+              type: document.type,
+            };
+          } catch (error) {
+            console.error(
+              `Failed to retrieve VC ${metadata.id} from IPFS:`,
+              error
+            );
+            // Return metadata only if IPFS retrieval fails
+            return {
+              metadata,
+              document: null,
+              id: metadata.id,
+              issuer: metadata.issuer,
+              credentialSubject: { id: did },
+              issuanceDate: new Date(
+                Number(metadata.issuedAt / 1000000n)
+              ).toISOString(),
+              expirationDate: null,
+              type: ["VerifiableCredential"],
+            };
+          }
+        })
+      );
+
+      setMyReceivedVCs(vcsWithDocuments);
+      console.log("✅ Loaded received VCs:", vcsWithDocuments.length);
     } catch (error) {
-      console.error("Error loading received VCs:", error);
+      console.error("❌ Error loading received VCs:", error);
       setMyReceivedVCs([]);
     } finally {
       setIsLoadingVCs(false);
     }
   };
 
-  // Verify a VC
+  // Verify a VC status
   const verifyVC = async (vcId) => {
     try {
+      console.log("🔍 Verifying VC:", vcId);
+
       const agent = new HttpAgent({
         host: "http://127.0.0.1:4943",
       });
-
-      // Always fetch root key for local development
       await agent.fetchRootKey();
-
       const actor = createActor(canisterId, { agent });
 
-      const verification = await actor.verifyVC(vcId);
-      return verification;
+      const result = await actor.verifyVCStatus(vcId);
+
+      if (result.ok) {
+        console.log("✅ VC verification successful");
+        return { isValid: true, status: "valid" };
+      } else {
+        console.log("❌ VC verification failed:", result.err);
+        return { isValid: false, status: result.err };
+      }
     } catch (error) {
-      console.error("Error verifying VC:", error);
-      throw error;
+      console.error("❌ Error verifying VC:", error);
+      return {
+        isValid: false,
+        status: "verification_failed",
+        error: error.message,
+      };
     }
   };
 
@@ -304,47 +491,66 @@ export const InternetIdentityProvider = ({ children }) => {
     }
 
     try {
+      console.log("🚫 Revoking VC:", vcId);
+
       // Create authenticated agent with the current identity
       const agent = new HttpAgent({
         host: "http://127.0.0.1:4943",
         identity: identity,
       });
-
-      // Always fetch root key for local development
       await agent.fetchRootKey();
-
       const actor = createActor(canisterId, { agent });
 
-      const success = await actor.revokeVC(vcId);
+      const result = await actor.revokeVCWithIPFS(vcId);
 
-      if (success) {
+      if (result.ok) {
+        console.log("✅ VC revoked successfully");
         // Refresh the issued VCs list
         await loadMyIssuedVCs();
+        return true;
+      } else {
+        throw new Error(result.err);
       }
-
-      return success;
     } catch (error) {
-      console.error("Error revoking VC:", error);
+      console.error("❌ Error revoking VC:", error);
       throw error;
     }
   };
 
-  // Get a specific VC by ID
+  // Get a specific VC by ID from IPFS
   const getVC = async (vcId) => {
     try {
+      console.log("📄 Retrieving VC:", vcId);
+
       const agent = new HttpAgent({
         host: "http://127.0.0.1:4943",
       });
-
-      // Always fetch root key for local development
       await agent.fetchRootKey();
-
       const actor = createActor(canisterId, { agent });
 
-      const vcJson = await actor.getVC(vcId);
-      return vcJson ? JSON.parse(vcJson) : null;
+      // Get VC metadata including IPFS CID
+      const metadata = await actor.getVCMetadata(vcId);
+
+      if (metadata) {
+        // Retrieve full VC document from IPFS
+        const document = await retrieveVCDocument(metadata.ipfsCid);
+
+        return {
+          metadata,
+          document,
+          // Legacy format for compatibility
+          id: metadata.id,
+          issuer: metadata.issuer,
+          credentialSubject: document.credentialSubject || {},
+          issuanceDate: document.issuanceDate,
+          expirationDate: document.expirationDate,
+          type: document.type,
+        };
+      }
+
+      return null;
     } catch (error) {
-      console.error("Error getting VC:", error);
+      console.error("❌ Error getting VC:", error);
       throw error;
     }
   };

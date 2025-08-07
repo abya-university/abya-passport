@@ -287,6 +287,8 @@ type InternetIdentityInit = record {
     is_production : opt bool;
     // Configuration for dummy authentication used in e2e tests.
     dummy_auth : opt opt DummyAuthConfig;
+    // Feature flags
+    feature_flag_continue_from_another_device : opt bool;
 };
 
 type ChallengeKey = text;
@@ -505,6 +507,8 @@ type AuthnMethodRegisterError = variant {
 };
 
 type AuthnMethodConfirmationError = variant {
+    Unauthorized : principal;
+    InternalCanisterError : text;
     // Wrong confirmation code entered. Retry with correct code.
     WrongCode : record {
         retries_left : nat8;
@@ -519,7 +523,7 @@ type AuthnMethodRegistrationModeEnterError = variant {
     InvalidRegistrationId : text;
     Unauthorized : principal;
     AlreadyInProgress;
-    InternalError : text;
+    InternalCanisterError : text;
 };
 
 type LookupByRegistrationIdError = variant {

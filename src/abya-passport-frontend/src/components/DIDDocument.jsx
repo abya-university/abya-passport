@@ -2,8 +2,25 @@ import React, { useState, useEffect } from "react";
 import { useInternetIdentity } from "../contetxs/InternetContext";
 
 const DIDDocument = () => {
-  const { did, didDocument, isResolvingDid, resolveDid, principal } =
-    useInternetIdentity();
+  const context = useInternetIdentity();
+
+  // Add defensive check
+  if (!context) {
+    return (
+      <div className="max-w-4xl mx-auto px-6 py-8">
+        <div className="text-center">
+          <div className="text-red-600 mb-4">
+            ⚠️ Error: Internet Identity context not available
+          </div>
+          <p className="text-gray-600">
+            Please make sure the InternetIdentityProvider is properly set up.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const { did, didDocument, isResolvingDid, resolveDid, principal } = context;
 
   const [customDid, setCustomDid] = useState("");
   const [showRawJson, setShowRawJson] = useState(false);
