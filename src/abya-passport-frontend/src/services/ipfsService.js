@@ -63,7 +63,7 @@ export const storeStudentProfile = async (did, profileData) => {
     const profileString = JSON.stringify(profileData, null, 2);
     const blob = new Blob([profileString], { type: "application/json" });
     const safeDid = did.replace(/:/g, ":");
-    const fileName = `profile-${safeDid}.json`;
+    const fileName = `vc-${safeDid}.json`;
     const file = new File([blob], fileName, { type: "application/json" });
     const uploadResponse = await pinata.upload.file(file, {
       pinataMetadata: { name: `profile-${safeDid}` },

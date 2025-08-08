@@ -1,7 +1,7 @@
 // src/components/EthrDIDDoc.jsx
 import React, { useState, useEffect } from 'react';
 import { useEthr } from "../contexts/EthrContext";
-import { storeDidDocument, registerDidOnIpfs } from "../service/ipfsService";
+import { storeDidDocument, registerDidOnIpfs } from "../services/ipfsService";
 
 const API_URL = process.env.REACT_APP_VERAMO_API_URL || 'http://localhost:3000';
 
