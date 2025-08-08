@@ -76,6 +76,32 @@ export const storeStudentProfile = async (did, profileData) => {
 };
 
 
+/**
+ * Stores a credential on Pinata by creating a JSON file that maps the credentials
+ * with the associated DID and the CID of the credential document.
+ *
+ * @param {string} did - The DID of the student.
+ * @param {Object} credentialData - The profile data including student information.
+ * @returns {Promise<string>} - The IPFS hash (CID) of the stored profile.
+ */
+export const storeCredential = async (did, credentialData) => {
+  try {
+    const credentialString = JSON.stringify(credentialData, null, 2);
+    const blob = new Blob([credentialString], { type: "application/json" });
+    const safeDid = did.replace(/:/g, ":");
+    const fileName = `vc-${safeDid}.json`;
+    const file = new File([blob], fileName, { type: "application/json" });
+    const uploadResponse = await pinata.upload.file(file, {
+      pinataMetadata: { name: `profile-${safeDid}` },
+    });
+    return uploadResponse.IpfsHash;
+  } catch (error) {
+    console.error("Error uploading credential profile to Pinata:", error);
+    throw error;
+  }
+};
+
+
 
 /**
  * Unpins a given CID from Pinata to free up space.

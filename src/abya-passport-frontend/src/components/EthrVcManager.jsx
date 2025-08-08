@@ -4,7 +4,7 @@ import axios from "axios";
 import { jsPDF } from "jspdf";
 import QRCode from "qrcode";
 import * as ethers from "ethers";
-import { storeStudentProfile, fetchDidDocument } from "../services/ipfsService"; // adjust path if needed
+import { storeCredential, fetchDidDocument } from "../services/ipfsService";
 import { useEthr } from "../contexts/EthrContext";
 
 const API_BASE = "http://localhost:3000";
@@ -252,7 +252,7 @@ const EthrVcManager = () => {
 
       const profileData = { ...cred };
 
-      const cid = await storeStudentProfile(subjectToStore, profileData);
+      const cid = await storeCredential(subjectToStore, profileData);
       setIpfsStatus((s) => ({ ...s, [statusKey]: { cid, uploading: false } }));
 
       let credentialHash = "";
