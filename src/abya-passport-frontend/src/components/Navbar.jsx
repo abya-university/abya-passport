@@ -1,58 +1,128 @@
+// src/abya-passport-frontend/src/components/Navbar.jsx
+
 import React, { useState, useEffect, useRef } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useAccount, useDisconnect } from "wagmi";
-import { useInternetIdentity } from "../contetxs/InternetContext";
+import { useInternetIdentity } from "../contexts/InternetContext";
+import { useEthr } from "../contexts/EthrContext";
+
+const API_URL = process.env.REACT_APP_VERAMO_API_URL || "http://localhost:3000";
 
 function Navbar({ currentPage, setCurrentPage }) {
   const [showConnectOptions, setShowConnectOptions] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  //const [walletDid, setWalletDid] = useState(null);
+  const { setWalletAddress, setWalletDid, walletDid: ctxDid } = useEthr();
+  const [walletDid, localSetWalletDid] = useState(ctxDid);
+  const [didLoading, setDidLoading] = useState(false);
   const dropdownRef = useRef(null);
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
   const { did, principal, isAuthenticating, login, developerLogin, logout } =
     useInternetIdentity();
-
+  
   const canisterId = "uxrrr-q7777-77774-qaaaq-cai";
 
   console.log("DID2:", did);
   console.log("Principal:", principal);
   console.log("Canister ID:", canisterId);
 
-  // Function to shorten wallet address or principal
-  const shortenAddress = (address) => {
-    if (!address) return "";
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
-  };
+  // Shorteners
+  const shortenAddress = (addr) => (addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : "");
+  const shorten = (str) =>
+    str
+      ? str.length > 10
+        ? `${str.slice(0, 16)}…${str.slice(-6)}`
+        : str
+      : "";
 
-  // Check if any authentication method is active
-  const isAnyConnected = isConnected || !!principal;
-
-  // Handle scroll effect for navbar background
+  // Fetch or create DID for connected wallet
   useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20);
+    if (!isConnected || !address || walletDid) {
+      if (!isConnected || !address) {
+        setWalletDid(null);
+        setWalletAddress(null);
+        setDidLoading(false);
+      }
+      return;
+    }
+
+    const alias = `issuer-wallet-${address}`;
+
+    const fetchOrCreateDid = async () => {
+      setDidLoading(true);
+      try {
+        // Try list first
+        const listRes = await fetch(`${API_URL}/did/list`);
+        const { success, identifiers } = await listRes.json();
+        if (success && Array.isArray(identifiers)) {
+          const existing = identifiers.find((i) =>
+            i.did.toLowerCase().endsWith(address.toLowerCase())
+          );
+          if (existing) {
+            localSetWalletDid(existing.did);
+            setWalletDid(existing.did);
+            return;
+          }
+        }
+
+        // Attempt create with alias
+        const createRes = await fetch(`${API_URL}/did/create`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ provider: "did:ethr", walletAddress: address, alias }),
+        });
+        const createJson = await createRes.json();
+
+        if (createJson.success && createJson.identifier?.did) {
+          setWalletDid(createJson.identifier.did);
+          localSetWalletDid(createJson.identifier.did);
+        } else if (
+          !createJson.success &&
+          createJson.error?.includes("already exists")
+        ) {
+          // Alias exists: fetch list again to get DID
+          const retryList = await fetch(`${API_URL}/did/list`);
+          const { identifiers: retryIds } = await retryList.json();
+          const found = retryIds.find((i) => i.alias === alias);
+          if (found) {
+            localSetWalletDid(found.did);
+            setWalletDid(found.did);
+          }
+        } else {
+          console.error("Unexpected DID create response:", createJson);
+        }
+      } catch (err) {
+        console.error("Error fetching/creating DID:", err);
+      } finally {
+        setDidLoading(false);
+      }
     };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
+    
+    setWalletAddress(address);
+    fetchOrCreateDid();
+  }, [isConnected, address, walletDid]);
+
+  // Scroll effect
+  useEffect(() => {
+    const onScroll = () => setIsScrolled(window.scrollY > 20);
+    window.addEventListener("scroll", onScroll);
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Handle click outside to close dropdown
+  // Click outside dropdown
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+    const handler = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setShowConnectOptions(false);
       }
     };
-
-    if (showConnectOptions) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    if (showConnectOptions) document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, [showConnectOptions]);
 
+  const isAnyConnected = isConnected || !!principal;
+  
   const handleInternetIdentityLogin = async () => {
     try {
       await login();
@@ -216,7 +286,10 @@ function Navbar({ currentPage, setCurrentPage }) {
                           </span>
                         </div>
                         <div className="text-sm text-gray-600 font-mono bg-gray-100 p-2 rounded-lg break-all">
-                          {address}
+                          {shorten(address)}
+                        </div>
+                        <div className="text-sm text-gray-600 font-mono bg-gray-100 p-2 rounded-lg break-all">
+                          {shorten(walletDid)}
                         </div>
                         <button
                           onClick={() => disconnect()}
