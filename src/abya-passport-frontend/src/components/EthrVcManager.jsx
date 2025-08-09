@@ -7,6 +7,21 @@ import * as ethers from "ethers";
 import { storeCredential, fetchDidDocument } from "../services/ipfsService";
 import { useEthr } from "../contexts/EthrContext";
 
+// Small icons to make the UI compact and scannable
+import {
+  RefreshCw,
+  PlusSquare,
+  FileText,
+  Download,
+  QrCode,
+  Copy,
+  UploadCloud,
+  Link2,
+  CheckCircle,
+  AlertCircle,
+  Database,
+} from "lucide-react";
+
 const API_BASE = "http://localhost:3000";
 const VC_ADDRESS = import.meta.env.VITE_VC_CONTRACT_ADDRESS || "0xE2ff8118Bc145F03410F46728BaE0bF3f1C6EF81";
 
@@ -40,11 +55,9 @@ const EthrVcManager = () => {
   const [ipfsToken, setIpfsToken] = useState("");
   const [ipfsStatus, setIpfsStatus] = useState({});
   const [chainStatus, setChainStatus] = useState({});
-  // debugging / diagnostics
-  const [lastOnchainIds, setLastOnchainIds] = useState([]); // raw ids returned by getCredentialsForStudent
-  const [lastOnchainRowsDebug, setLastOnchainRowsDebug] = useState([]); // raw row shapes for debugging
+  const [lastOnchainIds, setLastOnchainIds] = useState([]);
+  const [lastOnchainRowsDebug, setLastOnchainRowsDebug] = useState([]);
 
-  // Prefill subjectDid with walletDid when available (don't overwrite user edits)
   useEffect(() => {
     if (didLoading) return;
     if (walletDid) {
@@ -53,7 +66,6 @@ const EthrVcManager = () => {
   }, [walletDid, didLoading]);
 
   useEffect(() => {
-    // re-fetch credentials when wallet DID changes (so UI shows on-chain entries for connected DID)
     fetchCredentials();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [walletDid, walletAddress]);
@@ -65,11 +77,10 @@ const EthrVcManager = () => {
     return new Date(datetimeLocal).toISOString();
   };
 
-  // ---------------- helpers for ethers / BigNumber handling ----------------
+  // ---------------- helpers & provider functions (unchanged logic) ----------------
   const safeToString = (v) => {
     try {
       if (v === null || v === undefined) return "";
-      // ethers BigNumber (v.toString should be safe)
       if (typeof v === "string") return v;
       if (typeof v === "number") return String(v);
       if (typeof v === "bigint") return v.toString();
@@ -80,8 +91,6 @@ const EthrVcManager = () => {
     }
   };
 
-  // ---------------- provider helpers (works for ethers v6 & v5) ----------------
-  // logs features to help debug environment
   useEffect(() => {
     console.log("ethers features:", {
       hasBrowserProvider: !!ethers?.BrowserProvider,
@@ -93,7 +102,6 @@ const EthrVcManager = () => {
   const getContractWithSigner = async () => {
     if (typeof window === "undefined" || !window.ethereum) throw new Error("No Web3 provider found (window.ethereum)");
 
-    // Ethers v6: BrowserProvider
     if (ethers?.BrowserProvider) {
       const provider = new ethers.BrowserProvider(window.ethereum);
       try { await provider.send?.("eth_requestAccounts", []); } catch (_) {}
@@ -101,7 +109,6 @@ const EthrVcManager = () => {
       return new ethers.Contract(VC_ADDRESS, VC_ABI, signer);
     }
 
-    // Ethers v5: providers.Web3Provider
     if (ethers?.providers?.Web3Provider) {
       const provider = new ethers.providers.Web3Provider(window.ethereum);
       try { await provider.send?.("eth_requestAccounts", []); } catch (_) {}
@@ -109,12 +116,10 @@ const EthrVcManager = () => {
       return new ethers.Contract(VC_ADDRESS, VC_ABI, signer);
     }
 
-    // If neither exists, fail with helpful message
     throw new Error("Unsupported ethers version: no BrowserProvider or providers.Web3Provider found");
   };
 
   const getContractReadonly = async () => {
-    // prefer injected provider for read operations if available
     if (typeof window !== "undefined" && window.ethereum) {
       if (ethers?.BrowserProvider) {
         const provider = new ethers.BrowserProvider(window.ethereum);
@@ -128,7 +133,6 @@ const EthrVcManager = () => {
       }
     }
 
-    // Fallback to a read-only RPC URL if provided via env (Vite or CRA)
     const rpcUrl =
       (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_READ_RPC) ||
       process.env.REACT_APP_READ_RPC ||
@@ -136,19 +140,16 @@ const EthrVcManager = () => {
       null;
 
     if (rpcUrl) {
-      // ethers v6 & v5 both expose JsonRpcProvider under ethers.providers.JsonRpcProvider
       if (ethers?.providers?.JsonRpcProvider) {
         const jsonProvider = new ethers.providers.JsonRpcProvider(rpcUrl);
         return new ethers.Contract(VC_ADDRESS, VC_ABI, jsonProvider);
       }
       if (typeof ethers.JsonRpcProvider === "function") {
-        // some v6 builds expose JsonRpcProvider directly
         const jsonProvider = new ethers.JsonRpcProvider(rpcUrl);
         return new ethers.Contract(VC_ADDRESS, VC_ABI, jsonProvider);
       }
     }
 
-    // Last resort: getDefaultProvider if available
     if (typeof ethers.getDefaultProvider === "function") {
       const defaultProvider = ethers.getDefaultProvider();
       return new ethers.Contract(VC_ADDRESS, VC_ABI, defaultProvider);
@@ -157,7 +158,6 @@ const EthrVcManager = () => {
     throw new Error("No provider available for readonly operations");
   };
 
-  // ---------------- DID/address normalization ----------------
   const extractHexAddressFromDid = (did) => {
     if (!did || typeof did !== "string") return null;
     const m = did.match(/0x[0-9a-fA-F]{40}/);
@@ -176,18 +176,14 @@ const EthrVcManager = () => {
       try {
         const checksum = ethers.utils ? ethers.utils.getAddress(hex) : ethers.getAddress ? ethers.getAddress(hex) : null;
         if (checksum) out.push(checksum);
-      } catch (e) {
-        // ignore invalid checksum conversion
-      }
+      } catch (e) {}
     }
 
-    // if did starts with "did:ethr:" try removing network part (e.g., did:ethr:sepolia:0x.. -> 0x..)
     if (did.startsWith("did:ethr:")) {
       const removed = did.replace(/^did:ethr:[^:]+:/, "");
       if (removed && !out.includes(removed)) out.push(removed);
     }
 
-    // ensure uniqueness preserving order
     return out.filter((v, i) => v && out.indexOf(v) === i);
   };
 
@@ -216,11 +212,9 @@ const EthrVcManager = () => {
       const cred = res.data.credential;
       setCredential(cred);
 
-      // auto-fill verify field if JWT present
       const jwt = (cred && cred.proof && cred.proof.jwt) || (typeof cred === "string" ? cred : null);
       if (jwt) setJwtToVerify(jwt);
 
-      // refresh list
       await fetchCredentials();
     } catch (err) {
       console.error("create error:", err);
@@ -236,11 +230,9 @@ const EthrVcManager = () => {
       const statusKey = idx ?? "latest";
       setIpfsStatus((s) => ({ ...s, [statusKey]: { uploading: true } }));
 
-      // canonical subject used for storing on-chain (respect DID if present)
       const subjectDidRaw = cred?.credentialSubject?.id || cred?.subject || cred?.subjectDid || "";
       let subjectToStore = subjectDidRaw;
 
-      // If subject is not a DID but contains an address, prefer checksummed address to be consistent
       const hexMatch = extractHexAddressFromDid(subjectDidRaw);
       if (!subjectDidRaw?.startsWith("did:") && hexMatch) {
         try {
@@ -264,7 +256,6 @@ const EthrVcManager = () => {
       }
       const signature = cred?.proof?.jwt || cred?.proof?.signature || "";
 
-      // send tx and capture txHash robustly
       try {
         setChainStatus((s) => ({ ...s, [statusKey]: { sending: true } }));
         const contract = await getContractWithSigner();
@@ -297,7 +288,6 @@ const EthrVcManager = () => {
             setChainStatus((s) => ({ ...s, [statusKey]: { error: waitErr?.message || String(waitErr), txHash } }));
           }
         } else {
-          // no wait() - assume txHash is enough
           setChainStatus((s) => ({ ...s, [statusKey]: { sending: true, txHash } }));
         }
       } catch (chainErr) {
@@ -324,13 +314,12 @@ const EthrVcManager = () => {
     if (ethers.utils && typeof ethers.utils.keccak256 === "function") {
       return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(json));
     }
-    // fallback: non-cryptographic simple hash so code doesn't crash
     let h = 0;
     for (let i = 0; i < json.length; i++) h = (h << 5) - h + json.charCodeAt(i);
     return "0x" + (h >>> 0).toString(16);
   };
 
-  // ---------------- Fetch on-chain IDs for a DID (debuggable) ----------------
+  // ---------------- on-chain fetch helpers (unchanged) ----------------
   const getIdsForDid = async (did) => {
     try {
       const readContract = await getContractReadonly();
@@ -348,12 +337,9 @@ const EthrVcManager = () => {
             usedVariant = v;
             break;
           }
-        } catch (inner) {
-          // keep trying variants
-        }
+        } catch (inner) {}
       }
 
-      // if still empty, try walletAddress as last resort
       if ((!ids || ids.length === 0) && walletAddress) {
         try {
           const res2 = await readContract.getCredentialsForStudent(walletAddress);
@@ -375,7 +361,6 @@ const EthrVcManager = () => {
     }
   };
 
-  // ---------------- Fetch & construct credential objects for a DID ----------------
   const fetchOnChainCredentialsForDid = async (did) => {
     try {
       const readContract = await getContractReadonly();
@@ -393,12 +378,9 @@ const EthrVcManager = () => {
             usedVariant = v;
             break;
           }
-        } catch (inner) {
-          // try next variant
-        }
+        } catch (inner) {}
       }
 
-      // fallback to walletAddress
       if ((!idsRaw || idsRaw.length === 0) && walletAddress) {
         try {
           const res2 = await readContract.getCredentialsForStudent(walletAddress);
@@ -420,7 +402,6 @@ const EthrVcManager = () => {
         try {
           const row = await readContract.credentials(idStr);
           rowsDebug.push({ idStr, row });
-          // row indexes: 0 id, 1 studentDID, 2 issuerDID, 3 credentialType, 4 issueDate, 5 metadata, 6 credentialHash, 7 signature, 8 mappingCID, 9 valid
           const mappingCID = row?.[8] ? safeToString(row[8]) : "";
           const issuerDID = row?.[2] ? safeToString(row[2]) : "";
           const issueDateRaw = row?.[4];
@@ -433,7 +414,7 @@ const EthrVcManager = () => {
           let ipfsJson = null;
           if (mappingCID) {
             try {
-              ipfsJson = await fetchDidDocument(mappingCID); // your Pinata helper
+              ipfsJson = await fetchDidDocument(mappingCID);
             } catch (fetchErr) {
               console.warn("fetchDidDocument failed, will fallback to public gateway", fetchErr);
               const gateways = [
@@ -457,20 +438,16 @@ const EthrVcManager = () => {
 
           let displayed;
           if (ipfsJson) {
-            // merge IPFS json into displayed object so UI can show credentialSubject, issuer, issuanceDate etc
             displayed = {
               ...ipfsJson,
               issuanceDate: ipfsJson.issuanceDate || issueDate,
               issuer: ipfsJson.issuer || { id: issuerDID },
             };
           } else {
-            // fallback to metadata field (row[5]) if present
             let metadata = row?.[5] ?? "";
             try {
               metadata = typeof metadata === "string" ? JSON.parse(metadata) : metadata;
-            } catch (e) {
-              // leave as string
-            }
+            } catch (e) {}
             displayed = {
               credentialSubject: (metadata && typeof metadata === "object" && Object.keys(metadata).length > 0) ? metadata : { id: row?.[1] ?? did },
               issuer: { id: issuerDID },
@@ -504,7 +481,6 @@ const EthrVcManager = () => {
     }
   };
 
-  // ---------------- Fallback: read all on-chain credentials ----------------
   const fetchAllOnChainCredentials = async () => {
     try {
       const readContract = await getContractReadonly();
@@ -535,9 +511,7 @@ const EthrVcManager = () => {
             onchain: { id: safeToString(row?.[0] ?? i), mappingCID, issuerDID, valid: !!row?.[9] },
           };
           out.push(credObj);
-        } catch (inner) {
-          // skip
-        }
+        } catch (inner) {}
       }
       return out;
     } catch (err) {
@@ -546,12 +520,10 @@ const EthrVcManager = () => {
     }
   };
 
-  // ---------------- Combined fetch flow ----------------
   const fetchCredentials = async () => {
     setListLoading(true);
     setError("");
     try {
-      // If wallet DID is present, prefer on-chain mapping for that DID
       if (walletDid) {
         const onchainForWallet = await fetchOnChainCredentialsForDid(walletDid);
         if (onchainForWallet && onchainForWallet.length > 0) {
@@ -559,7 +531,6 @@ const EthrVcManager = () => {
           setListLoading(false);
           return;
         }
-        // Try DID/address variants
         const variants = normalizeDidVariants(walletDid);
         for (const v of variants) {
           const tryRes = await fetchOnChainCredentialsForDid(v);
@@ -569,7 +540,6 @@ const EthrVcManager = () => {
             return;
           }
         }
-        // also try walletAddress explicitly
         if (walletAddress) {
           const tryAddr = await fetchOnChainCredentialsForDid(walletAddress);
           if (tryAddr && tryAddr.length > 0) {
@@ -578,22 +548,18 @@ const EthrVcManager = () => {
             return;
           }
         }
-        // If still nothing, continue to backend fallback
       }
 
-      // Otherwise ask backend
       const res = await axios.get(`${API_BASE}/credential/list`);
       const creds = res.data?.credentials ?? res.data ?? [];
 
       if (!creds || creds.length === 0) {
-        // fallback: try read all on-chain
         const onchainAll = await fetchAllOnChainCredentials();
         setCredentials(onchainAll);
         setListLoading(false);
         return;
       }
 
-      // If backend returned creds, show them
       setCredentials(creds);
     } catch (err) {
       console.error("fetchCredentials error:", err);
@@ -603,7 +569,6 @@ const EthrVcManager = () => {
     }
   };
 
-  // ---------------- Retry fetching IPFS JSON for a credential ----------------
   const retryFetchIpfs = async (mappingCID, index) => {
     if (!mappingCID) return alert("No mapping CID");
     setIpfsStatus((s) => ({ ...s, ["retry-" + index]: { fetching: true } }));
@@ -620,7 +585,6 @@ const EthrVcManager = () => {
       }
     }
     setIpfsStatus((s) => ({ ...s, ["retry-" + index]: { fetching: false, json: ipfsJson, mappingCID } }));
-    // update credentials array to include fetched JSON if found
     if (ipfsJson) {
       setCredentials((prev) => prev.map((c, i) => (i === index ? { ...c, ...ipfsJson } : c)));
     } else {
@@ -628,7 +592,7 @@ const EthrVcManager = () => {
     }
   };
 
-  // ---------------- QR / utils / downloads ----------------
+  // ---------------- QR / clipboard / downloads (unchanged) ----------------
   const generateQr = async (text) => {
     if (!text) return alert("No text to create QR for");
     try {
@@ -731,135 +695,253 @@ const EthrVcManager = () => {
     }
   };
 
-  // ---------------- Render ----------------
+  // ---------- Small visual helper: status dot ----------
+  const StatusDot = ({ status }) => {
+    if (!status) return null;
+    const cls = status.error ? "bg-red-500" : status.success ? "bg-emerald-500" : status.sending || status.uploading ? "bg-yellow-400" : "bg-slate-300";
+    return <span className={`inline-block w-2 h-2 rounded-full ${cls} mr-2`} />;
+  };
+
+  // ---------------- Render (only UI changed) ----------------
   return (
-    <div className="max-w-4xl mx-auto p-6 shadow rounded bg-white">
-      <h2 className="text-2xl font-bold mb-4">Ethr VC Manager</h2>
-
-      {/* Create VC form */}
-      <form onSubmit={handleSubmit} className="space-y-4 mb-6">
-        {["issuerDid", "subjectDid", "name", "role", "organization", "expirationDate"].map((field) => (
-          <div key={field}>
-            <label className="block font-medium capitalize">{field}</label>
-            <input
-              type={field === "expirationDate" ? "datetime-local" : "text"}
-              name={field}
-              value={formData[field]}
-              onChange={handleChange}
-              className="w-full border border-gray-300 p-2 rounded"
-              disabled={field === "subjectDid" && didLoading}
-              required
-            />
-
-            {field === "subjectDid" && (
-              <div className="text-xs text-gray-500 mt-1 flex items-center gap-2">
-                {didLoading ? (
-                  <span>Loading wallet DID…</span>
-                ) : walletDid ? (
-                  <span>Using wallet DID: <code className="bg-gray-100 px-1 rounded">{walletDid}</code></span>
-                ) : (
-                  <span className="italic">No wallet DID available — paste a subject DID.</span>
-                )}
-                {walletAddress && <span className="ml-2 text-xs text-gray-400">({walletAddress})</span>}
-              </div>
-            )}
-          </div>
-        ))}
-
-        <div className="flex gap-2">
-          <button type="submit" disabled={loading || didLoading} className="bg-blue-600 text-white px-4 py-2 rounded">
-            {loading ? "Creating..." : "Create Credential"}
-          </button>
-
-          <button type="button" onClick={fetchCredentials} className="bg-gray-200 px-4 py-2 rounded">
-            {listLoading ? "Refreshing..." : "Refresh list"}
-          </button>
-
-          <button
-            type="button"
-            onClick={async () => {
-              setListLoading(true);
-              if (walletDid) {
-                const ids = await getIdsForDid(walletDid);
-                // also fetch details so you can inspect
-                const onchain = await fetchOnChainCredentialsForDid(walletDid);
-                setCredentials(onchain);
-              } else {
-                const all = await fetchAllOnChainCredentials();
-                setCredentials(all);
-              }
-              setListLoading(false);
-            }}
-            className="bg-indigo-600 text-white px-4 py-2 rounded"
-          >
-            Show on-chain credentials
-          </button>
+    <div className="max-w-5xl mx-auto p-6 space-y-6">
+      <header className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-semibold">Ethr VC Manager</h2>
+          <p className="text-sm text-slate-500 mt-1">Create, publish, and verify verifiable credentials (keeps existing logic).</p>
         </div>
 
-        {error && <div className="text-red-600 mt-2">{error}</div>}
-      </form>
+        {/* right side */}
+        <div className="flex items-center gap-3">
+          {/* connection + network */}
+          <div className="flex flex-col items-end text-right">
+            <div className="flex items-center gap-2">
+              {/* status dot */}
+              <span
+                className={`inline-block w-2 h-2 rounded-full ${walletDid ? "bg-emerald-500" : "bg-slate-300"}`}
+                title={walletDid ? "Wallet connected" : "No wallet DID"}
+              />
+              <span className="text-xs text-slate-500">{walletDid ? "Connected" : "Disconnected"}</span>
+            </div>
 
-      {/* Created credential preview */}
+            <div className="mt-1 flex items-center gap-2">
+              {/* network badge (parsed from DID if possible) */}
+              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded font-medium text-slate-700">
+                {(() => {
+                  try {
+                    if (!walletDid) return "—";
+                    const parts = walletDid.split(":"); // e.g. did:ethr:sepolia:0x...
+                    return (parts[2] && parts[2].toUpperCase()) || "ETHR";
+                  } catch {
+                    return "ETHR";
+                  }
+                })()}
+              </span>
+
+              {/* truncated DID with copy */}
+              <div className="flex items-center gap-2">
+                <code className="font-mono text-sm bg-slate-50 px-2 py-1 rounded max-w-[28ch] truncate block">
+                  {walletDid ?? "—"}
+                </code>
+                <button
+                  onClick={() => {
+                    if (!walletDid) return alert("No wallet DID to copy");
+                    copyToClipboard(walletDid, "Wallet DID");
+                  }}
+                  className="bg-slate-100 px-2 py-1 rounded text-sm hover:bg-slate-200"
+                  title="Copy wallet DID"
+                >
+                  <Copy size={14} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Refresh button (keeps existing handler) */}
+          <button
+            onClick={fetchCredentials}
+            className="flex items-center gap-2 bg-slate-100 px-3 py-2 rounded text-sm hover:bg-slate-200"
+            title="Refresh list"
+          >
+            <RefreshCw size={16} /> Refresh
+          </button>
+        </div>
+      </header>
+
+
+      {/* Create VC form - compact card */}
+      <section className="bg-white shadow-sm rounded border border-slate-100 p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-lg font-medium">Create Credential</h3>
+          <div className="text-sm text-slate-500">Compact form · required fields</div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {["issuerDid", "subjectDid", "name", "role", "organization"].map((field) => (
+            <div key={field} className="flex flex-col">
+              <label className="text-xs font-medium text-slate-700 flex items-center gap-2">
+                <span className="capitalize">{field}</span>
+                <span className="text-[10px] text-slate-400">required</span>
+              </label>
+              <input
+                type="text"
+                name={field}
+                value={formData[field]}
+                onChange={handleChange}
+                className="mt-1 px-2 py-2 border border-slate-200 rounded text-sm bg-slate-50"
+                disabled={field === "subjectDid" && didLoading}
+                required
+              />
+
+              {field === "subjectDid" && (
+                <div className="text-xs text-slate-500 mt-1 flex items-center gap-2">
+                  {didLoading ? (
+                    <span className="italic">Loading wallet DID…</span>
+                  ) : walletDid ? (
+                    <span className="text-ellipsis overflow-hidden whitespace-nowrap">Using wallet DID: <code className="bg-slate-100 px-1 rounded ml-1">{walletDid}</code></span>
+                  ) : (
+                    <span className="italic">No wallet DID available — paste a subject DID.</span>
+                  )}
+                  {walletAddress && <span className="ml-auto text-xs text-slate-400 font-mono">({walletAddress})</span>}
+                </div>
+              )}
+            </div>
+          ))}
+
+          <div className="flex flex-col">
+            <label className="text-xs font-medium text-slate-700">expirationDate</label>
+            <input
+              type="datetime-local"
+              name="expirationDate"
+              value={formData.expirationDate}
+              onChange={handleChange}
+              className="mt-1 px-2 py-2 border border-slate-200 rounded text-sm bg-slate-50"
+            />
+          </div>
+
+          <div className="md:col-span-2 flex flex-wrap gap-2 items-center mt-1">
+            <button type="submit" disabled={loading || didLoading} className="flex items-center gap-2 bg-blue-600 text-white px-3 py-1.5 rounded text-sm">
+              <PlusSquare size={16} /> {loading ? "Creating..." : "Create"}
+            </button>
+
+            <button
+              type="button"
+              onClick={fetchCredentials}
+              className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded text-sm hover:bg-slate-200"
+            >
+              <RefreshCw size={14} /> {listLoading ? "Refreshing..." : "Refresh list"}
+            </button>
+
+            <button
+              type="button"
+              onClick={async () => {
+                setListLoading(true);
+                if (walletDid) {
+                  const ids = await getIdsForDid(walletDid);
+                  const onchain = await fetchOnChainCredentialsForDid(walletDid);
+                  setCredentials(onchain);
+                } else {
+                  const all = await fetchAllOnChainCredentials();
+                  setCredentials(all);
+                }
+                setListLoading(false);
+              }}
+              className="flex items-center gap-2 bg-indigo-600 text-white px-3 py-1.5 rounded text-sm"
+            >
+              <Database size={14} /> Show on-chain
+            </button>
+
+            {error && <div className="text-red-600 text-sm ml-2">{error}</div>}
+          </div>
+        </form>
+      </section>
+
+      {/* Latest created credential card */}
       {credential && (
-        <section className="mb-6 p-4 bg-gray-50 rounded">
-          <h3 className="font-semibold">Latest created credential</h3>
-          <pre className="text-sm whitespace-pre-wrap max-h-48 overflow-auto mt-2">{JSON.stringify(credential, null, 2)}</pre>
+        <section className="bg-gradient-to-r from-slate-50 to-white border border-slate-100 rounded p-4 shadow-sm">
+          <div className="flex items-start justify-between">
+            <div>
+              <h4 className="font-semibold text-slate-800">Latest created credential</h4>
+              <div className="text-xs text-slate-500 mt-1">Preview (JSON)</div>
+            </div>
+            <div className="flex items-center gap-2">
+              <StatusDot status={ipfsStatus["latest"] || chainStatus["latest"]} />
+              <div className="text-xs text-slate-500">{ipfsStatus["latest"]?.cid ? "Published" : chainStatus["latest"]?.txHash ? "On-chain" : "Draft"}</div>
+            </div>
+          </div>
 
-          <div className="flex gap-2 mt-3 flex-wrap">
-            <button onClick={() => copyToClipboard(JSON.stringify(credential, null, 2), "Credential JSON")} className="bg-green-600 text-white px-3 py-1 rounded">Copy JSON</button>
-            <button onClick={() => credential?.proof?.jwt && copyToClipboard(credential.proof.jwt, "JWT")} className="bg-gray-600 text-white px-3 py-1 rounded">Copy JWT</button>
-            <button onClick={() => credential?.proof?.jwt && generateQr(credential.proof.jwt)} className="bg-indigo-600 text-white px-3 py-1 rounded">QR (JWT)</button>
-            <button onClick={() => downloadJSON(credential)} className="bg-yellow-600 text-white px-3 py-1 rounded">Download JSON</button>
-            <button onClick={() => downloadPDF(credential)} className="bg-purple-600 text-white px-3 py-1 rounded">Download PDF</button>
-            <button onClick={() => { if (credential?.proof?.jwt) setJwtToVerify(credential.proof.jwt); else alert('No JWT present'); }} className="bg-slate-700 text-white px-3 py-1 rounded">Use JWT for Verify</button>
+          <pre className="text-xs whitespace-pre-wrap max-h-48 overflow-auto mt-3 bg-slate-50 p-2 rounded">{JSON.stringify(credential, null, 2)}</pre>
 
-            <button onClick={() => publishCredentialToIpfsAndStoreOnChain(credential, "latest")} className="bg-emerald-700 text-white px-3 py-1 rounded">
-              {ipfsStatus["latest"]?.uploading ? "Uploading..." : chainStatus["latest"]?.sending ? "Storing on-chain..." : "Publish IPFS & Store On-chain"}
+          <div className="flex flex-wrap gap-2 mt-3">
+            <button onClick={() => copyToClipboard(JSON.stringify(credential, null, 2), "Credential JSON")} className="flex items-center gap-2 bg-emerald-600 text-white px-3 py-1 rounded text-sm">
+              <Copy size={14} /> Copy JSON
+            </button>
+            <button onClick={() => credential?.proof?.jwt && copyToClipboard(credential.proof.jwt, "JWT")} className="flex items-center gap-2 bg-slate-700 text-white px-3 py-1 rounded text-sm">
+              <Copy size={14} /> Copy JWT
+            </button>
+            <button onClick={() => credential?.proof?.jwt && generateQr(credential.proof.jwt)} className="flex items-center gap-2 bg-indigo-600 text-white px-3 py-1 rounded text-sm">
+              <QrCode size={14} /> QR (JWT)
+            </button>
+            <button onClick={() => downloadJSON(credential)} className="flex items-center gap-2 bg-yellow-600 text-white px-3 py-1 rounded text-sm">
+              <FileText size={14} /> JSON
+            </button>
+            <button onClick={() => downloadPDF(credential)} className="flex items-center gap-2 bg-purple-600 text-white px-3 py-1 rounded text-sm">
+              <Download size={14} /> PDF
+            </button>
+            <button onClick={() => { if (credential?.proof?.jwt) setJwtToVerify(credential.proof.jwt); else alert('No JWT present'); }} className="flex items-center gap-2 bg-slate-800 text-white px-3 py-1 rounded text-sm">
+              <Link2 size={14} /> Use for Verify
+            </button>
+
+            <button onClick={() => publishCredentialToIpfsAndStoreOnChain(credential, "latest")} className="flex items-center gap-2 bg-emerald-700 text-white px-3 py-1 rounded text-sm">
+              <UploadCloud size={14} /> {ipfsStatus["latest"]?.uploading ? "Uploading..." : chainStatus["latest"]?.sending ? "Storing..." : "Publish & Store"}
             </button>
           </div>
 
-          {ipfsStatus["latest"]?.cid && (
-            <div className="text-xs mt-2">
-              IPFS CID: <a target="_blank" rel="noreferrer" href={`https://dweb.link/ipfs/${ipfsStatus["latest"].cid}`} className="underline">{ipfsStatus["latest"].cid}</a>
-            </div>
-          )}
-          {chainStatus["latest"]?.txHash && (
-            <div className="text-xs mt-1">Tx: <a target="_blank" rel="noreferrer" href={`https://etherscan.io/tx/${chainStatus["latest"].txHash}`} className="underline">{chainStatus["latest"].txHash}</a></div>
-          )}
-          {chainStatus["latest"]?.error && <div className="text-xs text-red-600 mt-1">On-chain error: {chainStatus["latest"].error}</div>}
+          <div className="mt-2 text-xs text-slate-500 flex flex-col gap-1">
+            {ipfsStatus["latest"]?.cid && <div>IPFS CID: <a target="_blank" rel="noreferrer" href={`https://dweb.link/ipfs/${ipfsStatus["latest"].cid}`} className="underline">{ipfsStatus["latest"].cid}</a></div>}
+            {chainStatus["latest"]?.txHash && <div>Tx: <a target="_blank" rel="noreferrer" href={`https://etherscan.io/tx/${chainStatus["latest"].txHash}`} className="underline">{chainStatus["latest"].txHash}</a></div>}
+            {chainStatus["latest"]?.error && <div className="text-red-600">On-chain error: {chainStatus["latest"].error}</div>}
+          </div>
         </section>
       )}
 
       {/* QR viewer */}
       {qrDataUrl && (
-        <section className="mb-6">
-          <h4 className="font-semibold">QR Code</h4>
-          <img src={qrDataUrl} alt="QR" className="mt-2" />
-          <div className="mt-2">
-            <button onClick={() => setQrDataUrl(null)} className="bg-red-500 text-white px-3 py-1 rounded">Close QR</button>
+        <section className="bg-white border border-slate-100 p-3 rounded shadow-sm">
+          <div className="flex items-center justify-between">
+            <h4 className="font-medium text-sm">QR Code</h4>
+            <button onClick={() => setQrDataUrl(null)} className="text-sm text-red-500 flex items-center gap-2">
+              <AlertCircle size={14} /> Close
+            </button>
+          </div>
+          <div className="mt-2 flex items-center gap-4">
+            <img src={qrDataUrl} alt="QR" className="w-36 h-36" />
+            <div className="text-sm text-slate-600">Scan to view JWT.</div>
           </div>
         </section>
       )}
 
       {/* Credentials list */}
-      <section className="mb-6">
-        <h3 className="text-lg font-semibold mb-2">Stored credentials</h3>
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-medium">Stored credentials</h3>
+          <div className="text-sm text-slate-500">{credentials.length} items</div>
+        </div>
 
-        {listLoading && <div>Loading credentials…</div>}
+        {listLoading && <div className="text-sm text-slate-500">Loading credentials…</div>}
 
-        {/* Diagnostics when no credentials */}
         {!listLoading && credentials.length === 0 && (
-          <div className="text-sm text-gray-500 space-y-2">
+          <div className="p-3 bg-slate-50 border border-slate-100 rounded text-sm text-slate-600">
             <div>No credentials found.</div>
-            <div className="text-xs text-gray-600">
-              <strong>Diagnostics:</strong>
-              <div>Wallet DID: <code className="bg-gray-100 px-1 rounded">{walletDid ?? "—"}</code></div>
-              <div>Wallet address: <code className="bg-gray-100 px-1 rounded">{walletAddress ?? "—"}</code></div>
-              <div>Last on-chain IDs for DID: {lastOnchainIds.length > 0 ? lastOnchainIds.join(", ") : "none"}</div>
+            <div className="mt-2 text-xs">
+              <strong>Diagnostics</strong>
+              <div className="mt-1">Wallet DID: <code className="bg-slate-100 px-1 rounded">{walletDid ?? "—"}</code></div>
+              <div className="mt-1">Wallet address: <code className="bg-slate-100 px-1 rounded">{walletAddress ?? "—"}</code></div>
+              <div className="mt-1">Last on-chain IDs: {lastOnchainIds.length > 0 ? lastOnchainIds.join(", ") : "none"}</div>
               {lastOnchainRowsDebug.length > 0 && (
-                <details className="mt-1">
-                  <summary className="cursor-pointer text-xs underline">Show raw on-chain rows (debug)</summary>
-                  <pre className="text-xs max-h-48 overflow-auto p-2 bg-gray-50 mt-1">{JSON.stringify(lastOnchainRowsDebug, null, 2)}</pre>
+                <details className="mt-2 text-xs">
+                  <summary className="cursor-pointer underline">Show raw on-chain rows (debug)</summary>
+                  <pre className="text-xs max-h-40 overflow-auto p-2 bg-white mt-1 rounded">{JSON.stringify(lastOnchainRowsDebug, null, 2)}</pre>
                 </details>
               )}
               <div className="mt-2">
@@ -868,82 +950,90 @@ const EthrVcManager = () => {
                     if (!walletDid) return alert("Connect wallet / set walletDid first");
                     setListLoading(true);
                     const ids = await getIdsForDid(walletDid);
-                    // keep existing credentials array empty — IDs will be shown in diagnostics
                     setListLoading(false);
                     if ((ids?.length ?? 0) === 0) alert("No on-chain IDs returned for this DID");
                   }}
-                  className="bg-gray-200 px-2 py-1 rounded text-xs"
+                  className="bg-slate-100 px-2 py-1 rounded text-xs"
                 >
-                  Fetch IDs for wallet DID
+                  <RefreshCw size={12} /> Fetch IDs
                 </button>
               </div>
             </div>
           </div>
         )}
 
-        <div className="space-y-3 mt-2">
+        <div className="grid gap-3">
           {credentials.map((cred, i) => {
             const jwt = cred?.proof?.jwt || cred?.jwt || (typeof cred === "string" ? cred : null);
             const subjectId = cred?.credentialSubject?.id || cred?.credentialSubject?.sub || cred?.onchain?.studentDID || cred?.subject || cred?.id || "N/A";
             return (
-              <div key={i} className="p-3 border rounded flex flex-col md:flex-row md:items-start md:justify-between gap-3">
-                <div className="flex-1">
-                  <div className="text-sm"><strong>Subject:</strong> {subjectId}</div>
-                  <div className="text-sm"><strong>Name:</strong> {cred?.credentialSubject?.name ?? cred?.name ?? cred?.credentialSubject?.fullName ?? "N/A"}</div>
-                  <div className="text-sm"><strong>Issuer:</strong> {cred?.issuer?.id ?? cred?.issuer ?? "N/A"}</div>
-                  <div className="text-xs text-gray-500 mt-1">{cred?.issuanceDate ? `Issued: ${cred.issuanceDate}` : (cred?.issuanceDate ? `Issued: ${cred.issuanceDate}` : "")}</div>
+              <div key={i} className="bg-white border border-slate-100 rounded p-3 flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm text-slate-700 truncate"><strong>Subject:</strong> <span className="font-mono ml-1">{subjectId}</span></div>
+                  <div className="text-sm text-slate-600 mt-1 truncate"><strong>Name:</strong> {cred?.credentialSubject?.name ?? cred?.name ?? cred?.credentialSubject?.fullName ?? "N/A"}</div>
+                  <div className="text-sm text-slate-600 mt-1 truncate"><strong>Issuer:</strong> {cred?.issuer?.id ?? cred?.issuer ?? "N/A"}</div>
+                  <div className="text-xs text-slate-400 mt-1">{cred?.issuanceDate ? `Issued: ${cred.issuanceDate}` : ""}</div>
 
                   {cred?.onchain?.mappingCID ? (
-                    <div className="text-xs mt-1">
-                      On-chain CID: <a target="_blank" rel="noreferrer" href={`https://dweb.link/ipfs/${cred.onchain.mappingCID}`} className="underline">{cred.onchain.mappingCID}</a>
+                    <div className="text-xs mt-2 text-slate-500">
+                      <StatusDot status={cred.onchain?.valid === false ? { error: true } : { success: cred.onchain?.valid }} />
+                      On-chain CID: <a target="_blank" rel="noreferrer" href={`https://dweb.link/ipfs/${cred.onchain.mappingCID}`} className="underline ml-1">{cred.onchain.mappingCID}</a>
                       {cred.onchain?.id && <span className="ml-2">(id #{cred.onchain.id})</span>}
                       {cred.onchain?.valid === false && <span className="ml-2 text-red-600"> (revoked)</span>}
                     </div>
                   ) : (
                     cred?.onchain && (
-                      <div className="text-xs mt-1">
+                      <div className="text-xs mt-2 text-slate-500">
                         On-chain: id {cred.onchain.id ?? "?"}, mappingCID: <span className="italic">none</span>
                       </div>
                     )
                   )}
                 </div>
 
-                <div className="flex-shrink-0 flex flex-col gap-2 items-end">
+                <div className="flex-shrink-0 w-full md:w-auto flex flex-col gap-2 items-end">
                   <div className="flex gap-2">
-                    <button onClick={() => downloadJSON(cred)} className="bg-yellow-600 text-white px-3 py-1 rounded text-sm">JSON</button>
-                    <button onClick={() => downloadPDF(cred)} className="bg-purple-600 text-white px-3 py-1 rounded text-sm">PDF</button>
-                    <button onClick={() => jwt ? copyToClipboard(jwt, "JWT") : alert("No JWT for this credential")} className="bg-gray-600 text-white px-3 py-1 rounded text-sm">Copy JWT</button>
-                    <button onClick={() => jwt ? generateQr(jwt) : alert("No JWT to generate QR")} className="bg-indigo-600 text-white px-3 py-1 rounded text-sm">QR</button>
+                    <button onClick={() => downloadJSON(cred)} className="flex items-center gap-2 bg-yellow-600 text-white px-2 py-1 rounded text-xs">
+                      <FileText size={14} /> JSON
+                    </button>
+                    <button onClick={() => downloadPDF(cred)} className="flex items-center gap-2 bg-purple-600 text-white px-2 py-1 rounded text-xs">
+                      <Download size={14} /> PDF
+                    </button>
+                    <button onClick={() => jwt ? copyToClipboard(jwt, "JWT") : alert("No JWT for this credential")} className="flex items-center gap-2 bg-slate-700 text-white px-2 py-1 rounded text-xs">
+                      <Copy size={14} /> JWT
+                    </button>
+                    <button onClick={() => jwt ? generateQr(jwt) : alert("No JWT to generate QR")} className="flex items-center gap-2 bg-indigo-600 text-white px-2 py-1 rounded text-xs">
+                      <QrCode size={14} />
+                    </button>
                   </div>
 
-                  <div className="w-full">
+                  <div className="w-full mt-1">
                     <input
                       placeholder="web3.storage token (optional)"
                       value={ipfsToken}
                       onChange={(e) => setIpfsToken(e.target.value)}
-                      className="border px-2 py-1 rounded text-xs w-full"
+                      className="border px-2 py-1 rounded text-xs w-full bg-slate-50"
                     />
                     <div className="flex gap-2 mt-2 items-center">
-                      <button onClick={() => publishCredentialToIpfsAndStoreOnChain(cred, i)} className="bg-green-600 text-white px-3 py-1 rounded text-xs">
-                        {ipfsStatus[i]?.uploading ? "Uploading..." : chainStatus[i]?.sending ? "Storing..." : "Publish IPFS & Store On-chain"}
+                      <button onClick={() => publishCredentialToIpfsAndStoreOnChain(cred, i)} className="flex items-center gap-2 bg-emerald-600 text-white px-2 py-1 rounded text-xs">
+                        <UploadCloud size={14} /> {ipfsStatus[i]?.uploading ? "Uploading..." : chainStatus[i]?.sending ? "Storing..." : "Publish"}
                       </button>
 
                       {cred?.onchain?.mappingCID && (
-                        <button onClick={() => retryFetchIpfs(cred.onchain.mappingCID, i)} className="bg-gray-200 text-gray-800 px-2 py-1 rounded text-xs">
-                          {ipfsStatus["retry-" + i]?.fetching ? "Fetching..." : "Retry IPFS"}
+                        <button onClick={() => retryFetchIpfs(cred.onchain.mappingCID, i)} className="bg-slate-100 text-slate-800 px-2 py-1 rounded text-xs">
+                          <RefreshCw size={12} /> Retry IPFS
                         </button>
                       )}
 
                       {ipfsStatus[i]?.cid && (
-                        <a target="_blank" rel="noreferrer" href={`https://dweb.link/ipfs/${ipfsStatus[i].cid}`} className="text-xs underline ml-1">View ({ipfsStatus[i].cid})</a>
+                        <a target="_blank" rel="noreferrer" href={`https://dweb.link/ipfs/${ipfsStatus[i].cid}`} className="text-xs underline ml-1">View</a>
                       )}
                       {ipfsStatus[i]?.error && <div className="text-xs text-red-600">{ipfsStatus[i].error}</div>}
                       {chainStatus[i]?.txHash && <div className="text-xs ml-2">Tx: <a className="underline" target="_blank" rel="noreferrer" href={`https://etherscan.io/tx/${chainStatus[i].txHash}`}>{chainStatus[i].txHash}</a></div>}
                       {chainStatus[i]?.error && <div className="text-xs text-red-600 ml-2">{chainStatus[i].error}</div>}
                     </div>
-                    {/* show result of retry fetch if present */}
+
                     {ipfsStatus["retry-" + i]?.json && (
-                      <div className="mt-2 text-xs bg-gray-50 p-2 rounded">
+                      <div className="mt-2 text-xs bg-slate-50 p-2 rounded">
                         <strong>Fetched IPFS JSON (preview):</strong>
                         <pre className="text-xs max-h-40 overflow-auto">{JSON.stringify(ipfsStatus["retry-" + i].json, null, 2)}</pre>
                       </div>
@@ -957,35 +1047,139 @@ const EthrVcManager = () => {
       </section>
 
       {/* JWT verification */}
-      <section>
-        <h3 className="text-lg font-semibold">Verify JWT</h3>
-        <textarea value={jwtToVerify} onChange={(e) => setJwtToVerify(e.target.value.trim())} rows={4} className="w-full border p-2 rounded mt-2" placeholder="Paste JWT here..." />
-        <div className="flex gap-2 mt-2">
-          <button onClick={handleJwtVerification} className="bg-indigo-600 text-white px-4 py-2 rounded">Verify JWT</button>
-          <button onClick={() => { setJwtToVerify(""); setVerificationResult(null); }} className="bg-red-500 text-white px-4 py-2 rounded">Clear</button>
+      <section className="bg-white border border-slate-100 rounded p-4 shadow-sm">
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <h3 className="text-lg font-medium">Verify JWT</h3>
+            <div className="text-xs text-slate-500">Paste a JWT and verify its signature / claims</div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleJwtVerification}
+              className="flex items-center gap-2 bg-indigo-600 text-white px-3 py-1.5 rounded text-sm"
+            >
+              <CheckCircle size={14} /> Verify
+            </button>
+
+            <button
+              onClick={() => { setJwtToVerify(""); setVerificationResult(null); }}
+              className="flex items-center gap-2 bg-red-500 text-white px-3 py-1.5 rounded text-sm"
+            >
+              <AlertCircle size={14} /> Clear
+            </button>
+          </div>
         </div>
 
+        <textarea
+          value={jwtToVerify}
+          onChange={(e) => setJwtToVerify(e.target.value.trim())}
+          rows={4}
+          className="w-full border p-2 rounded text-sm bg-slate-50"
+          placeholder="Paste JWT here..."
+        />
+
+        {/* RESULT PANEL */}
         {verificationResult && (
-          <div className="mt-4 p-3 rounded bg-gray-50">
-            <pre className="text-sm whitespace-pre-wrap">{JSON.stringify(verificationResult, null, 2)}</pre>
-            <div className="mt-2">
-              {verificationResult.verified ? (
-                <span className="text-green-700 font-semibold">Verified ✅</span>
-              ) : (
-                <span className="text-red-700 font-semibold">Not verified — {verificationResult.error ?? "unknown"}</span>
-              )}
+          <div className="mt-4 p-3 rounded bg-slate-50">
+            {/* Top banner: Verified / Not verified */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {verificationResult.verified ? (
+                  <div className="flex items-center gap-2 text-emerald-700 font-semibold">
+                    <CheckCircle size={18} /> Verified ✅
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-red-700 font-semibold">
+                    <AlertCircle size={18} /> Not verified
+                  </div>
+                )}
+
+                {/* optional short error message */}
+                {!verificationResult.verified && verificationResult.error && (
+                  <div className="text-xs text-red-600 ml-2">({verificationResult.error})</div>
+                )}
+              </div>
+
+              <div className="text-xs text-slate-500">
+                <span className="font-semibold">Status:</span>{" "}
+                {verificationResult.verified ? "Signature OK" : "Signature failed"}
+              </div>
             </div>
 
-            {verificationResult.payload && (
-              <div className="mt-2 text-sm">
-                <div><strong>Issuer:</strong> {verificationResult.payload?.iss ?? "N/A"}</div>
-                <div><strong>Subject:</strong> {verificationResult.payload?.sub ?? "N/A"}</div>
-                <div><strong>Expiry:</strong> {verificationResult.payload?.exp ? new Date(verificationResult.payload.exp * 1000).toUTCString() : "N/A"}</div>
+            {/* META GRID */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+              {/* Issuer */}
+              <div className="flex flex-col">
+                <div className="text-xs text-slate-500">Issuer</div>
+                <div className="mt-1 flex items-center gap-2">
+                  <code className="font-mono text-xs px-2 py-1 bg-white border border-slate-100 rounded truncate max-w-full">{verificationResult.payload?.iss ?? "N/A"}</code>
+                  <button
+                    onClick={() => copyToClipboard(verificationResult.payload?.iss ?? "", "Issuer DID")}
+                    className="bg-slate-100 px-2 py-1 rounded text-xs hover:bg-slate-200"
+                    title="Copy issuer DID"
+                  >
+                    <Copy size={14} />
+                  </button>
+                </div>
               </div>
-            )}
+
+              {/* Subject */}
+              <div className="flex flex-col">
+                <div className="text-xs text-slate-500">Subject</div>
+                <div className="mt-1 flex items-center gap-2">
+                  <code className="font-mono text-xs px-2 py-1 bg-white border border-slate-100 rounded truncate max-w-full">{verificationResult.payload?.sub ?? "N/A"}</code>
+                  <button
+                    onClick={() => copyToClipboard(verificationResult.payload?.sub ?? "", "Subject DID")}
+                    className="bg-slate-100 px-2 py-1 rounded text-xs hover:bg-slate-200"
+                    title="Copy subject DID"
+                  >
+                    <Copy size={14} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Expiry */}
+              <div className="flex flex-col">
+                <div className="text-xs text-slate-500">Expiry</div>
+                <div className="mt-1 text-sm">
+                  {(() => {
+                    const exp = verificationResult.payload?.exp;
+                    if (!exp) return <span className="text-slate-600">N/A</span>;
+                    const expDate = new Date(exp * 1000);
+                    const now = Date.now();
+                    const diff = expDate.getTime() - now;
+                    const days = Math.ceil(Math.abs(diff) / (1000 * 60 * 60 * 24));
+                    const relative = diff > 0 ? `in ${days} day${days > 1 ? "s" : ""}` : `${days} day${days > 1 ? "s" : ""} ago`;
+                    const expired = diff <= 0;
+                    return (
+                      <div className="flex flex-col">
+                        <div className={`font-mono text-xs px-2 py-1 rounded ${expired ? "text-red-700" : "text-emerald-700"}`}>
+                          {expired ? "Expired" : "Valid"} · {relative}
+                        </div>
+                        <div className={`text-xs mt-1 ${expired ? "text-red-600" : "text-slate-600"}`}>{expDate.toUTCString()}</div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+            </div>
+
+            {/* small summary rows (optional) */}
+            <div className="mt-3 text-xs text-slate-600 grid grid-cols-1 md:grid-cols-2 gap-2">
+              <div><strong>Verified:</strong> {verificationResult.verified ? "true" : "false"}</div>
+              {verificationResult.payload?.iat && (<div><strong>Issued:</strong> {new Date(verificationResult.payload.iat * 1000).toUTCString()}</div>)}
+            </div>
+
+            {/* payload preview toggle */}
+            <details className="mt-3 bg-white border border-slate-100 rounded p-2">
+              <summary className="text-sm cursor-pointer">View full payload (JSON)</summary>
+              <pre className="text-xs whitespace-pre-wrap mt-2 max-h-56 overflow-auto bg-slate-50 p-2 rounded">{JSON.stringify(verificationResult.payload ?? verificationResult, null, 2)}</pre>
+            </details>
           </div>
         )}
       </section>
+
     </div>
   );
 };

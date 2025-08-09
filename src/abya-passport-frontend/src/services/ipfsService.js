@@ -5,7 +5,7 @@ import { PinataSDK } from "pinata-web3";
 // Initialize Pinata SDK using JWT and Gateway URL from environment variables
 const pinata = new PinataSDK({
   pinataJwt: import.meta.env.VITE_PINATA_JWT,
-  pinataGateway: import.meta.env.VITE_PINATA_GATEWAY ,
+  pinataGateway: import.meta.env.VITE_PINATA_GATEWAY,
 });
 
 /**
