@@ -4,13 +4,16 @@ import React, { useState, useEffect, useRef } from "react";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useAccount, useDisconnect } from "wagmi";
 import { useInternetIdentity } from "../contexts/InternetContext";
+import { useEthr } from "../contexts/EthrContext";
 
 const API_URL = process.env.REACT_APP_VERAMO_API_URL || "http://localhost:3000";
 
 function Navbar({ currentPage, setCurrentPage }) {
   const [showConnectOptions, setShowConnectOptions] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  const [walletDid, setWalletDid] = useState(null);
+  //const [walletDid, setWalletDid] = useState(null);
+  const { setWalletAddress, setWalletDid, walletDid: ctxDid } = useEthr();
+  const [walletDid, localSetWalletDid] = useState(ctxDid);
   const [didLoading, setDidLoading] = useState(false);
   const dropdownRef = useRef(null);
   const { address, isConnected } = useAccount();
@@ -38,6 +41,7 @@ function Navbar({ currentPage, setCurrentPage }) {
     if (!isConnected || !address || walletDid) {
       if (!isConnected || !address) {
         setWalletDid(null);
+        setWalletAddress(null);
         setDidLoading(false);
       }
       return;
@@ -56,6 +60,7 @@ function Navbar({ currentPage, setCurrentPage }) {
             i.did.toLowerCase().endsWith(address.toLowerCase())
           );
           if (existing) {
+            localSetWalletDid(existing.did);
             setWalletDid(existing.did);
             return;
           }
@@ -71,6 +76,7 @@ function Navbar({ currentPage, setCurrentPage }) {
 
         if (createJson.success && createJson.identifier?.did) {
           setWalletDid(createJson.identifier.did);
+          localSetWalletDid(createJson.identifier.did);
         } else if (
           !createJson.success &&
           createJson.error?.includes("already exists")
@@ -79,7 +85,10 @@ function Navbar({ currentPage, setCurrentPage }) {
           const retryList = await fetch(`${API_URL}/did/list`);
           const { identifiers: retryIds } = await retryList.json();
           const found = retryIds.find((i) => i.alias === alias);
-          if (found) setWalletDid(found.did);
+          if (found) {
+            localSetWalletDid(found.did);
+            setWalletDid(found.did);
+          }
         } else {
           console.error("Unexpected DID create response:", createJson);
         }
@@ -89,7 +98,8 @@ function Navbar({ currentPage, setCurrentPage }) {
         setDidLoading(false);
       }
     };
-
+    
+    setWalletAddress(address);
     fetchOrCreateDid();
   }, [isConnected, address, walletDid]);
 
