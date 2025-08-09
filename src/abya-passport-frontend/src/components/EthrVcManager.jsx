@@ -6,6 +6,7 @@ import QRCode from "qrcode";
 import * as ethers from "ethers";
 import { storeCredential, fetchDidDocument } from "../services/ipfsService";
 import { useEthr } from "../contexts/EthrContext";
+import EthrPresentation from "./VcPresentationManager";
 
 // Small icons to make the UI compact and scannable
 import {
@@ -34,6 +35,9 @@ const VC_ABI = [
 
 const EthrVcManager = () => {
   const { walletAddress, walletDid, didLoading } = useEthr();
+
+  // navigation state for showing presentation page
+  const [currentPage, setCurrentPage] = useState("home");
 
   const [formData, setFormData] = useState({
     issuerDid: "",
@@ -702,12 +706,17 @@ const EthrVcManager = () => {
     return <span className={`inline-block w-2 h-2 rounded-full ${cls} mr-2`} />;
   };
 
+  // ---------------- Navigation: render EthrPresentation when requested ----------------
+  if (currentPage === "ethrpresent") {
+    return <EthrPresentation onBack={() => setCurrentPage("home")} />;
+  }
+
   // ---------------- Render (only UI changed) ----------------
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-6">
       <header className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-semibold">Ethr VC Manager</h2>
+          <h2 className="text-2xl font-semibold">Ethr Credential Manager</h2>
           <p className="text-sm text-slate-500 mt-1">Create, publish, and verify verifiable credentials (keeps existing logic).</p>
         </div>
 
@@ -1179,6 +1188,71 @@ const EthrVcManager = () => {
           </div>
         )}
       </section>
+
+      {/* Divider */}
+      <hr className="my-8 border-slate-200" />
+
+      {/* Presentation creation section */}
+      {/* Presentation creation section (improved UI) */}
+      <section className="mt-6">
+        <div className="bg-white border border-slate-100 rounded-lg p-4 shadow-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+            {/* Left: explanation */}
+            <div className="flex gap-4">
+              <div className="flex-shrink-0">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-blue-600 flex items-center justify-center shadow">
+                  <CheckCircle size={20} className="text-white" />
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-lg font-semibold">Create a Verifiable Presentation</h3>
+                <p className="text-sm text-slate-500 mt-1 max-w-prose">
+                  A Verifiable Presentation lets you prove ownership of your Verifiable Credential
+                  while disclosing only the claims a verifier needs. Use it to share proofs safely
+                  and selectively.
+                </p>
+
+                <ul className="mt-3 text-sm text-slate-600 space-y-1">
+                  <li className="flex items-start gap-2">
+                    <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 mt-2" />
+                    Share proofs without revealing full credential details.
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="inline-block w-2 h-2 rounded-full bg-slate-400 mt-2" />
+                    Create presentations for verifiers, OTC onboarding, or selective disclosure.
+                  </li>
+                </ul>
+
+                <div className="mt-3 text-xs text-slate-500">
+                  Tip: It’s best to <strong>verify the credential JWT</strong> before creating a presentation.
+                </div>
+              </div>
+            </div>
+
+            {/* Right: actions & preview */}
+            <div className="flex flex-col gap-3">
+              {/* Primary CTA */}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setCurrentPage("ethrpresent")}
+                  className="flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-white transition-all duration-150 shadow-md transform
+                    bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 hover:scale-[1.02]"
+                  title="Go to Ethr VC Presentation"
+                >
+                  <QrCode size={18} /> Ethr VC Presentation
+                </button>
+              </div>
+
+              {/* Extra small guidance */}
+              <div className="text-xs text-slate-500">
+                <strong>When to use</strong>: present a credential when a verifier asks for proof (e.g. onboarding).
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
 
     </div>
   );
