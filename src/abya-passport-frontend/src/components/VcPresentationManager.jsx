@@ -21,22 +21,19 @@ const VC_ABI = [
   "function credentials(uint256) view returns (uint256,string,string,string,uint256,string,string,string,string,bool)",
 ];
 
-/** Heuristic to detect likely CID strings */
 const isLikelyCid = (s) => {
   if (!s || typeof s !== "string") return false;
   const trimmed = s.trim();
   if (trimmed.length === 0) return false;
-  if (/^Qm[1-9A-HJ-NP-Za-km-z]{44,}$/.test(trimmed)) return true; // CIDv0
-  if (/^[bB][a-z2-7]{40,}$/.test(trimmed)) return true; // CIDv1-like
+  if (/^Qm[1-9A-HJ-NP-Za-km-z]{44,}$/.test(trimmed)) return true;
+  if (/^[bB][a-z2-7]{40,}$/.test(trimmed)) return true;
   if (/^[A-Za-z0-9\-_.:]{20,128}$/.test(trimmed) && !/\s/.test(trimmed)) return true;
   return false;
 };
 
-/** base64url decode helper for JWT parsing */
 const base64UrlDecode = (str) => {
   try {
     let s = str.replace(/-/g, "+").replace(/_/g, "/");
-    // add padding
     while (s.length % 4) s += "=";
     return decodeURIComponent(
       atob(s)
@@ -49,7 +46,6 @@ const base64UrlDecode = (str) => {
   }
 };
 
-/** parse JWT payload safely (returns object or null) */
 const parseJwtPayload = (jwt) => {
   if (!jwt || typeof jwt !== "string") return null;
   const parts = jwt.split(".");
@@ -66,10 +62,9 @@ const parseJwtPayload = (jwt) => {
 const VcPresentationManager = ({ onBack = null }) => {
   const { walletDid } = useEthr();
 
-  // states
-  const [allCredentials, setAllCredentials] = useState([]); // backend raw
-  const [credentials, setCredentials] = useState([]); // filtered backend / onchain fallback
-  const [ipfsCredentials, setIpfsCredentials] = useState([]); // ui shape: { original, cid, doc, ipfsStatus }
+  const [allCredentials, setAllCredentials] = useState([]);
+  const [credentials, setCredentials] = useState([]);
+  const [ipfsCredentials, setIpfsCredentials] = useState([]);
   const [selectedIdx, setSelectedIdx] = useState(null);
   const [manualJwt, setManualJwt] = useState("");
   const [presentationJwt, setPresentationJwt] = useState("");
@@ -87,7 +82,6 @@ const VcPresentationManager = ({ onBack = null }) => {
 
   const cidCacheRef = useRef(new Map());
 
-  // ---- small helpers ----
   const safeToString = (v) => {
     try {
       if (v === null || v === undefined) return "";
@@ -111,7 +105,6 @@ const VcPresentationManager = ({ onBack = null }) => {
     const out = [];
     if (!did) return out;
     out.push(did);
-
     const hex = extractHexAddressFromDid(did);
     if (hex) {
       out.push(hex);
@@ -121,16 +114,13 @@ const VcPresentationManager = ({ onBack = null }) => {
         if (checksum) out.push(checksum);
       } catch {}
     }
-
     if (did.startsWith("did:ethr:")) {
       const removed = did.replace(/^did:ethr:[^:]+:/, "");
       if (removed && !out.includes(removed)) out.push(removed);
     }
-
     return out.filter((v, i) => v && out.indexOf(v) === i);
   };
 
-  // ---- provider (readonly) helper (supports ethers v5 & v6) ----
   const getContractReadonly = async () => {
     if (typeof window !== "undefined" && window.ethereum) {
       if (ethers?.BrowserProvider) {
@@ -170,7 +160,6 @@ const VcPresentationManager = ({ onBack = null }) => {
     throw new Error("No provider available for readonly operations");
   };
 
-  // ---- IPFS gateway fallback ----
   const tryFetchFromGateways = async (cid) => {
     const gateways = [`https://dweb.link/ipfs/${cid}`, `https://ipfs.io/ipfs/${cid}`, `https://cloudflare-ipfs.com/ipfs/${cid}`];
     const fetchPromises = gateways.map((g) =>
@@ -188,14 +177,12 @@ const VcPresentationManager = ({ onBack = null }) => {
     }
   };
 
-  // ---- fetch IPFS docs for cids (with cache & token pass-through) ----
   const fetchIpfsDocsForCids = async (cids) => {
     if (!Array.isArray(cids) || cids.length === 0) return [];
     const promises = cids.map(async (cid) => {
       if (cidCacheRef.current.has(cid)) {
         return { cid, doc: cidCacheRef.current.get(cid), source: "cache", error: null };
       }
-      // try primary fetchDidDocument (may support token)
       try {
         const maybeDoc = ipfsToken ? await fetchDidDocument(cid, { token: ipfsToken }) : await fetchDidDocument(cid);
         if (maybeDoc) {
@@ -203,7 +190,7 @@ const VcPresentationManager = ({ onBack = null }) => {
           return { cid, doc: maybeDoc, source: "primary", error: null };
         }
       } catch (primaryErr) {
-        // fallback to gateways
+        // fallback
       }
       try {
         const gwRes = await tryFetchFromGateways(cid);
@@ -218,7 +205,6 @@ const VcPresentationManager = ({ onBack = null }) => {
     return settled.map((s) => (s.status === "fulfilled" ? s.value : { cid: null, doc: null, source: "error", error: String(s.reason) }));
   };
 
-  // ---- Fetch mappingCIDs & build displayed credentials from on-chain (like EthrVcManager) ----
   const fetchOnChainCredentialsForDid = async (did) => {
     try {
       const readContract = await getContractReadonly();
@@ -235,12 +221,9 @@ const VcPresentationManager = ({ onBack = null }) => {
             usedVariant = v;
             break;
           }
-        } catch (inner) {
-          // ignore and try next variant
-        }
+        } catch (inner) {}
       }
 
-      // fallback: try the raw address extracted from DID
       if ((!idsRaw || idsRaw.length === 0) && did) {
         const hex = extractHexAddressFromDid(did);
         if (hex) {
@@ -263,7 +246,6 @@ const VcPresentationManager = ({ onBack = null }) => {
         try {
           const row = await readContract.credentials(idStr);
           rowsDebug.push({ idStr, row });
-          // row indexes: 0 id, 1 studentDID, 2 issuerDID, 3 credentialType, 4 issueDate, 5 metadata, 6 credentialHash, 7 signature, 8 mappingCID, 9 valid
           const mappingCID = row?.[8] ? safeToString(row[8]) : "";
           const issuerDID = row?.[2] ? safeToString(row[2]) : "";
           const issueDateRaw = row?.[4];
@@ -278,7 +260,6 @@ const VcPresentationManager = ({ onBack = null }) => {
             try {
               ipfsJson = await fetchDidDocument(mappingCID);
             } catch (fetchErr) {
-              // fallback to gateways
               try {
                 const gateways = [
                   `https://dweb.link/ipfs/${mappingCID}`,
@@ -309,9 +290,7 @@ const VcPresentationManager = ({ onBack = null }) => {
             let metadata = row?.[5] ?? "";
             try {
               metadata = typeof metadata === "string" ? JSON.parse(metadata) : metadata;
-            } catch (e) {
-              // keep metadata as string if parse fails
-            }
+            } catch (e) {}
             displayed = {
               credentialSubject: (metadata && typeof metadata === "object" && Object.keys(metadata).length > 0) ? metadata : { id: row?.[1] ?? did },
               issuer: { id: issuerDID },
@@ -331,12 +310,9 @@ const VcPresentationManager = ({ onBack = null }) => {
             },
           };
           results.push(credObj);
-        } catch (inner) {
-          // continue
-        }
+        } catch (inner) {}
       }
 
-      // keep debug in console
       console.debug("fetchOnChainCredentialsForDid rows:", rowsDebug);
       return results;
     } catch (err) {
@@ -345,7 +321,6 @@ const VcPresentationManager = ({ onBack = null }) => {
     }
   };
 
-  // fallback: read all on-chain and attempt to fetch mappingCID docs
   const fetchAllOnChainCredentials = async () => {
     try {
       const readContract = await getContractReadonly();
@@ -376,9 +351,7 @@ const VcPresentationManager = ({ onBack = null }) => {
             onchain: { id: safeToString(row?.[0] ?? i), mappingCID, issuerDID, valid: !!row?.[9] },
           };
           out.push(credObj);
-        } catch (inner) {
-          // ignore
-        }
+        } catch (inner) {}
       }
       return out;
     } catch (err) {
@@ -387,7 +360,6 @@ const VcPresentationManager = ({ onBack = null }) => {
     }
   };
 
-  // ---- extract cids from backend credentials ----
   const extractCids = (creds) => {
     const setCids = new Set();
     if (!Array.isArray(creds)) return [];
@@ -397,7 +369,7 @@ const VcPresentationManager = ({ onBack = null }) => {
         c?.mappingCID,
         c?.cid,
         c?.ipfsCid,
-        c?.id, // sometimes id holds cid
+        c?.id,
         c?.meta?.mappingCID,
       ];
       candidates.forEach((cand) => {
@@ -413,7 +385,6 @@ const VcPresentationManager = ({ onBack = null }) => {
     return Array.from(setCids);
   };
 
-  // ---- merge backend creds with fetched ipfs docs into UI shape ----
   const buildIpfsCredentials = async (creds) => {
     setIpfsCredentials([]);
     setIpfsDiagnostics([]);
@@ -424,8 +395,6 @@ const VcPresentationManager = ({ onBack = null }) => {
     }
 
     const cidsFromBackend = extractCids(creds);
-
-    // if no mapping found in backend, we will still attempt to fetch on-chain mapping CIDs later in fetchCredentials
     setExtractedCids(cidsFromBackend);
 
     let docs = [];
@@ -445,7 +414,6 @@ const VcPresentationManager = ({ onBack = null }) => {
           return { original: c, cid: mappingCID, doc: match.doc ?? null, ipfsStatus: { source: match.source ?? null, error: match.error ?? null } };
         }
       }
-      // if no mappingCID or not fetched, fall back to inline credential object
       return { original: c, cid: null, doc: c, ipfsStatus: { source: "inline", error: null } };
     });
 
@@ -454,17 +422,14 @@ const VcPresentationManager = ({ onBack = null }) => {
     setIpfsCredentials(merged);
   };
 
-  // ---- fetch credentials: try on-chain first (using walletDid), then backend fallback ----
   const fetchCredentials = async () => {
     setCredsLoading(true);
     setError("");
     try {
-      // First, if walletDid present, try to fetch on-chain credentials (these will be merged with IPFS JSON if mappingCID present)
       if (walletDid) {
         try {
           const onchain = await fetchOnChainCredentialsForDid(walletDid);
           if (onchain && onchain.length > 0) {
-            // convert onchain results into the UI shape used elsewhere
             const mapped = onchain.map((c) => ({
               original: null,
               cid: c?.onchain?.mappingCID || null,
@@ -482,11 +447,9 @@ const VcPresentationManager = ({ onBack = null }) => {
         }
       }
 
-      // Backend fallback
       const res = await axios.get(`${API_BASE}/credential/list`);
       const creds = res.data?.credentials ?? res.data ?? [];
       setAllCredentials(Array.isArray(creds) ? creds : []);
-      // default filter: try to show only those that match walletDid; else show all
       if (walletDid && Array.isArray(creds) && creds.length > 0) {
         const filtered = creds.filter((c) => {
           const subj =
@@ -511,7 +474,6 @@ const VcPresentationManager = ({ onBack = null }) => {
         setCredentials(creds);
       }
 
-      // build IPFS merged view for backend results
       await buildIpfsCredentials(Array.isArray(creds) ? creds : []);
     } catch (err) {
       console.error("fetchCredentials error:", err);
@@ -524,7 +486,6 @@ const VcPresentationManager = ({ onBack = null }) => {
     }
   };
 
-  // ---- Presentations list ----
   const fetchPresentations = async () => {
     setListLoading(true);
     try {
@@ -538,39 +499,28 @@ const VcPresentationManager = ({ onBack = null }) => {
     }
   };
 
-  // ---- Create presentation (UPDATED to include holderDid and verifiableCredentials array) ----
+  // --- FIXED: prefer vp.proof.jwt when backend returns presentation object ---
   const handleCreatePresentation = async () => {
     setPresentLoading(true);
     setError("");
     setPresentationJwt("");
     try {
-      // Determine holderDid:
-      // Prefer walletDid, fallback to selected credential subject DID, fallback to parsed JWT 'sub'
       let holderDid = walletDid || null;
-
-      // If manual JWT is provided and walletDid not exist, try parsing subject from JWT payload
       if (!holderDid && manualJwt) {
         const payload = parseJwtPayload(manualJwt);
         if (payload?.sub) holderDid = payload.sub;
       }
-
-      // If still no holderDid, attempt to derive from selected credential
       if (!holderDid && selectedIdx !== null) {
         const selDoc = ipfsCredentials[selectedIdx]?.doc;
         holderDid = selDoc?.credentialSubject?.id || selDoc?.subject || null;
       }
-
-      // If still missing, prompt user to connect wallet or paste holder DID
       if (!holderDid) {
         alert("Missing holder DID. Connect your wallet or ensure selected credential contains a subject DID, or paste a JWT that contains 'sub'.");
         setPresentLoading(false);
         return;
       }
 
-      // Build verifiableCredentials array
       let credsArray = [];
-
-      // Priority: manualJwt if provided
       if (manualJwt && manualJwt.trim()) {
         credsArray = [manualJwt.trim()];
       } else if (selectedIdx !== null) {
@@ -579,7 +529,6 @@ const VcPresentationManager = ({ onBack = null }) => {
         if (compactJwt) {
           credsArray = [compactJwt];
         } else if (sel?.doc) {
-          // full VC object (the backend should accept a VC object in the array)
           credsArray = [sel.doc];
         } else {
           alert("Selected credential does not contain a JWT or document to present.");
@@ -592,7 +541,6 @@ const VcPresentationManager = ({ onBack = null }) => {
         return;
       }
 
-      // final body with required fields
       const body = {
         holderDid,
         verifiableCredentials: credsArray,
@@ -600,7 +548,13 @@ const VcPresentationManager = ({ onBack = null }) => {
 
       const res = await axios.post(`${API_BASE}/presentation/create`, body);
       const vp = res.data?.presentation ?? res.data;
-      const jwt = vp?.jwt ?? (typeof vp === "string" ? vp : JSON.stringify(vp));
+
+      // prefer proof.jwt inside the returned presentation object
+      const jwt =
+        vp?.proof?.jwt ??
+        vp?.jwt ??
+        (typeof vp === "string" ? vp : JSON.stringify(vp));
+
       setPresentationJwt(jwt);
       await fetchPresentations();
     } catch (err) {
@@ -611,7 +565,6 @@ const VcPresentationManager = ({ onBack = null }) => {
     }
   };
 
-  // ---- Verify presentation ----
   const handleVerifyPresentation = async (jwtToVerifyParam = null) => {
     setVerifyResult(null);
     setError("");
@@ -627,7 +580,6 @@ const VcPresentationManager = ({ onBack = null }) => {
     }
   };
 
-  // ---- QR and copy helpers ----
   const copyToClipboard = async (text, label = "Text") => {
     if (!text) return alert(`${label} is empty`);
     try {
@@ -650,7 +602,6 @@ const VcPresentationManager = ({ onBack = null }) => {
     }
   };
 
-  // copy credential JWT
   const handleCopyCredentialJwt = (idx) => {
     const sel = ipfsCredentials[idx];
     const jwt = sel?.doc?.proof?.jwt || sel?.doc?.jwt || null;
@@ -660,7 +611,6 @@ const VcPresentationManager = ({ onBack = null }) => {
 
   const handleToggleShowAll = () => setShowAll((s) => !s);
 
-  // ---- lifecycle ----
   useEffect(() => {
     (async () => {
       await fetchCredentials();
@@ -690,7 +640,6 @@ const VcPresentationManager = ({ onBack = null }) => {
     });
   }, [ipfsCredentials]);
 
-  // ---- UI ----
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-6">
       <header className="flex items-center justify-between">
@@ -787,7 +736,7 @@ const VcPresentationManager = ({ onBack = null }) => {
         )}
       </section>
 
-      {/* Create / Verify Presentation (unchanged) */}
+      {/* Create / Verify Presentation */}
       <section className="bg-white border border-slate-100 rounded p-4 shadow-sm">
         <h3 className="text-lg font-medium mb-2">Create presentation</h3>
 
@@ -911,11 +860,6 @@ const VcPresentationManager = ({ onBack = null }) => {
             <strong>Extracted CIDs:</strong> {extractedCids.length} <button onClick={() => { buildIpfsCredentials(showAll ? allCredentials : credentials); }} className="ml-2 px-2 py-1 rounded bg-slate-100 text-xs">Rebuild</button>
             <pre className="mt-2 max-h-48 overflow-auto bg-slate-50 p-2 rounded">{JSON.stringify(extractedCids, null, 2)}</pre>
           </div>
-
-          {/* <div className="md:col-span-2">
-            <strong>IPFS fetch diagnostics:</strong>
-            <pre className="mt-2 max-h-60 overflow-auto bg-slate-50 p-2 rounded">{JSON.stringify(ipfsDiagnostics, null, 2)}</pre>
-          </div> */}
         </div>
       </section>
 
