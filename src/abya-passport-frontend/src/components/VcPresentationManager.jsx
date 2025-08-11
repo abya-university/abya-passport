@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState, useRef } from "react";
 import axios from "axios";
 import QRCode from "qrcode";
 import * as ethers from "ethers";
-import { fetchDidDocument } from "../services/ipfsService";
+import { fetchDidDocument, storeCredential } from "../services/ipfsService";
 import { useEthr } from "../contexts/EthrContext";
 import {
   RefreshCw,
@@ -15,10 +15,19 @@ import {
 
 const API_BASE = "http://localhost:3000";
 const VC_ADDRESS = import.meta.env.VITE_VC_CONTRACT_ADDRESS || "0xE2ff8118Bc145F03410F46728BaE0bF3f1C6EF81";
+const PRESENTATION_ADDRESS = import.meta.env.VITE_VC_PRESENTATION_ADDRESS || ""; // must be set in .env
+
 const VC_ABI = [
   "function getCredentialsForStudent(string studentDID) view returns (uint256[])",
   "function credentialCount() view returns (uint256)",
   "function credentials(uint256) view returns (uint256,string,string,string,uint256,string,string,string,string,bool)",
+];
+
+const PRESENTATION_ABI = [
+  "function createPresentation(string holderDid,string mappingCID,bytes32 vpJwtHash,uint256 relatedCredentialId) returns (uint256)",
+  "function getPresentationsForHolder(string holderDid) view returns (uint256[])",
+  "function presentationCount() view returns (uint256)",
+  "function presentations(uint256) view returns (uint256,string,string,bytes32,uint256,uint256,bool)"
 ];
 
 const isLikelyCid = (s) => {
@@ -79,6 +88,9 @@ const VcPresentationManager = ({ onBack = null }) => {
   const [extractedCids, setExtractedCids] = useState([]);
   const [ipfsDiagnostics, setIpfsDiagnostics] = useState([]);
   const [showAll, setShowAll] = useState(false);
+
+  // publishing status
+  const [publishStatus, setPublishStatus] = useState({ uploading: false, cid: null, txHash: null, txError: null });
 
   const cidCacheRef = useRef(new Map());
 
@@ -499,22 +511,22 @@ const VcPresentationManager = ({ onBack = null }) => {
     }
   };
 
-  // --- FIXED: prefer vp.proof.jwt when backend returns presentation object ---
+  // create presentation via backend (unchanged)
   const handleCreatePresentation = async () => {
     setPresentLoading(true);
     setError("");
     setPresentationJwt("");
     try {
-      let holderDid = walletDid || null;
-      if (!holderDid && manualJwt) {
+      let holderDidLocal = walletDid || null;
+      if (!holderDidLocal && manualJwt) {
         const payload = parseJwtPayload(manualJwt);
-        if (payload?.sub) holderDid = payload.sub;
+        if (payload?.sub) holderDidLocal = payload.sub;
       }
-      if (!holderDid && selectedIdx !== null) {
+      if (!holderDidLocal && selectedIdx !== null) {
         const selDoc = ipfsCredentials[selectedIdx]?.doc;
-        holderDid = selDoc?.credentialSubject?.id || selDoc?.subject || null;
+        holderDidLocal = selDoc?.credentialSubject?.id || selDoc?.subject || null;
       }
-      if (!holderDid) {
+      if (!holderDidLocal) {
         alert("Missing holder DID. Connect your wallet or ensure selected credential contains a subject DID, or paste a JWT that contains 'sub'.");
         setPresentLoading(false);
         return;
@@ -542,14 +554,13 @@ const VcPresentationManager = ({ onBack = null }) => {
       }
 
       const body = {
-        holderDid,
+        holderDid: holderDidLocal,
         verifiableCredentials: credsArray,
       };
 
       const res = await axios.post(`${API_BASE}/presentation/create`, body);
       const vp = res.data?.presentation ?? res.data;
 
-      // prefer proof.jwt inside the returned presentation object
       const jwt =
         vp?.proof?.jwt ??
         vp?.jwt ??
@@ -610,6 +621,115 @@ const VcPresentationManager = ({ onBack = null }) => {
   };
 
   const handleToggleShowAll = () => setShowAll((s) => !s);
+
+  // PresentationRegistry signer contract
+  const getPresentationContractWithSigner = async () => {
+    if (!PRESENTATION_ADDRESS) throw new Error("VITE_VC_PRESENTATION_ADDRESS is not set in .env");
+    if (typeof window === "undefined" || !window.ethereum) throw new Error("No Web3 provider (window.ethereum)");
+
+    if (ethers?.BrowserProvider) {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      try { await provider.send?.("eth_requestAccounts", []); } catch (_) {}
+      const signer = await provider.getSigner();
+      return new ethers.Contract(PRESENTATION_ADDRESS, PRESENTATION_ABI, signer);
+    }
+
+    if (ethers?.providers?.Web3Provider) {
+      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      try { await provider.send?.("eth_requestAccounts", []); } catch (_) {}
+      const signer = provider.getSigner();
+      return new ethers.Contract(PRESENTATION_ADDRESS, PRESENTATION_ABI, signer);
+    }
+
+    throw new Error("Unsupported ethers version: no BrowserProvider or providers.Web3Provider found");
+  };
+
+  const computeKeccak256 = (text) => {
+    try {
+      // ethers v6: top-level functions
+      if (typeof ethers.keccak256 === "function" && typeof ethers.toUtf8Bytes === "function") {
+        return ethers.keccak256(ethers.toUtf8Bytes(text));
+      }
+      // ethers v5 style:
+      if (ethers.utils && typeof ethers.utils.keccak256 === "function" && typeof ethers.utils.toUtf8Bytes === "function") {
+        return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(text));
+      }
+    } catch (e) {
+      console.warn("computeKeccak256 failed:", e);
+    }
+    // If keccak unavailable, throw so we don't store ambiguous data on-chain
+    throw new Error("keccak256 not available in ethers runtime");
+  };
+
+  // Publish presentation to IPFS then call PresentationRegistry.createPresentation(...)
+  const publishPresentationToIpfsAndStoreOnChain = async ({ presentationJwtToUse = null, relatedCredentialId = 0 } = {}) => {
+    setPublishStatus({ uploading: true, cid: null, txHash: null, txError: null });
+    setError("");
+    try {
+      const vpJwt = presentationJwtToUse || presentationJwt || manualJwt;
+      if (!vpJwt) {
+        alert("No presentation JWT available. Create or paste a presentation first.");
+        setPublishStatus((s) => ({ ...s, uploading: false }));
+        return;
+      }
+
+      // Build a small doc to store on IPFS
+      const vpDoc = {
+        presentationJwt: vpJwt,
+        createdBy: walletDid || null,
+        createdAt: new Date().toISOString(),
+      };
+
+      // Find holder DID (prefer walletDid, then 'sub' from jwt, then selected credential)
+      let holderToStore = walletDid || null;
+      if (!holderToStore) {
+        const parsed = parseJwtPayload(vpJwt);
+        if (parsed?.sub) holderToStore = parsed.sub;
+      }
+      if (!holderToStore && selectedIdx !== null) {
+        const selDoc = ipfsCredentials[selectedIdx]?.doc;
+        holderToStore = selDoc?.credentialSubject?.id || selDoc?.subject || null;
+      }
+
+      // Upload to IPFS (using your service)
+      let cid;
+      try {
+        cid = await storeCredential(holderToStore || "unknown", vpDoc);
+      } catch (ipfsErr) {
+        console.error("IPFS store failed", ipfsErr);
+        throw new Error("Failed to upload to IPFS: " + (ipfsErr?.message || String(ipfsErr)));
+      }
+
+      setPublishStatus((s) => ({ ...s, uploading: false, cid }));
+
+      // Compute keccak of compact VP JWT
+      let vpHash;
+      try {
+        vpHash = computeKeccak256(vpJwt);
+      } catch (hashErr) {
+        console.error("Hash computation failed", hashErr);
+        throw hashErr;
+      }
+
+      // Store mapping on-chain
+      const contract = await getPresentationContractWithSigner();
+      try {
+        const tx = await contract.createPresentation(holderToStore || "", cid || "", vpHash, relatedCredentialId || 0);
+        const txHash = tx?.hash || tx?.transactionHash || null;
+        setPublishStatus((s) => ({ ...s, txHash, txError: null }));
+        if (typeof tx.wait === "function") await tx.wait();
+        await fetchPresentations();
+      } catch (chainErr) {
+        console.error("On-chain error", chainErr);
+        setPublishStatus((s) => ({ ...s, txError: chainErr?.message || String(chainErr) }));
+        throw chainErr;
+      }
+    } catch (err) {
+      console.error("publishPresentation error:", err);
+      setError(err?.message || String(err));
+      setPublishStatus((s) => ({ ...s, uploading: false, txError: err?.message || String(err) }));
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -766,8 +886,34 @@ const VcPresentationManager = ({ onBack = null }) => {
             <QrIcon size={14} /> {presentLoading ? "Creating..." : "Create Presentation"}
           </button>
 
-          <button onClick={() => { setPresentationJwt(""); setVerifyResult(null); }} className="bg-slate-100 px-3 py-2 rounded">Clear</button>
+          <button
+            onClick={async () => {
+              // determine relatedCredentialId if selected credential has on-chain id
+              let relatedId = 0;
+              try {
+                const selOriginal = ipfsCredentials[selectedIdx]?.original;
+                if (selOriginal?.onchain?.id) relatedId = Number(selOriginal.onchain.id);
+              } catch (e) {}
+              await publishPresentationToIpfsAndStoreOnChain({ presentationJwtToUse: presentationJwt || manualJwt, relatedCredentialId: relatedId });
+            }}
+            disabled={publishStatus.uploading}
+            className="flex items-center gap-2 bg-emerald-700 text-white px-4 py-2 rounded"
+            title="Upload presentation to IPFS and register mapping on-chain"
+          >
+            {publishStatus.uploading ? "Publishing..." : "Publish to IPFS & Store on-chain"}
+          </button>
+
+          <button onClick={() => { setPresentationJwt(""); setVerifyResult(null); setPublishStatus({ uploading: false, cid: null, txHash: null, txError: null }); }} className="bg-slate-100 px-3 py-2 rounded">Clear</button>
         </div>
+
+        {/* publish status */}
+        {publishStatus.cid && (
+          <div className="mt-3 text-xs text-slate-700 p-2 bg-slate-50 rounded border">
+            <div>IPFS CID: <a href={`https://dweb.link/ipfs/${publishStatus.cid}`} target="_blank" rel="noreferrer" className="underline">{publishStatus.cid}</a></div>
+            {publishStatus.txHash && <div className="mt-1">Tx: <a href={`https://etherscan.io/tx/${publishStatus.txHash}`} target="_blank" rel="noreferrer" className="underline">{publishStatus.txHash}</a></div>}
+            {publishStatus.txError && <div className="mt-1 text-red-600">On-chain error: {publishStatus.txError}</div>}
+          </div>
+        )}
 
         {presentationJwt && (
           <div className="mt-3 p-3 bg-slate-50 rounded border">
@@ -861,6 +1007,14 @@ const VcPresentationManager = ({ onBack = null }) => {
             <pre className="mt-2 max-h-48 overflow-auto bg-slate-50 p-2 rounded">{JSON.stringify(extractedCids, null, 2)}</pre>
           </div>
         </div>
+
+        {publishStatus.cid && (
+          <div className="mt-3 text-xs">
+            <strong>Last published VP CID:</strong> {publishStatus.cid}
+            {publishStatus.txHash && <div>Tx: <code className="font-mono">{publishStatus.txHash}</code></div>}
+            {publishStatus.txError && <div className="text-red-600">Error: {publishStatus.txError}</div>}
+          </div>
+        )}
       </section>
 
       {error && <div className="text-sm text-red-600">{error}</div>}
