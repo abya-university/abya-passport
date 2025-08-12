@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useInternetIdentity } from "../contetxs/InternetContext";
+import { useInternetIdentity } from "../contexts/InternetContext";
 import { useToast } from "./Toast";
 import QRCode from "react-qr-code";
 import QRCodeLib from "qrcode";

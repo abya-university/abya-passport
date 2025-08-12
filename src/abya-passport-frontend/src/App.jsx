@@ -4,6 +4,7 @@ import Navbar from "./components/Navbar";
 import DIDDocument from "./components/DIDDocument";
 import VCManager from "./components/VCManager";
 import VCVerifier from "./components/VCVerifier";
+import EthrVcManager from "./components/EthrVcManager";
 
 function App() {
   const [currentPage, setCurrentPage] = useState("home");
@@ -14,6 +15,8 @@ function App() {
         return <DIDDocument />;
       case "vc":
         return <VCManager />;
+      case "ethr-vc":
+        return <EthrVcManager />;
       case "verify":
         return <VCVerifier />;
       case "home":
@@ -104,7 +107,13 @@ function App() {
                   onClick={() => setCurrentPage("vc")}
                   className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
                 >
-                  Manage Credentials
+                  ICP Credentials
+                </button>
+                <button
+                  onClick={() => setCurrentPage("ethr-vc")}
+                  className="bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
+                >
+                  Ethereum VCs
                 </button>
                 <button
                   onClick={() => setCurrentPage("verify")}

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import { useInternetIdentity } from "../contetxs/InternetContext";
-import { useIPFS } from "../contetxs/IPFSContext";
+import { useInternetIdentity } from "../contexts/InternetContext";
+import { useIPFS } from "../contexts/IPFSContext";
 import { useToast } from "./Toast";
 
 const VCVerifier = () => {

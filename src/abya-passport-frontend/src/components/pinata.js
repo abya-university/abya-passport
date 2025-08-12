@@ -1,9 +1,9 @@
 import axios from "axios";
 import FormData from "form-data";
 
-const pinataApiKey = "477153144439c505b40d";
+const pinataApiKey = "b5de97e4d7f291fffa29";
 const pinataSecretApiKey =
-  "172eb291c7ef77beedc4e453091f2b508cc2cb3264f0db54f8982a13728e9104";
+  "3c186fb58980777698bab8e95f010f40fd0d04e14de8f49b551108351aefaf28";
 
 export const uploadFileToPinata = async (file) => {
   const url = "https://api.pinata.cloud/pinning/pinFileToIPFS";

@@ -16,8 +16,8 @@ import {
   skaleTitanTestnet,
 } from "wagmi/chains";
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
-import { IPFSProvider } from "../contetxs/IPFSContext";
-import { InternetIdentityProvider } from "../contetxs/InternetContext";
+import { IPFSProvider } from "../contexts/IPFSContext";
+import { InternetIdentityProvider } from "../contexts/InternetContext";
 import { ToastProvider } from "../components/Toast";
 
 export default function Providers({ children }) {

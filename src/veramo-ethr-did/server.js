@@ -1,6 +1,6 @@
 // src/veramo-ethr-did/server.js
 
-import dotenv from 'dotenv';
+import dotenv from "dotenv";
 dotenv.config();
 
 import express from "express";
@@ -33,7 +33,86 @@ console.log("ENV:", {
   INFURA_PROJECT_ID: process.env.INFURA_PROJECT_ID,
 });
 
+// SKALE Titan Network Configuration
+const SKALE_TITAN_CONFIG = {
+  name: "skale-titan",
+  chainId: 1020352220,
+  rpcUrl: "https://mainnet.skalenodes.com/v1/parallel-stormy-spica",
+  // Use a known deployed registry or fallback to zero address for custom handling
+  registry:
+    process.env.ETH_REGISTRY_ADDRESS ||
+    "0xdca7ef03e98e0dc2b855be647c39abe984fcf21b", // ERC1056 registry on SKALE mainnet
+};
 
+// Network-specific configurations
+const NETWORK_CONFIGS = {
+  "skale-titan": SKALE_TITAN_CONFIG,
+  skale: SKALE_TITAN_CONFIG, // Alias for backward compatibility
+  sepolia: {
+    name: "sepolia",
+    chainId: 11155111,
+    rpcUrl: "https://sepolia.infura.io/v3/0ab3a5daf9d64bbaaeac8ae7c09af18e",
+    registry: "0xc0660d54f4655dC3B045D69ced4308f1709FD35e",
+  },
+};
+
+// Get network configuration
+const getNetworkConfig = () => {
+  const networkName = process.env.ETH_NETWORK || "skale-titan";
+  const config = NETWORK_CONFIGS[networkName] || SKALE_TITAN_CONFIG;
+
+  return {
+    name: config.name,
+    rpcUrl: process.env.ETH_PROVIDER_URL || config.rpcUrl,
+    registry: process.env.ETH_REGISTRY_ADDRESS || config.registry,
+    chainId: config.chainId,
+  };
+};
+
+// Function to check registry contract deployment
+async function checkRegistryDeployment(networkConfig) {
+  try {
+    const { ethers } = await import("ethers");
+    const provider = new ethers.JsonRpcProvider(networkConfig.rpcUrl);
+
+    // Check if registry contract has code
+    const code = await provider.getCode(networkConfig.registry);
+    const isDeployed = code && code !== "0x";
+
+    console.log(
+      `Registry ${networkConfig.registry} on ${networkConfig.name}:`,
+      isDeployed ? "✅ Deployed" : "❌ Not deployed or no code"
+    );
+
+    // If the current registry is not deployed, try some known registry addresses
+    if (!isDeployed && networkConfig.name === "skale-titan") {
+      const knownRegistries = [
+        "0xdca7ef03e98e0dc2b855be647c39abe984fcf21b", // Common ERC1056 address
+        "0xd1d374dda6c5e1c0fd927de1c6c0e9cb7d7f12d3", // Alternative registry
+        "0x0000000000000000000000000000000000000000", // Zero address (fallback)
+      ];
+
+      for (const registry of knownRegistries) {
+        try {
+          const registryCode = await provider.getCode(registry);
+          const registryDeployed = registryCode && registryCode !== "0x";
+
+          if (registryDeployed) {
+            console.log(`Found working registry at: ${registry}`);
+            return { isDeployed: true, registry };
+          }
+        } catch (err) {
+          console.log(`Failed to check registry ${registry}:`, err.message);
+        }
+      }
+    }
+
+    return { isDeployed, registry: networkConfig.registry };
+  } catch (error) {
+    console.error(`Error checking registry deployment:`, error.message);
+    return { isDeployed: false, registry: networkConfig.registry };
+  }
+}
 
 // Initialize Express app
 const app = express();
@@ -48,10 +127,11 @@ let dbConnection;
 let agent;
 
 // Secret key for encryption - In production, use environment variables
-const SECRET_KEY = process.env.SECRET_KEY ||
-  "29739248cad1bd1a0fc4d9b75cd4d2990de535baf5caadfdf8d8f86664aa830c";
+const SECRET_KEY =
+  process.env.SECRET_KEY ||
+  "3c186fb58980777698bab8e95f010f40fd0d04e14de8f49b551108351aefaf28";
 
-// Initialize Veramo agent with Sepolia configuration
+// Initialize Veramo agent with proper network configuration
 async function initializeAgent() {
   try {
     dbConnection = await createConnection({
@@ -62,6 +142,25 @@ async function initializeAgent() {
       entities: Entities,
     });
     console.log("Database connected successfully");
+
+    const networkConfig = getNetworkConfig();
+    console.log("Using network configuration:", networkConfig);
+
+    // Check if registry is deployed
+    const registryCheck = await checkRegistryDeployment(networkConfig);
+    const actualRegistry = registryCheck.registry;
+
+    if (!registryCheck.isDeployed) {
+      console.warn(
+        `⚠️  Warning: ERC1056 registry not found at ${networkConfig.registry} on ${networkConfig.name}`
+      );
+      console.warn(
+        `⚠️  DID resolution may fail. Consider using a different registry address or deploying the contract.`
+      );
+      console.warn(
+        `⚠️  For SKALE networks, you may need to deploy the ERC1056 registry contract.`
+      );
+    }
 
     agent = createAgent({
       plugins: [
@@ -79,11 +178,9 @@ async function initializeAgent() {
           providers: {
             "did:ethr": new EthrDIDProvider({
               defaultKms: "local",
-              network: process.env.ETH_NETWORK || "sepolia",
-              rpcUrl:
-                process.env.ETH_PROVIDER_URL ||
-                `https://sepolia.infura.io/v3/${process.env.INFURA_PROJECT_ID}`,
-              registry: process.env.ETH_REGISTRY_ADDRESS,
+              network: networkConfig.name,
+              rpcUrl: networkConfig.rpcUrl,
+              registry: actualRegistry,
             }),
             "did:key": new KeyDIDProvider({ defaultKms: "local" }),
           },
@@ -93,15 +190,22 @@ async function initializeAgent() {
             ...ethrDidResolver({
               networks: [
                 {
-                  name: process.env.ETH_NETWORK || "sepolia",
-                  rpcUrl:
-                    process.env.ETH_PROVIDER_URL ||
-                    `https://sepolia.infura.io/v3/${process.env.INFURA_PROJECT_ID}`,
-                  registry: process.env.ETH_REGISTRY_ADDRESS,
+                  name: networkConfig.name,
+                  rpcUrl: networkConfig.rpcUrl,
+                  registry: actualRegistry,
                 },
+                // Add support for 'skale' network name as alias for skale-titan
                 {
-                  name: "mainnet",
-                  rpcUrl: `https://mainnet.infura.io/v3/${process.env.INFURA_PROJECT_ID}`,
+                  name: "skale",
+                  rpcUrl: networkConfig.rpcUrl,
+                  registry: actualRegistry,
+                },
+                // Keep Sepolia as fallback for testing
+                {
+                  name: "sepolia",
+                  rpcUrl:
+                    "https://sepolia.infura.io/v3/0ab3a5daf9d64bbaaeac8ae7c09af18e",
+                  registry: "0xc0660d54f4655dC3B045D69ced4308f1709FD35e",
                 },
               ],
             }),
@@ -113,7 +217,10 @@ async function initializeAgent() {
         new MessageHandler({ messageHandlers: [] }),
       ],
     });
-    console.log("Veramo agent initialized successfully");
+    console.log(
+      "Veramo agent initialized successfully with network:",
+      networkConfig.name
+    );
   } catch (error) {
     console.error("Error initializing agent:", error);
     process.exit(1);
@@ -165,15 +272,20 @@ app.post("/did/create", async (req, res) => {
         });
       }
 
+      const networkConfig = getNetworkConfig();
+      const targetNetwork = network || networkConfig.name;
+
       createOptions.options = {
         anchor: false, // Don't anchor to blockchain immediately
-        network: network || process.env.ETH_NETWORK || "skale",
+        network: targetNetwork,
       };
 
       // For did:ethr with wallet address, we create a DID that references the address
-      const didIdentifier = `did:ethr:${
-        network || process.env.ETH_NETWORK || "skale"
-      }:${walletAddress}`;
+      const didIdentifier = `did:ethr:${targetNetwork}:${walletAddress}`;
+
+      console.log(
+        `Creating DID for network: ${targetNetwork}, address: ${walletAddress}`
+      );
 
       // Check if DID already exists
       try {
@@ -199,9 +311,10 @@ app.post("/did/create", async (req, res) => {
         res.json({
           success: true,
           identifier,
-          message: "DID created for wallet address",
+          message: `DID created for wallet address on ${targetNetwork}`,
         });
       } catch (importError) {
+        console.error("Import error:", importError);
         // If import fails, try regular creation
         const identifier = await agent.didManagerCreate({
           ...createOptions,
@@ -226,6 +339,7 @@ app.post("/did/create", async (req, res) => {
       });
     }
   } catch (error) {
+    console.error("DID creation error:", error);
     res.status(500).json({
       success: false,
       error: error.message,
@@ -448,10 +562,72 @@ app.get("/presentation/list", async (req, res) => {
 app.get("/did/:did/resolve", async (req, res) => {
   try {
     const { did } = req.params;
+    console.log(`Attempting to resolve DID: ${did}`);
+
+    // Check if it's an ethr DID and validate network
+    if (did.startsWith("did:ethr:")) {
+      const parts = did.split(":");
+      if (parts.length >= 4) {
+        const network = parts[2];
+        const address = parts[3];
+
+        console.log(
+          `DID components - Network: ${network}, Address: ${address}`
+        );
+
+        // Check if we have configuration for this network
+        const networkConfig = getNetworkConfig();
+        if (
+          network !== networkConfig.name &&
+          network !== "skale" &&
+          network !== "skale-titan"
+        ) {
+          return res.status(400).json({
+            success: false,
+            error: `Network '${network}' is not configured. Available networks: ${networkConfig.name}`,
+          });
+        }
+      }
+    }
+
     const resolution = await agent.resolveDid({ didUrl: did });
     res.json({
       success: true,
       resolution,
+    });
+  } catch (error) {
+    console.error(`DID resolution error for ${req.params.did}:`, error);
+
+    let errorMessage = error.message;
+    if (error.message.includes("could not decode result data")) {
+      errorMessage = `Registry contract error: The ERC1056 registry may not be deployed or properly configured on this network. Original error: ${error.message}`;
+    }
+
+    res.status(500).json({
+      success: false,
+      error: errorMessage,
+      did: req.params.did,
+    });
+  }
+});
+
+// New endpoint to check network and registry status
+app.get("/network/status", async (req, res) => {
+  try {
+    const networkConfig = getNetworkConfig();
+    const registryCheck = await checkRegistryDeployment(networkConfig);
+
+    res.json({
+      success: true,
+      network: {
+        name: networkConfig.name,
+        chainId: networkConfig.chainId,
+        rpcUrl: networkConfig.rpcUrl,
+        registry: registryCheck.registry,
+        registryDeployed: registryCheck.isDeployed,
+        configuredRegistry: networkConfig.registry,
+        actualRegistry: registryCheck.registry,
+      },
     });
   } catch (error) {
     res.status(500).json({
@@ -490,6 +666,7 @@ async function startServer() {
     console.log("🔑 Available endpoints:");
     console.log("  GET  /health - Health check");
     console.log("  GET  /agent/info - Agent information");
+    console.log("  GET  /network/status - Network and registry status");
     console.log("  POST /did/create - Create new DID");
     console.log("  GET  /did/list - List all DIDs");
     console.log("  GET  /did/:did - Get specific DID");

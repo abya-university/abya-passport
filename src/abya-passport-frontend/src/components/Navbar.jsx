@@ -20,7 +20,7 @@ function Navbar({ currentPage, setCurrentPage }) {
   const { disconnect } = useDisconnect();
   const { did, principal, isAuthenticating, login, developerLogin, logout } =
     useInternetIdentity();
-  
+
   const canisterId = "uxrrr-q7777-77774-qaaaq-cai";
 
   console.log("DID2:", did);
@@ -28,13 +28,10 @@ function Navbar({ currentPage, setCurrentPage }) {
   console.log("Canister ID:", canisterId);
 
   // Shorteners
-  const shortenAddress = (addr) => (addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : "");
+  const shortenAddress = (addr) =>
+    addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : "";
   const shorten = (str) =>
-    str
-      ? str.length > 10
-        ? `${str.slice(0, 16)}…${str.slice(-6)}`
-        : str
-      : "";
+    str ? (str.length > 10 ? `${str.slice(0, 16)}…${str.slice(-6)}` : str) : "";
 
   // Fetch or create DID for connected wallet
   useEffect(() => {
@@ -70,7 +67,11 @@ function Navbar({ currentPage, setCurrentPage }) {
         const createRes = await fetch(`${API_URL}/did/create`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ provider: "did:ethr", walletAddress: address, alias }),
+          body: JSON.stringify({
+            provider: "did:ethr",
+            walletAddress: address,
+            alias,
+          }),
         });
         const createJson = await createRes.json();
 
@@ -98,7 +99,7 @@ function Navbar({ currentPage, setCurrentPage }) {
         setDidLoading(false);
       }
     };
-    
+
     setWalletAddress(address);
     fetchOrCreateDid();
   }, [isConnected, address, walletDid]);
@@ -122,7 +123,7 @@ function Navbar({ currentPage, setCurrentPage }) {
   }, [showConnectOptions]);
 
   const isAnyConnected = isConnected || !!principal;
-  
+
   const handleInternetIdentityLogin = async () => {
     try {
       await login();
@@ -156,9 +157,9 @@ function Navbar({ currentPage, setCurrentPage }) {
             {[
               { name: "Home", page: "home" },
               { name: "DID Documents", page: "did" },
-              { name: "Credentials", page: "vc" },
+              { name: "ICP Credentials", page: "vc" },
+              { name: "Ethereum VCs", page: "ethr-vc" },
               { name: "Verify", page: "verify" },
-              { name: "Contact", page: "contact" },
             ].map((item) => (
               <button
                 key={item.name}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useInternetIdentity } from "../contetxs/InternetContext";
+import { useInternetIdentity } from "../contexts/InternetContext";
 import { useToast } from "./Toast";
 import VCSharer from "./VCSharer";
 
@@ -265,6 +265,7 @@ const VCManager = () => {
                       ? "bg-red-100 text-red-700"
                       : "bg-green-100 text-green-700"
                   }`}
+                >
                   {vc.revoked ? "Revoked" : "Active"}
                 </span>
               </div>
@@ -789,7 +790,7 @@ const VCManager = () => {
                 : "text-gray-600 hover:text-gray-800"
             }`}
           >
-            Received VCs ({myReceivedVCs.length})
+            Received VCs ({(myReceivedVCs || []).length})
           </button>
           <button
             onClick={() => setActiveTab("issued")}
@@ -799,7 +800,7 @@ const VCManager = () => {
                 : "text-gray-600 hover:text-gray-800"
             }`}
           >
-            Issued VCs ({myIssuedVCs.length})
+            Issued VCs ({(myIssuedVCs || []).length})
           </button>
         </div>
       </div>
@@ -1045,7 +1046,7 @@ const VCManager = () => {
       {/* VCs Display */}
       {!isLoadingVCs && (
         <div className="grid gap-6 md:grid-cols-1 lg:grid-cols-2">
-          {activeTab === "received" && myReceivedVCs.length === 0 && (
+          {activeTab === "received" && (myReceivedVCs || []).length === 0 && (
             <div className="col-span-full text-center py-8">
               <div className="text-gray-400 text-6xl mb-4">📄</div>
               <p className="text-gray-500 text-lg">
@@ -1056,7 +1057,7 @@ const VCManager = () => {
               </p>
             </div>
           )}
-          {activeTab === "issued" && myIssuedVCs.length === 0 && (
+          {activeTab === "issued" && (myIssuedVCs || []).length === 0 && (
             <div className="col-span-full text-center py-8">
               <div className="text-gray-400 text-6xl mb-4">📋</div>
               <p className="text-gray-500 text-lg">
@@ -1069,12 +1070,12 @@ const VCManager = () => {
           )}
 
           {activeTab === "received" &&
-            myReceivedVCs.map((vc) => (
+            (myReceivedVCs || []).map((vc) => (
               <VCCard key={vc.id} vc={vc} isIssued={false} />
             ))}
 
           {activeTab === "issued" &&
-            myIssuedVCs.map((vc) => (
+            (myIssuedVCs || []).map((vc) => (
               <VCCard key={vc.id} vc={vc} isIssued={true} />
             ))}
         </div>
