@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState, useRef } from "react";
 import axios from "axios";
 import QRCode from "qrcode";
 import * as ethers from "ethers";
-import { fetchDidDocument, storeCredential } from "../services/ipfsService";
+import { fetchDidDocument, storePresentation } from "../services/ipfsService";
 import { useEthr } from "../contexts/EthrContext";
 import {
   RefreshCw,
@@ -14,7 +14,9 @@ import {
 } from "lucide-react";
 
 const API_BASE = "http://localhost:3000";
-const VC_ADDRESS = import.meta.env.VITE_VC_CONTRACT_ADDRESS || "0xE2ff8118Bc145F03410F46728BaE0bF3f1C6EF81";
+const VC_ADDRESS =
+  import.meta.env.VITE_VC_CONTRACT_ADDRESS ||
+  "0xE2ff8118Bc145F03410F46728BaE0bF3f1C6EF81";
 const PRESENTATION_ADDRESS = import.meta.env.VITE_VC_PRESENTATION_ADDRESS || ""; // must be set in .env
 
 const VC_ABI = [
@@ -27,7 +29,7 @@ const PRESENTATION_ABI = [
   "function createPresentation(string holderDid,string mappingCID,bytes32 vpJwtHash,uint256 relatedCredentialId) returns (uint256)",
   "function getPresentationsForHolder(string holderDid) view returns (uint256[])",
   "function presentationCount() view returns (uint256)",
-  "function presentations(uint256) view returns (uint256,string,string,bytes32,uint256,uint256,bool)"
+  "function presentations(uint256) view returns (uint256,string,string,bytes32,uint256,uint256,bool)",
 ];
 
 const isLikelyCid = (s) => {
@@ -36,7 +38,8 @@ const isLikelyCid = (s) => {
   if (trimmed.length === 0) return false;
   if (/^Qm[1-9A-HJ-NP-Za-km-z]{44,}$/.test(trimmed)) return true;
   if (/^[bB][a-z2-7]{40,}$/.test(trimmed)) return true;
-  if (/^[A-Za-z0-9\-_.:]{20,128}$/.test(trimmed) && !/\s/.test(trimmed)) return true;
+  if (/^[A-Za-z0-9\-_.:]{20,128}$/.test(trimmed) && !/\s/.test(trimmed))
+    return true;
   return false;
 };
 
@@ -90,8 +93,19 @@ const VcPresentationManager = ({ onBack = null }) => {
   const [showAll, setShowAll] = useState(false);
 
   // publishing status
-  const [publishStatus, setPublishStatus] = useState({ uploading: false, cid: null, txHash: null, txError: null });
+  const [publishStatus, setPublishStatus] = useState({
+    uploading: false,
+    cid: null,
+    txHash: null,
+    txError: null,
+  });
 
+  // publish confirmation modal
+  const [showPublishConfirm, setShowPublishConfirm] = useState(false);
+  const publishParamsRef = useRef({ vpJwt: null, relatedCredentialId: 0 });
+
+  const [qrModalVisible, setQrModalVisible] = useState(false);
+  const [qrModalSrc, setQrModalSrc] = useState(null);
   const cidCacheRef = useRef(new Map());
 
   const safeToString = (v) => {
@@ -134,21 +148,28 @@ const VcPresentationManager = ({ onBack = null }) => {
   };
 
   const getContractReadonly = async () => {
+    // read-only VC contract (existing)
     if (typeof window !== "undefined" && window.ethereum) {
       if (ethers?.BrowserProvider) {
         const provider = new ethers.BrowserProvider(window.ethereum);
-        try { await provider.send?.("eth_requestAccounts", []); } catch (_) {}
+        try {
+          await provider.send?.("eth_requestAccounts", []);
+        } catch (_) {}
         return new ethers.Contract(VC_ADDRESS, VC_ABI, provider);
       }
       if (ethers?.providers?.Web3Provider) {
         const provider = new ethers.providers.Web3Provider(window.ethereum);
-        try { await provider.send?.("eth_requestAccounts", []); } catch (_) {}
+        try {
+          await provider.send?.("eth_requestAccounts", []);
+        } catch (_) {}
         return new ethers.Contract(VC_ADDRESS, VC_ABI, provider);
       }
     }
 
     const rpcUrl =
-      (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_READ_RPC) ||
+      (typeof import.meta !== "undefined" &&
+        import.meta.env &&
+        import.meta.env.VITE_READ_RPC) ||
       process.env.REACT_APP_READ_RPC ||
       process.env.VITE_READ_RPC ||
       null;
@@ -172,8 +193,58 @@ const VcPresentationManager = ({ onBack = null }) => {
     throw new Error("No provider available for readonly operations");
   };
 
+  const getPresentationContractReadonly = async () => {
+    if (!PRESENTATION_ADDRESS) throw new Error("Presentation address not configured");
+    if (typeof window !== "undefined" && window.ethereum) {
+      if (ethers?.BrowserProvider) {
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        try {
+          await provider.send?.("eth_requestAccounts", []);
+        } catch (_) {}
+        return new ethers.Contract(PRESENTATION_ADDRESS, PRESENTATION_ABI, provider);
+      }
+      if (ethers?.providers?.Web3Provider) {
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        try {
+          await provider.send?.("eth_requestAccounts", []);
+        } catch (_) {}
+        return new ethers.Contract(PRESENTATION_ADDRESS, PRESENTATION_ABI, provider);
+      }
+    }
+
+    const rpcUrl =
+      (typeof import.meta !== "undefined" &&
+        import.meta.env &&
+        import.meta.env.VITE_READ_RPC) ||
+      process.env.REACT_APP_READ_RPC ||
+      process.env.VITE_READ_RPC ||
+      null;
+
+    if (rpcUrl) {
+      if (ethers?.providers?.JsonRpcProvider) {
+        const jsonProvider = new ethers.providers.JsonRpcProvider(rpcUrl);
+        return new ethers.Contract(PRESENTATION_ADDRESS, PRESENTATION_ABI, jsonProvider);
+      }
+      if (typeof ethers.JsonRpcProvider === "function") {
+        const jsonProvider = new ethers.JsonRpcProvider(rpcUrl);
+        return new ethers.Contract(PRESENTATION_ADDRESS, PRESENTATION_ABI, jsonProvider);
+      }
+    }
+
+    if (typeof ethers.getDefaultProvider === "function") {
+      const defaultProvider = ethers.getDefaultProvider();
+      return new ethers.Contract(PRESENTATION_ADDRESS, PRESENTATION_ABI, defaultProvider);
+    }
+
+    throw new Error("No provider available for readonly operations");
+  };
+
   const tryFetchFromGateways = async (cid) => {
-    const gateways = [`https://dweb.link/ipfs/${cid}`, `https://ipfs.io/ipfs/${cid}`, `https://cloudflare-ipfs.com/ipfs/${cid}`];
+    const gateways = [
+      `https://dweb.link/ipfs/${cid}`,
+      `https://ipfs.io/ipfs/${cid}`,
+      `https://cloudflare-ipfs.com/ipfs/${cid}`,
+    ];
     const fetchPromises = gateways.map((g) =>
       fetch(g).then(async (r) => {
         if (!r.ok) throw new Error(`gateway ${g} returned ${r.status}`);
@@ -184,7 +255,8 @@ const VcPresentationManager = ({ onBack = null }) => {
       const res = await Promise.any(fetchPromises);
       return { doc: res.json, source: res.source };
     } catch (aggregateErr) {
-      const reason = aggregateErr?.errors?.map((e) => e?.message).join(" | ") || String(aggregateErr);
+      const reason =
+        aggregateErr?.errors?.map((e) => e?.message).join(" | ") || String(aggregateErr);
       throw new Error(`Gateways failed: ${reason}`);
     }
   };
@@ -202,7 +274,7 @@ const VcPresentationManager = ({ onBack = null }) => {
           return { cid, doc: maybeDoc, source: "primary", error: null };
         }
       } catch (primaryErr) {
-        // fallback
+        // fallback to gateways
       }
       try {
         const gwRes = await tryFetchFromGateways(cid);
@@ -214,7 +286,11 @@ const VcPresentationManager = ({ onBack = null }) => {
     });
 
     const settled = await Promise.allSettled(promises);
-    return settled.map((s) => (s.status === "fulfilled" ? s.value : { cid: null, doc: null, source: "error", error: String(s.reason) }));
+    return settled.map((s) =>
+      s.status === "fulfilled"
+        ? s.value
+        : { cid: null, doc: null, source: "error", error: String(s.reason) }
+    );
   };
 
   const fetchOnChainCredentialsForDid = async (did) => {
@@ -263,7 +339,9 @@ const VcPresentationManager = ({ onBack = null }) => {
           const issueDateRaw = row?.[4];
           const issueDate =
             issueDateRaw && typeof issueDateRaw?.toString === "function"
-              ? (issueDateRaw.toNumber ? new Date(issueDateRaw.toNumber() * 1000).toISOString() : new Date(Number(issueDateRaw) * 1000).toISOString())
+              ? (issueDateRaw.toNumber
+                  ? new Date(issueDateRaw.toNumber() * 1000).toISOString()
+                  : new Date(Number(issueDateRaw) * 1000).toISOString())
               : undefined;
           const valid = !!row?.[9];
 
@@ -304,7 +382,10 @@ const VcPresentationManager = ({ onBack = null }) => {
               metadata = typeof metadata === "string" ? JSON.parse(metadata) : metadata;
             } catch (e) {}
             displayed = {
-              credentialSubject: (metadata && typeof metadata === "object" && Object.keys(metadata).length > 0) ? metadata : { id: row?.[1] ?? did },
+              credentialSubject:
+                metadata && typeof metadata === "object" && Object.keys(metadata).length > 0
+                  ? metadata
+                  : { id: row?.[1] ?? did },
               issuer: { id: issuerDID },
               issuanceDate: issueDate,
             };
@@ -337,7 +418,10 @@ const VcPresentationManager = ({ onBack = null }) => {
     try {
       const readContract = await getContractReadonly();
       const count = await readContract.credentialCount();
-      const n = (count && typeof count?.toString === "function") ? Number(safeToString(count)) : Number(count || 0);
+      const n =
+        count && typeof count?.toString === "function"
+          ? Number(safeToString(count))
+          : Number(count || 0);
       const out = [];
       for (let i = 1; i <= n; i++) {
         try {
@@ -356,7 +440,12 @@ const VcPresentationManager = ({ onBack = null }) => {
           }
           const issuerDID = row?.[2] ? safeToString(row[2]) : "";
           const issueDateRaw = row?.[4];
-          const issueDate = issueDateRaw ? (issueDateRaw.toNumber ? new Date(issueDateRaw.toNumber() * 1000).toISOString() : new Date(Number(issueDateRaw) * 1000).toISOString()) : undefined;
+          const issueDate =
+            issueDateRaw && typeof issueDateRaw?.toString === "function"
+              ? issueDateRaw.toNumber
+                ? new Date(issueDateRaw.toNumber() * 1000).toISOString()
+                : new Date(Number(issueDateRaw) * 1000).toISOString()
+              : undefined;
           const credObj = {
             ...(ipfsJson || {}),
             issuanceDate: issueDate,
@@ -390,7 +479,8 @@ const VcPresentationManager = ({ onBack = null }) => {
       if (c?.metadata && typeof c.metadata === "string") {
         try {
           const parsed = JSON.parse(c.metadata);
-          if (parsed?.mappingCID && isLikelyCid(parsed.mappingCID)) setCids.add(parsed.mappingCID.trim());
+          if (parsed?.mappingCID && isLikelyCid(parsed.mappingCID))
+            setCids.add(parsed.mappingCID.trim());
         } catch (e) {}
       }
     });
@@ -423,7 +513,12 @@ const VcPresentationManager = ({ onBack = null }) => {
       if (mappingCID) {
         const match = docs.find((d) => d.cid === mappingCID);
         if (match) {
-          return { original: c, cid: mappingCID, doc: match.doc ?? null, ipfsStatus: { source: match.source ?? null, error: match.error ?? null } };
+          return {
+            original: c,
+            cid: mappingCID,
+            doc: match.doc ?? null,
+            ipfsStatus: { source: match.source ?? null, error: match.error ?? null },
+          };
         }
       }
       return { original: c, cid: null, doc: c, ipfsStatus: { source: "inline", error: null } };
@@ -498,20 +593,127 @@ const VcPresentationManager = ({ onBack = null }) => {
     }
   };
 
+  // UPDATED: fetchPresentations now reads from both backend and on-chain PresentationRegistry
   const fetchPresentations = async () => {
     setListLoading(true);
+    setError("");
     try {
-      const res = await axios.get(`${API_BASE}/presentation/list`);
-      const list = res.data?.presentations ?? res.data ?? [];
-      setPresentations(Array.isArray(list) ? list : []);
+      // 1) fetch backend list (if available)
+      let backendList = [];
+      try {
+        const res = await axios.get(`${API_BASE}/presentation/list`);
+        backendList = res.data?.presentations ?? res.data ?? [];
+      } catch (e) {
+        // ignore backend errors (we'll still show on-chain ones)
+        console.debug("backend presentation list fetch failed:", e?.message ?? e);
+      }
+
+      // 2) fetch on-chain presentations if contract address provided
+      let onchainList = [];
+      if (PRESENTATION_ADDRESS) {
+        try {
+          const readContract = await getPresentationContractReadonly();
+          const countRaw = await readContract.presentationCount();
+          const count = countRaw && typeof countRaw.toString === "function" ? Number(safeToString(countRaw)) : Number(countRaw || 0);
+          if (count > 0) {
+            // fetch all presentations (could optimize with getPresentationsForHolder)
+            const rows = [];
+            const cidsToFetch = new Set();
+            for (let i = 1; i <= count; i++) {
+              try {
+                const row = await readContract.presentations(i);
+                // row order: (uint256 id, string holderDid, string mappingCID, bytes32 vpJwtHash, uint256 relatedCredentialId, uint256 createdAt, bool revoked)
+                const id = row?.[0] ? Number(safeToString(row[0])) : i;
+                const holderDid = row?.[1] ?? "";
+                const mappingCID = row?.[2] ? safeToString(row[2]) : "";
+                const vpJwtHash = row?.[3] ?? null;
+                const relatedCredentialId = row?.[4] ? Number(safeToString(row[4])) : 0;
+                const createdAtRaw = row?.[5] ?? 0;
+                const createdAt = createdAtRaw && typeof createdAtRaw?.toString === "function"
+                  ? (createdAtRaw.toNumber ? new Date(createdAtRaw.toNumber() * 1000).toISOString() : new Date(Number(createdAtRaw) * 1000).toISOString())
+                  : undefined;
+                const revoked = !!row?.[6];
+                if (mappingCID && isLikelyCid(mappingCID)) cidsToFetch.add(mappingCID);
+                rows.push({ id, holderDid, mappingCID, vpJwtHash, relatedCredentialId, createdAt, revoked });
+              } catch (inner) {
+                console.debug("failed to read presentation", i, inner);
+              }
+            }
+
+            // fetch IPFS docs for mapping CIDs (so we can show stored presentation JWTs)
+            const cids = Array.from(cidsToFetch);
+            const docs = cids.length > 0 ? await fetchIpfsDocsForCids(cids) : [];
+            const docMap = new Map();
+            docs.forEach((d) => {
+              if (d && d.cid) docMap.set(d.cid, d);
+            });
+
+            onchainList = rows.map((r) => {
+              const docEntry = r.mappingCID ? docMap.get(r.mappingCID) : null;
+              return {
+                source: "onchain",
+                id: r.id,
+                holderDid: r.holderDid,
+                mappingCID: r.mappingCID,
+                vpJwtHash: r.vpJwtHash,
+                relatedCredentialId: r.relatedCredentialId,
+                createdAt: r.createdAt,
+                revoked: r.revoked,
+                ipfsDoc: docEntry ? docEntry.doc : null,
+                ipfsSource: docEntry ? docEntry.source : null,
+                ipfsError: docEntry ? docEntry.error : null,
+              };
+            });
+          }
+        } catch (e) {
+          console.warn("fetchPresentations on-chain failed:", e);
+        }
+      }
+
+      // Merge backend and on-chain lists.
+      // Prefer on-chain entries when mappingCID or id collide, keep backend extras.
+      const mergedMap = new Map();
+
+      // index onchain by mappingCID (if present) or by 'onchain:id'
+      onchainList.forEach((p) => {
+        const key = p.mappingCID || `onchain:${p.id}`;
+        mergedMap.set(key, p);
+      });
+
+      // Add backend entries, but don't overwrite an onchain item with same mappingCID
+      (Array.isArray(backendList) ? backendList : []).forEach((p) => {
+        const mappingCID = p?.mappingCID ?? p?.cid ?? null;
+        const key = mappingCID && isLikelyCid(mappingCID) ? mappingCID : `backend:${Math.random().toString(36).slice(2, 9)}`;
+        if (!mergedMap.has(key)) {
+          // Normalize backend item shape similar to onchain
+          mergedMap.set(key, {
+            source: "backend",
+            ...p,
+            ipfsDoc: null,
+            ipfsSource: null,
+            ipfsError: null,
+          });
+        }
+      });
+
+      const finalList = Array.from(mergedMap.values()).sort((a, b) => {
+        // sort newest first if createdAt available
+        const ta = a?.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const tb = b?.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return tb - ta;
+      });
+
+      setPresentations(finalList);
     } catch (err) {
-      console.error("fetch presentations error", err);
+      console.error("fetchPresentations error:", err);
+      setError(err?.message || String(err));
+      setPresentations([]);
     } finally {
       setListLoading(false);
     }
   };
 
-  // create presentation via backend (unchanged)
+  // --- FIXED: prefer vp.proof.jwt when backend returns presentation object ---
   const handleCreatePresentation = async () => {
     setPresentLoading(true);
     setError("");
@@ -527,7 +729,9 @@ const VcPresentationManager = ({ onBack = null }) => {
         holderDidLocal = selDoc?.credentialSubject?.id || selDoc?.subject || null;
       }
       if (!holderDidLocal) {
-        alert("Missing holder DID. Connect your wallet or ensure selected credential contains a subject DID, or paste a JWT that contains 'sub'.");
+        alert(
+          "Missing holder DID. Connect your wallet or ensure selected credential contains a subject DID, or paste a JWT that contains 'sub'."
+        );
         setPresentLoading(false);
         return;
       }
@@ -562,9 +766,7 @@ const VcPresentationManager = ({ onBack = null }) => {
       const vp = res.data?.presentation ?? res.data;
 
       const jwt =
-        vp?.proof?.jwt ??
-        vp?.jwt ??
-        (typeof vp === "string" ? vp : JSON.stringify(vp));
+        vp?.proof?.jwt ?? vp?.jwt ?? (typeof vp === "string" ? vp : JSON.stringify(vp));
 
       setPresentationJwt(jwt);
       await fetchPresentations();
@@ -607,6 +809,8 @@ const VcPresentationManager = ({ onBack = null }) => {
     try {
       const url = await QRCode.toDataURL(text, { errorCorrectionLevel: "M" });
       setQrDataUrl(url);
+      setQrModalSrc(url);
+      setQrModalVisible(true);
     } catch (err) {
       console.error("QR error:", err);
       alert("Failed to generate QR code");
@@ -657,11 +861,9 @@ const VcPresentationManager = ({ onBack = null }) => {
     } catch (e) {
       console.warn("computeKeccak256 failed:", e);
     }
-    // If keccak unavailable, throw so we don't store ambiguous data on-chain
     throw new Error("keccak256 not available in ethers runtime");
   };
 
-  // Publish presentation to IPFS then call PresentationRegistry.createPresentation(...)
   const publishPresentationToIpfsAndStoreOnChain = async ({ presentationJwtToUse = null, relatedCredentialId = 0 } = {}) => {
     setPublishStatus({ uploading: true, cid: null, txHash: null, txError: null });
     setError("");
@@ -673,7 +875,6 @@ const VcPresentationManager = ({ onBack = null }) => {
         return;
       }
 
-      // Build a small doc to store on IPFS
       const vpDoc = {
         presentationJwt: vpJwt,
         createdBy: walletDid || null,
@@ -694,7 +895,7 @@ const VcPresentationManager = ({ onBack = null }) => {
       // Upload to IPFS (using your service)
       let cid;
       try {
-        cid = await storeCredential(holderToStore || "unknown", vpDoc);
+        cid = await storePresentation(holderToStore || "unknown", vpDoc);
       } catch (ipfsErr) {
         console.error("IPFS store failed", ipfsErr);
         throw new Error("Failed to upload to IPFS: " + (ipfsErr?.message || String(ipfsErr)));
@@ -728,6 +929,98 @@ const VcPresentationManager = ({ onBack = null }) => {
       console.error("publishPresentation error:", err);
       setError(err?.message || String(err));
       setPublishStatus((s) => ({ ...s, uploading: false, txError: err?.message || String(err) }));
+    }
+  };
+
+  // --- small UI helpers (download json, PDF via print, share) ---
+  const downloadJson = (obj, filename = "presentation.json") => {
+    try {
+      const json = typeof obj === "string" ? obj : JSON.stringify(obj, null, 2);
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("downloadJson failed", e);
+      alert("Failed to download JSON");
+    }
+  };
+
+  const openPrintablePdfWindow = (title, bodyHtml) => {
+    const win = window.open("", "_blank", "noopener,noreferrer");
+    if (!win) return alert("Could not open print window (popup blocked?)");
+    const html = `
+      <html>
+        <head>
+          <title>${title}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial; padding: 20px; color: #111827; }
+            pre { background: #f8fafc; padding: 12px; border-radius: 6px; overflow:auto; white-space:pre-wrap; word-break:break-word; }
+            .header { margin-bottom: 12px; }
+            .meta { font-size: 12px; color: #6b7280; margin-bottom: 8px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1 style="margin:0 0 8px 0">${title}</h1>
+            <div class="meta">Generated: ${new Date().toLocaleString()}</div>
+          </div>
+          ${bodyHtml}
+        </body>
+      </html>
+    `;
+    win.document.open();
+    win.document.write(html);
+    win.document.close();
+    // wait for content to render then call print
+    setTimeout(() => {
+      try {
+        win.print();
+      } catch (e) {
+        console.warn("print failed", e);
+      }
+    }, 300);
+  };
+
+  const shareUrlOrText = async ({ url = null, title = "", text = "" }) => {
+    try {
+      if (navigator.share) {
+        await navigator.share({ title, text: text || title, url });
+      } else {
+        // fallback: copy url or text
+        if (url) {
+          await navigator.clipboard.writeText(url);
+          alert("Link copied to clipboard");
+        } else if (text) {
+          await navigator.clipboard.writeText(text);
+          alert("Text copied to clipboard");
+        } else {
+          alert("Nothing to share");
+        }
+      }
+    } catch (err) {
+      console.error("share failed", err);
+      alert("Share failed");
+    }
+  };
+
+  const showQrFor = async (p) => {
+    try {
+      // Prefer mappingCID (IPFS URL) for QR; fallback to JWT or JSON link
+      const mappingCID = p?.mappingCID ?? p?.cid ?? p?.ipfsDoc?.mappingCID ?? null;
+      const ipfsUrl = mappingCID ? `https://dweb.link/ipfs/${mappingCID}` : null;
+      const jwt = p?.ipfsDoc?.presentationJwt ?? p?.presentationJwt ?? p?.presentation ?? p?.jwt ?? null;
+      const toEncode = ipfsUrl || jwt || JSON.stringify(p);
+      await generateQr(toEncode);
+      setQrModalVisible(true);
+    } catch (e) {
+      console.error("showQrFor failed", e);
+      alert("Failed to generate QR");
     }
   };
 
@@ -830,12 +1123,13 @@ const VcPresentationManager = ({ onBack = null }) => {
               const subject = doc?.credentialSubject?.id || doc?.subject || "—";
               const hasJwt = !!(doc?.proof?.jwt || doc?.jwt);
               const selectedClass = selectedIdx === i ? "ring-2 ring-blue-200" : "";
+              const mappingCID = c.cid || c.original?.onchain?.mappingCID || c.original?.mappingCID || null;
               return (
-                <div key={i} className={`p-3 border rounded flex items-start justify-between ${selectedClass}`}>
+                <div key={i} className={`p-3 bg-gray-100 rounded flex items-start justify-between ${selectedClass}`}>
                   <div className="flex-1 pr-3">
                     <div className="text-sm font-medium text-slate-800 truncate">{title}</div>
                     <div className="text-xs text-slate-500 mt-1">Subject: <code className="font-mono text-xs bg-slate-50 px-1 rounded">{subject}</code></div>
-                    <div className="text-xs text-slate-500 mt-1">CID: {c.cid ?? "—"}</div>
+                    <div className="text-xs text-slate-500 mt-1">CID: {mappingCID ?? "—"}</div>
                     {c.ipfsStatus?.error && <div className="text-xs text-red-600 mt-1">IPFS error: {c.ipfsStatus.error}</div>}
                   </div>
 
@@ -843,9 +1137,21 @@ const VcPresentationManager = ({ onBack = null }) => {
                     <div className="flex gap-2">
                       <button onClick={() => setSelectedIdx(i)} className="px-2 py-1 rounded text-xs bg-slate-100 hover:bg-slate-200">Select</button>
                       <button onClick={() => handleCopyCredentialJwt(i)} className="px-2 py-1 rounded text-xs bg-slate-100 hover:bg-slate-200"><Copy size={12} /></button>
-                      {hasJwt && (
-                        <button onClick={() => { const jwt = doc.proof?.jwt || doc.jwt; setManualJwt(jwt); alert("JWT loaded into manual box — you can create a presentation now."); }} className="px-2 py-1 rounded text-xs bg-slate-100 hover:bg-slate-200">Load JWT</button>
-                      )}
+                      <button onClick={() => {
+                        // Download credential JSON (prefer doc if present)
+                        const payload = doc ? doc : c.original ? c.original : {};
+                        downloadJson(payload, `credential-${mappingCID ? mappingCID : i+1}.json`);
+                      }} className="px-2 py-1 rounded text-xs bg-slate-100 hover:bg-slate-200">Download JSON</button>
+                      <button onClick={() => {
+                        const payload = doc ? doc : c.original ? c.original : {};
+                        const body = `<pre>${JSON.stringify(payload, null, 2)}</pre>`;
+                        openPrintablePdfWindow(`Credential ${i+1}`, body);
+                      }} className="px-2 py-1 rounded text-xs bg-slate-100 hover:bg-slate-200">Download PDF</button>
+                      <button onClick={() => {
+                        const url = mappingCID ? `https://dweb.link/ipfs/${mappingCID}` : null;
+                        if (url) shareUrlOrText({ url, title: "Credential link" });
+                        else copyToClipboard(JSON.stringify(doc || c), "Credential JSON");
+                      }} className="px-2 py-1 rounded text-xs bg-slate-100 hover:bg-slate-200">Share</button>
                     </div>
                     <div className="text-xs text-slate-400">{doc?.issuanceDate ? `Issued: ${new Date(doc.issuanceDate).toLocaleString()}` : ""}</div>
                   </div>
@@ -887,14 +1193,18 @@ const VcPresentationManager = ({ onBack = null }) => {
           </button>
 
           <button
-            onClick={async () => {
-              // determine relatedCredentialId if selected credential has on-chain id
-              let relatedId = 0;
-              try {
-                const selOriginal = ipfsCredentials[selectedIdx]?.original;
-                if (selOriginal?.onchain?.id) relatedId = Number(selOriginal.onchain.id);
-              } catch (e) {}
-              await publishPresentationToIpfsAndStoreOnChain({ presentationJwtToUse: presentationJwt || manualJwt, relatedCredentialId: relatedId });
+            onClick={() => {
+              // prepare publish params & open confirmation modal
+              const relatedCredentialId = (() => {
+                try {
+                  const selOriginal = ipfsCredentials[selectedIdx]?.original;
+                  if (selOriginal?.onchain?.id) return Number(selOriginal.onchain.id);
+                } catch (e) {}
+                return 0;
+              })();
+              const vpJwtToUse = presentationJwt || manualJwt;
+              publishParamsRef.current = { vpJwt: vpJwtToUse, relatedCredentialId };
+              setShowPublishConfirm(true);
             }}
             disabled={publishStatus.uploading}
             className="flex items-center gap-2 bg-emerald-700 text-white px-4 py-2 rounded"
@@ -922,6 +1232,22 @@ const VcPresentationManager = ({ onBack = null }) => {
               <div className="flex items-center gap-2">
                 <button onClick={() => copyToClipboard(presentationJwt, "Presentation JWT")} className="px-2 py-1 rounded bg-slate-100 text-xs">Copy</button>
                 <button onClick={() => generateQr(presentationJwt)} className="px-2 py-1 rounded bg-slate-100 text-xs"><QrIcon size={12} /></button>
+                <button onClick={() => {
+                  // Download JSON of presentation
+                  try {
+                    const parsed = parseJwtPayload(presentationJwt);
+                    // prefer pretty JSON if it's JSON object stored, otherwise save raw JWT
+                    if (parsed) downloadJson(parsed, "presentation.json");
+                    else downloadJson(presentationJwt, "presentation.jwt.txt");
+                  } catch { downloadJson(presentationJwt, "presentation.jwt.txt"); }
+                }} className="px-2 py-1 rounded bg-slate-100 text-xs">Download JSON</button>
+                <button onClick={() => {
+                  // printable representation
+                  const payload = parseJwtPayload(presentationJwt) ?? presentationJwt;
+                  const body = `<pre>${JSON.stringify(payload, null, 2)}</pre>`;
+                  openPrintablePdfWindow("Presentation", body);
+                }} className="px-2 py-1 rounded bg-slate-100 text-xs">Download PDF</button>
+                <button onClick={() => shareUrlOrText({ text: presentationJwt, title: "Presentation JWT" })} className="px-2 py-1 rounded bg-slate-100 text-xs">Share</button>
                 <button onClick={() => handleVerifyPresentation(presentationJwt)} className="px-2 py-1 rounded bg-indigo-600 text-white text-xs"><CheckCircle size={12} /> Verify</button>
               </div>
             </div>
@@ -930,10 +1256,13 @@ const VcPresentationManager = ({ onBack = null }) => {
           </div>
         )}
 
-        {qrDataUrl && (
+        {qrDataUrl && qrModalVisible && (
           <div className="mt-3 flex items-center gap-4">
-            <img src={qrDataUrl} alt="QR" className="w-36 h-36" />
+            <div className="p-2 bg-white rounded border">
+              <img src={qrDataUrl} alt="QR" className="w-48 h-48" />
+            </div>
             <div className="text-sm text-slate-600">Scan to import the presentation JWT.</div>
+            <button onClick={() => { setQrModalVisible(false); setQrDataUrl(null); setQrModalSrc(null); }} className="ml-auto px-3 py-1 rounded bg-slate-100">Close</button>
           </div>
         )}
 
@@ -969,19 +1298,95 @@ const VcPresentationManager = ({ onBack = null }) => {
         ) : (
           <div className="space-y-2">
             {presentations.map((p, i) => {
-              const jwt = p?.jwt || p?.presentation || p;
+              // unify various shapes
+              const ipfsStoredJwt = p?.ipfsDoc?.presentationJwt ?? p?.presentationJwt ?? p?.presentation ?? p?.jwt ?? null;
+              const displayTitle = p?.title ?? (p?.mappingCID ? `VP — ${p.mappingCID}` : p?.id ? `Presentation ${p.id}` : `Presentation ${i + 1}`);
               const created = p?.createdAt || p?.timestamp || null;
+              const mappingCID = p?.mappingCID ?? p?.cid ?? null;
+              const txHash = p?.txHash ?? p?.onchainTxHash ?? (publishStatus.cid === mappingCID ? publishStatus.txHash : null);
+              const ipfsUrl = mappingCID ? `https://dweb.link/ipfs/${mappingCID}` : null;
+
               return (
                 <div key={i} className="p-2 border rounded flex items-start justify-between">
                   <div className="flex-1 pr-3">
-                    <div className="text-sm font-medium truncate">{p?.title ?? `Presentation ${i + 1}`}</div>
-                    <div className="text-xs text-slate-500 mt-1">{created ? new Date(created).toLocaleString() : "—"}</div>
+                    <div className="text-sm font-medium truncate">{displayTitle}</div>
+                    <div className="text-xs text-slate-500 mt-1">Holder: <code className="font-mono text-xs bg-slate-50 px-1 rounded">{p?.holderDid ?? "—"}</code></div>
+                    <div className="text-xs text-slate-500 mt-1">CID: {mappingCID ?? "—"}</div>
+                    {mappingCID && (
+                      <div className="text-xs mt-1">
+                        <a href={ipfsUrl} target="_blank" rel="noreferrer" className="underline text-indigo-600">Open IPFS</a>
+                      </div>
+                    )}
+                    {txHash && (
+                      <div className="text-xs mt-1">
+                        Tx: <a href={`https://etherscan.io/tx/${txHash}`} target="_blank" rel="noreferrer" className="underline">{txHash}</a>
+                      </div>
+                    )}
+                    {p?.ipfsError && <div className="text-xs text-red-600 mt-1">IPFS error: {p.ipfsError}</div>}
+                    {p?.revoked && <div className="text-xs text-red-600 mt-1">Revoked</div>}
+                    {created && <div className="text-xs text-slate-400 mt-1">Created: {new Date(created).toLocaleString()}</div>}
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <button onClick={() => { copyToClipboard(jwt, "Presentation JWT"); }} className="px-2 py-1 rounded text-xs bg-slate-100">Copy</button>
-                    <button onClick={() => { setPresentationJwt(jwt); }} className="px-2 py-1 rounded text-xs bg-slate-100">Load</button>
-                    <button onClick={() => handleVerifyPresentation(jwt)} className="px-2 py-1 rounded text-xs bg-indigo-600 text-white">Verify</button>
+                    <button
+                      onClick={() => {
+                        const copyText = ipfsStoredJwt || (p?.ipfsDoc && JSON.stringify(p.ipfsDoc)) || JSON.stringify(p);
+                        copyToClipboard(copyText, "Presentation JWT/Document");
+                      }}
+                      className="px-2 py-1 rounded text-xs bg-slate-100"
+                    >
+                      Copy
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        if (ipfsStoredJwt) {
+                          setPresentationJwt(ipfsStoredJwt);
+                        } else if (p?.ipfsDoc && p.ipfsDoc.presentationJwt) {
+                          setPresentationJwt(p.ipfsDoc.presentationJwt);
+                        } else {
+                          // try to load raw object as JSON
+                          setPresentationJwt(JSON.stringify(p));
+                        }
+                      }}
+                      className="px-2 py-1 rounded text-xs bg-slate-100"
+                    >
+                      Load
+                    </button>
+
+                    <button onClick={() => {
+                      const payload = ipfsStoredJwt ? (parseJwtPayload(ipfsStoredJwt) ?? ipfsStoredJwt) : (p.ipfsDoc ?? p);
+                      downloadJson(payload, `presentation-${mappingCID || p.id || i+1}.json`);
+                    }} className="px-2 py-1 rounded text-xs bg-slate-100">Download JSON</button>
+
+                    <button onClick={() => {
+                      const payload = ipfsStoredJwt ? (parseJwtPayload(ipfsStoredJwt) ?? ipfsStoredJwt) : (p.ipfsDoc ?? p);
+                      const body = `<pre>${JSON.stringify(payload, null, 2)}</pre>`;
+                      openPrintablePdfWindow(`Presentation ${p?.id ?? i+1}`, body);
+                    }} className="px-2 py-1 rounded text-xs bg-slate-100">Download PDF</button>
+
+                    <button onClick={() => showQrFor(p)} className="px-2 py-1 rounded text-xs bg-slate-100"><QrIcon size={12} /></button>
+
+                    <button onClick={() => {
+                      // share IPFS link if possible else the presentation text
+                      if (mappingCID) {
+                        shareUrlOrText({ url: `https://dweb.link/ipfs/${mappingCID}`, title: "Presentation" });
+                      } else if (ipfsStoredJwt) {
+                        shareUrlOrText({ text: ipfsStoredJwt, title: "Presentation JWT" });
+                      } else {
+                        shareUrlOrText({ text: JSON.stringify(p), title: "Presentation" });
+                      }
+                    }} className="px-2 py-1 rounded text-xs bg-slate-100">Share</button>
+
+                    {/* allow publish only if not already on-chain (approx) */}
+                    {!mappingCID && PRESENTATION_ADDRESS && (
+                      <button onClick={() => {
+                        publishParamsRef.current = { vpJwt: ipfsStoredJwt ?? presentationJwt ?? null, relatedCredentialId: p?.relatedCredentialId ?? 0 };
+                        setShowPublishConfirm(true);
+                      }} className="px-2 py-1 rounded text-xs bg-emerald-600 text-white">Publish</button>
+                    )}
+
+                    <button onClick={() => handleVerifyPresentation(ipfsStoredJwt ?? undefined)} className="px-2 py-1 rounded text-xs bg-indigo-600 text-white">Verify</button>
                   </div>
                 </div>
               );
@@ -1018,6 +1423,50 @@ const VcPresentationManager = ({ onBack = null }) => {
       </section>
 
       {error && <div className="text-sm text-red-600">{error}</div>}
+
+      {/* Publish confirmation modal */}
+      {showPublishConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black opacity-40" onClick={() => setShowPublishConfirm(false)} />
+          <div className="relative bg-white rounded p-6 max-w-lg w-full z-10">
+            <h3 className="text-lg font-medium mb-2">Publish presentation to IPFS and register on-chain?</h3>
+            <p className="text-sm text-slate-600 mb-3">
+              This will upload the presentation to IPFS (public) and store a mapping CID and hash on-chain.
+              <strong> Presentations may contain personal / sensitive data.</strong> Make sure you have permission to publish this data publicly.
+            </p>
+            <div className="text-xs text-slate-500 mb-4">
+              IPFS content will be public — if the presentation contains private data consider not publishing or encrypting before publishing.
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <button className="px-3 py-2 rounded bg-slate-100" onClick={() => setShowPublishConfirm(false)}>Cancel</button>
+              <button
+                className="px-3 py-2 rounded bg-emerald-600 text-white"
+                onClick={async () => {
+                  setShowPublishConfirm(false);
+                  const params = publishParamsRef.current || {};
+                  await publishPresentationToIpfsAndStoreOnChain({ presentationJwtToUse: params.vpJwt, relatedCredentialId: params.relatedCredentialId || 0 });
+                }}
+              >
+                Confirm & Publish
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* QR modal (simple) */}
+      {qrModalVisible && qrModalSrc && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black opacity-40" onClick={() => { setQrModalVisible(false); setQrModalSrc(null); }} />
+          <div className="relative bg-white rounded p-6 z-50">
+            <img src={qrModalSrc} alt="QR" className="w-64 h-64" />
+            <div className="mt-3 text-right">
+              <button className="px-3 py-1 rounded bg-slate-100" onClick={() => { setQrModalVisible(false); setQrModalSrc(null); }}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

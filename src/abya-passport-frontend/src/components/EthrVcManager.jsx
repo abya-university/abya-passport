@@ -716,7 +716,7 @@ const EthrVcManager = () => {
     <div className="max-w-5xl mx-auto p-6 space-y-6">
       <header className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-semibold">Ethr Credential Manager</h2>
+          <h2 className="text-2xl text-amber-500 font-semibold">Ethr Credential Manager</h2>
           <p className="text-sm text-slate-500 mt-1">Create, publish, and verify verifiable credentials (keeps existing logic).</p>
         </div>
 
@@ -735,7 +735,7 @@ const EthrVcManager = () => {
 
             <div className="mt-1 flex items-center gap-2">
               {/* network badge (parsed from DID if possible) */}
-              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded font-medium text-slate-700">
+              <span className="text-xs bg-green-100 px-2 py-0.5 rounded font-medium text-slate-700">
                 {(() => {
                   try {
                     if (!walletDid) return "—";
@@ -772,7 +772,7 @@ const EthrVcManager = () => {
             className="flex items-center gap-2 bg-slate-100 px-3 py-2 rounded text-sm hover:bg-slate-200"
             title="Refresh list"
           >
-            <RefreshCw size={16} /> Refresh
+            <RefreshCw size={18} />  {/*Refresh*/}
           </button>
         </div>
       </header>
@@ -781,7 +781,7 @@ const EthrVcManager = () => {
       {/* Create VC form - compact card */}
       <section className="bg-white shadow-sm rounded border border-slate-100 p-4">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-medium">Create Credential</h3>
+          <h3 className="text-lg text-gray-700 font-medium">Create Credential</h3>
           <div className="text-sm text-slate-500">Compact form · required fields</div>
         </div>
 
@@ -829,16 +829,8 @@ const EthrVcManager = () => {
           </div>
 
           <div className="md:col-span-2 flex flex-wrap gap-2 items-center mt-1">
-            <button type="submit" disabled={loading || didLoading} className="flex items-center gap-2 bg-blue-600 text-white px-3 py-1.5 rounded text-sm">
+            <button type="submit" disabled={loading || didLoading} className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded text-sm">
               <PlusSquare size={16} /> {loading ? "Creating..." : "Create"}
-            </button>
-
-            <button
-              type="button"
-              onClick={fetchCredentials}
-              className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded text-sm hover:bg-slate-200"
-            >
-              <RefreshCw size={14} /> {listLoading ? "Refreshing..." : "Refresh list"}
             </button>
 
             <button
@@ -855,7 +847,7 @@ const EthrVcManager = () => {
                 }
                 setListLoading(false);
               }}
-              className="flex items-center gap-2 bg-indigo-600 text-white px-3 py-1.5 rounded text-sm"
+              className="flex items-center gap-2 border border-blue-900 bg-transparent hover:bg-blue-900 text-blue-900 hover:text-white px-3 py-1.5 rounded text-sm"
             >
               <Database size={14} /> Show on-chain
             </button>
@@ -879,29 +871,29 @@ const EthrVcManager = () => {
             </div>
           </div>
 
-          <pre className="text-xs whitespace-pre-wrap max-h-48 overflow-auto mt-3 bg-slate-50 p-2 rounded">{JSON.stringify(credential, null, 2)}</pre>
+          <pre className="text-xs whitespace-pre-wrap max-h-48 overflow-auto mt-3 bg-slate-100 p-2 rounded">{JSON.stringify(credential, null, 2)}</pre>
 
           <div className="flex flex-wrap gap-2 mt-3">
-            <button onClick={() => copyToClipboard(JSON.stringify(credential, null, 2), "Credential JSON")} className="flex items-center gap-2 bg-emerald-600 text-white px-3 py-1 rounded text-sm">
+            {/* <button onClick={() => copyToClipboard(JSON.stringify(credential, null, 2), "Credential JSON")} className="flex items-center gap-2 bg-blue-900 hover:bg-emerald-600 text-white px-3 py-1 rounded text-sm">
               <Copy size={14} /> Copy JSON
-            </button>
-            <button onClick={() => credential?.proof?.jwt && copyToClipboard(credential.proof.jwt, "JWT")} className="flex items-center gap-2 bg-slate-700 text-white px-3 py-1 rounded text-sm">
+            </button> */}
+            <button onClick={() => credential?.proof?.jwt && copyToClipboard(credential.proof.jwt, "JWT")} className="flex items-center gap-2 bg-slate-700 hover:bg-amber-500 text-white hover:text-slate-800 px-3 py-1 rounded text-sm">
               <Copy size={14} /> Copy JWT
             </button>
-            <button onClick={() => credential?.proof?.jwt && generateQr(credential.proof.jwt)} className="flex items-center gap-2 bg-indigo-600 text-white px-3 py-1 rounded text-sm">
+            <button onClick={() => credential?.proof?.jwt && generateQr(credential.proof.jwt)} className="flex items-center gap-2 bg-slate-700 hover:bg-amber-500 text-white hover:text-slate-800 px-3 py-1 rounded text-sm">
               <QrCode size={14} /> QR (JWT)
             </button>
-            <button onClick={() => downloadJSON(credential)} className="flex items-center gap-2 bg-yellow-600 text-white px-3 py-1 rounded text-sm">
-              <FileText size={14} /> JSON
+            <button onClick={() => downloadJSON(credential)} className="flex items-center gap-2 bg-slate-700 hover:bg-amber-500 text-white hover:text-slate-800 px-3 py-1 rounded text-sm">
+              <Download size={14} /> JSON
             </button>
-            <button onClick={() => downloadPDF(credential)} className="flex items-center gap-2 bg-purple-600 text-white px-3 py-1 rounded text-sm">
+            <button onClick={() => downloadPDF(credential)} className="flex items-center gap-2 bg-slate-700 hover:bg-amber-500 text-white hover:text-slate-800 px-3 py-1 rounded text-sm">
               <Download size={14} /> PDF
             </button>
-            <button onClick={() => { if (credential?.proof?.jwt) setJwtToVerify(credential.proof.jwt); else alert('No JWT present'); }} className="flex items-center gap-2 bg-slate-800 text-white px-3 py-1 rounded text-sm">
+            <button onClick={() => { if (credential?.proof?.jwt) setJwtToVerify(credential.proof.jwt); else alert('No JWT present'); }} className="flex items-center gap-2 bg-slate-700 hover:bg-amber-500 text-white hover:text-slate-800 px-3 py-1 rounded text-sm">
               <Link2 size={14} /> Use for Verify
             </button>
 
-            <button onClick={() => publishCredentialToIpfsAndStoreOnChain(credential, "latest")} className="flex items-center gap-2 bg-emerald-700 text-white px-3 py-1 rounded text-sm">
+            <button onClick={() => publishCredentialToIpfsAndStoreOnChain(credential, "latest")} className="flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1 rounded text-sm">
               <UploadCloud size={14} /> {ipfsStatus["latest"]?.uploading ? "Uploading..." : chainStatus["latest"]?.sending ? "Storing..." : "Publish & Store"}
             </button>
           </div>
@@ -931,9 +923,9 @@ const EthrVcManager = () => {
       )}
 
       {/* Credentials list */}
-      <section className="space-y-3">
+      <section className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-medium">Stored credentials</h3>
+          <h3 className="text-lg text-gray-700 font-medium">Stored credentials</h3>
           <div className="text-sm text-slate-500">{credentials.length} items</div>
         </div>
 
@@ -976,7 +968,7 @@ const EthrVcManager = () => {
             const jwt = cred?.proof?.jwt || cred?.jwt || (typeof cred === "string" ? cred : null);
             const subjectId = cred?.credentialSubject?.id || cred?.credentialSubject?.sub || cred?.onchain?.studentDID || cred?.subject || cred?.id || "N/A";
             return (
-              <div key={i} className="bg-white border border-slate-100 rounded p-3 flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+              <div key={i} className="bg-slate-100 border border-slate-100 rounded p-3 flex flex-col md:flex-row md:items-start md:justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="text-sm text-slate-700 truncate"><strong>Subject:</strong> <span className="font-mono ml-1">{subjectId}</span></div>
                   <div className="text-sm text-slate-600 mt-1 truncate"><strong>Name:</strong> {cred?.credentialSubject?.name ?? cred?.name ?? cred?.credentialSubject?.fullName ?? "N/A"}</div>
@@ -1001,16 +993,16 @@ const EthrVcManager = () => {
 
                 <div className="flex-shrink-0 w-full md:w-auto flex flex-col gap-2 items-end">
                   <div className="flex gap-2">
-                    <button onClick={() => downloadJSON(cred)} className="flex items-center gap-2 bg-yellow-600 text-white px-2 py-1 rounded text-xs">
-                      <FileText size={14} /> JSON
+                    <button onClick={() => downloadJSON(cred)} className="flex items-center gap-2 bg-blue-100 text-gray px-2 py-1 rounded text-xs " title="JSON">
+                      <FileText size={14} /> {/* JSON */}
                     </button>
-                    <button onClick={() => downloadPDF(cred)} className="flex items-center gap-2 bg-purple-600 text-white px-2 py-1 rounded text-xs">
-                      <Download size={14} /> PDF
+                    <button onClick={() => downloadPDF(cred)} className="flex items-center gap-2 bg-blue-100 text-gray px-2 py-1 rounded text-xs" title="PDF">
+                      <Download size={14} /> {/* PDF */}
                     </button>
-                    <button onClick={() => jwt ? copyToClipboard(jwt, "JWT") : alert("No JWT for this credential")} className="flex items-center gap-2 bg-slate-700 text-white px-2 py-1 rounded text-xs">
-                      <Copy size={14} /> JWT
+                    <button onClick={() => jwt ? copyToClipboard(jwt, "JWT") : alert("No JWT for this credential")} className="flex items-center gap-2 bg-blue-100 text-gray px-2 py-1 rounded text-xs" title="JWT">
+                      <Copy size={14} /> {/* JWT */}
                     </button>
-                    <button onClick={() => jwt ? generateQr(jwt) : alert("No JWT to generate QR")} className="flex items-center gap-2 bg-indigo-600 text-white px-2 py-1 rounded text-xs">
+                    <button onClick={() => jwt ? generateQr(jwt) : alert("No JWT to generate QR")} className="flex items-center gap-2 bg-blue-100 text-gray px-2 py-1 rounded text-xs" title="QR">
                       <QrCode size={14} />
                     </button>
                   </div>
@@ -1029,7 +1021,7 @@ const EthrVcManager = () => {
 
                       {cred?.onchain?.mappingCID && (
                         <button onClick={() => retryFetchIpfs(cred.onchain.mappingCID, i)} className="bg-slate-100 text-slate-800 px-2 py-1 rounded text-xs">
-                          <RefreshCw size={12} /> Retry IPFS
+                          <RefreshCw size={12} /> {/* Retry IPFS */}
                         </button>
                       )}
 
@@ -1066,7 +1058,7 @@ const EthrVcManager = () => {
           <div className="flex items-center gap-2">
             <button
               onClick={handleJwtVerification}
-              className="flex items-center gap-2 bg-indigo-600 text-white px-3 py-1.5 rounded text-sm"
+              className="flex items-center gap-2 border border:blue-900 hover:bg-blue-900 text-blue-900 hover:text-white px-3 py-1.5 rounded text-sm"
             >
               <CheckCircle size={14} /> Verify
             </button>
@@ -1084,7 +1076,7 @@ const EthrVcManager = () => {
           value={jwtToVerify}
           onChange={(e) => setJwtToVerify(e.target.value.trim())}
           rows={4}
-          className="w-full border p-2 rounded text-sm bg-slate-50"
+          className="w-full bg-slate-100 border border:gray-50 p-2 rounded text-sm"
           placeholder="Paste JWT here..."
         />
 
@@ -1206,7 +1198,7 @@ const EthrVcManager = () => {
               </div>
 
               <div>
-                <h3 className="text-lg font-semibold">Create a Verifiable Presentation</h3>
+                <h3 className="text-lg text-gray-600 font-semibold">Create a Verifiable Presentation</h3>
                 <p className="text-sm text-slate-500 mt-1 max-w-prose">
                   A Verifiable Presentation lets you prove ownership of your Verifiable Credential
                   while disclosing only the claims a verifier needs. Use it to share proofs safely

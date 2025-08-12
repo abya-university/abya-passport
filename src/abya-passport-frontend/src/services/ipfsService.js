@@ -92,15 +92,40 @@ export const storeCredential = async (did, credentialData) => {
     const fileName = `vc-${safeDid}.json`;
     const file = new File([blob], fileName, { type: "application/json" });
     const uploadResponse = await pinata.upload.file(file, {
-      pinataMetadata: { name: `profile-${safeDid}` },
+      pinataMetadata: { name: `credential-${safeDid}` },
     });
     return uploadResponse.IpfsHash;
   } catch (error) {
-    console.error("Error uploading credential profile to Pinata:", error);
+    console.error("Error uploading credential to Pinata:", error);
     throw error;
   }
 };
 
+
+/**
+ * Stores a credential on Pinata by creating a JSON file that maps the credentials
+ * with the associated DID and the CID of the credential document.
+ *
+ * @param {string} did - The DID of the student.
+ * @param {Object} presentationData - The profile data including student information.
+ * @returns {Promise<string>} - The IPFS hash (CID) of the stored profile.
+ */
+export const storePresentation = async (did, presentationData) => {
+  try {
+    const presentationString = JSON.stringify(presentationData, null, 2);
+    const blob = new Blob([presentationString], { type: "application/json" });
+    const safeDid = did.replace(/:/g, ":");
+    const fileName = `vp-${safeDid}.json`;
+    const file = new File([blob], fileName, { type: "application/json" });
+    const uploadResponse = await pinata.upload.file(file, {
+      pinataMetadata: { name: `presentation-${safeDid}` },
+    });
+    return uploadResponse.IpfsHash;
+  } catch (error) {
+    console.error("Error uploading credential presentation to Pinata:", error);
+    throw error;
+  }
+};
 
 
 /**

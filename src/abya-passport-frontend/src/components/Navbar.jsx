@@ -145,8 +145,10 @@ function Navbar({ currentPage, setCurrentPage }) {
           <li>
             <a
               href="/"
-              className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent hover:from-blue-700 hover:to-purple-700 transition-all duration-200"
-            >
+              className="text-2xl font-bold bg-gradient-to-r from-orange-400 via-yellow-500 to-blue-900 bg-clip-text text-transparent 
+                        hover:from-orange-500 hover:via-yellow-600 hover:to-blue-800 
+                        transition-all duration-300 transform hover:scale-105 
+                        focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2">
               ABYA Passport
             </a>
           </li>
