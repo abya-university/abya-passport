@@ -11,6 +11,14 @@ import {
   QrCode as QrIcon,
   CheckCircle,
   AlertCircle,
+  Download,
+  DownloadIcon,
+  Share,
+  Share2Icon,
+  BoxSelectIcon,
+  CopyIcon,
+  Loader2Icon,
+  LoaderPinwheel,
 } from "lucide-react";
 
 const API_BASE = "http://localhost:3000";
@@ -1057,7 +1065,7 @@ const VcPresentationManager = ({ onBack = null }) => {
     <div className="max-w-5xl mx-auto p-6 space-y-6">
       <header className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-semibold">Verifiable Presentation Manager</h2>
+          <h2 className="text-2xl text-blue-900 font-semibold">Verifiable Presentation Manager</h2>
           <p className="text-sm text-slate-500 mt-1">Create, verify and manage verifiable presentations derived from your credentials (fetches IPFS itself).</p>
         </div>
 
@@ -1107,7 +1115,7 @@ const VcPresentationManager = ({ onBack = null }) => {
       {/* Available credentials */}
       <section className="bg-white border border-slate-100 rounded p-4 shadow-sm">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-lg font-medium">Available credentials (from IPFS)</h3>
+          <h3 className="text-lg text-blue-900 font-medium">Available credentials (from IPFS)</h3>
           <div className="text-xs text-slate-500">{ipfsCredentials.length} items</div>
         </div>
 
@@ -1126,32 +1134,32 @@ const VcPresentationManager = ({ onBack = null }) => {
               const mappingCID = c.cid || c.original?.onchain?.mappingCID || c.original?.mappingCID || null;
               return (
                 <div key={i} className={`p-3 bg-gray-100 rounded flex items-start justify-between ${selectedClass}`}>
-                  <div className="flex-1 pr-3">
+                  <div className="flex-1 pr-3 min-w-0">
                     <div className="text-sm font-medium text-slate-800 truncate">{title}</div>
-                    <div className="text-xs text-slate-500 mt-1">Subject: <code className="font-mono text-xs bg-slate-50 px-1 rounded">{subject}</code></div>
-                    <div className="text-xs text-slate-500 mt-1">CID: {mappingCID ?? "—"}</div>
+                    <div className="text-xs text-slate-500 mt-1">Subject: <code className="font-mono text-xs bg-slate-50 px-1 rounded break-all max-w-full inline-block">{subject}</code></div>
+                    <div className="text-xs text-slate-500 mt-1 truncate">CID: <span className="font-mono">{mappingCID ?? "—"}</span></div>
                     {c.ipfsStatus?.error && <div className="text-xs text-red-600 mt-1">IPFS error: {c.ipfsStatus.error}</div>}
                   </div>
 
-                  <div className="flex flex-col items-end gap-2">
-                    <div className="flex gap-2">
-                      <button onClick={() => setSelectedIdx(i)} className="px-2 py-1 rounded text-xs bg-slate-100 hover:bg-slate-200">Select</button>
-                      <button onClick={() => handleCopyCredentialJwt(i)} className="px-2 py-1 rounded text-xs bg-slate-100 hover:bg-slate-200"><Copy size={12} /></button>
+                  <div className="flex-shrink-0 flex flex-col items-end gap-2">
+                    <div className="flex gap-2 flex-wrap">
+                      <button onClick={() => setSelectedIdx(i)} className="flex items-center gap-2 bg-blue-100 text-gray px-2 py-1 rounded text-xs"><BoxSelectIcon size={12} /> Select</button>
+                      <button onClick={() => handleCopyCredentialJwt(i)} className="flex items-center gap-2 bg-blue-100 text-gray px-2 py-1 rounded text-xs"><Copy size={12} /> JWT</button>
                       <button onClick={() => {
                         // Download credential JSON (prefer doc if present)
                         const payload = doc ? doc : c.original ? c.original : {};
                         downloadJson(payload, `credential-${mappingCID ? mappingCID : i+1}.json`);
-                      }} className="px-2 py-1 rounded text-xs bg-slate-100 hover:bg-slate-200">Download JSON</button>
+                      }} className="flex items-center gap-2 bg-blue-100 text-gray px-2 py-1 rounded text-xs"><DownloadIcon size={12} /> JSON</button>
                       <button onClick={() => {
                         const payload = doc ? doc : c.original ? c.original : {};
                         const body = `<pre>${JSON.stringify(payload, null, 2)}</pre>`;
                         openPrintablePdfWindow(`Credential ${i+1}`, body);
-                      }} className="px-2 py-1 rounded text-xs bg-slate-100 hover:bg-slate-200">Download PDF</button>
+                      }} className="flex items-center gap-2 bg-blue-100 text-gray px-2 py-1 rounded text-xs"><DownloadIcon size={12} /> PDF</button>
                       <button onClick={() => {
                         const url = mappingCID ? `https://dweb.link/ipfs/${mappingCID}` : null;
                         if (url) shareUrlOrText({ url, title: "Credential link" });
                         else copyToClipboard(JSON.stringify(doc || c), "Credential JSON");
-                      }} className="px-2 py-1 rounded text-xs bg-slate-100 hover:bg-slate-200">Share</button>
+                      }} className="flex items-center gap-2 bg-blue-100 text-gray px-2 py-1 rounded text-xs"><Share2Icon size={12} /> Share</button>
                     </div>
                     <div className="text-xs text-slate-400">{doc?.issuanceDate ? `Issued: ${new Date(doc.issuanceDate).toLocaleString()}` : ""}</div>
                   </div>
@@ -1164,7 +1172,7 @@ const VcPresentationManager = ({ onBack = null }) => {
 
       {/* Create / Verify Presentation */}
       <section className="bg-white border border-slate-100 rounded p-4 shadow-sm">
-        <h3 className="text-lg font-medium mb-2">Create presentation</h3>
+        <h3 className="text-lg text-blue-900 font-medium mb-2">Create presentation</h3>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div className="md:col-span-2">
@@ -1173,7 +1181,7 @@ const VcPresentationManager = ({ onBack = null }) => {
               {selectedIdx !== null ? (
                 <>
                   <div className="font-medium">{ipfsCredentials[selectedIdx]?.doc?.credentialSubject?.name || ipfsCredentials[selectedIdx]?.doc?.name || "—"}</div>
-                  <div className="text-xs text-slate-500 mt-1">Subject: <code className="font-mono text-xs bg-slate-50 px-1 rounded">{ipfsCredentials[selectedIdx]?.doc?.credentialSubject?.id || "—"}</code></div>
+                  <div className="text-xs text-slate-500 mt-1">Subject: <code className="font-mono text-xs bg-slate-50 px-1 rounded break-all max-w-full inline-block">{ipfsCredentials[selectedIdx]?.doc?.credentialSubject?.id || "—"}</code></div>
                 </>
               ) : (
                 <div className="text-sm text-slate-500">No credential selected — you can also paste a JWT below.</div>
@@ -1187,8 +1195,8 @@ const VcPresentationManager = ({ onBack = null }) => {
           </div>
         </div>
 
-        <div className="flex gap-2 mt-3">
-          <button onClick={handleCreatePresentation} disabled={presentLoading} className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded">
+        <div className="flex gap-2 mt-3 flex-wrap">
+          <button onClick={handleCreatePresentation} disabled={presentLoading} className="flex items-center gap-2 bg-amber-500 hover:bg-amber-700 text-white px-4 py-2 rounded">
             <QrIcon size={14} /> {presentLoading ? "Creating..." : "Create Presentation"}
           </button>
 
@@ -1219,8 +1227,8 @@ const VcPresentationManager = ({ onBack = null }) => {
         {/* publish status */}
         {publishStatus.cid && (
           <div className="mt-3 text-xs text-slate-700 p-2 bg-slate-50 rounded border">
-            <div>IPFS CID: <a href={`https://dweb.link/ipfs/${publishStatus.cid}`} target="_blank" rel="noreferrer" className="underline">{publishStatus.cid}</a></div>
-            {publishStatus.txHash && <div className="mt-1">Tx: <a href={`https://etherscan.io/tx/${publishStatus.txHash}`} target="_blank" rel="noreferrer" className="underline">{publishStatus.txHash}</a></div>}
+            <div>IPFS CID: <a href={`https://dweb.link/ipfs/${publishStatus.cid}`} target="_blank" rel="noreferrer" className="underline break-all">{publishStatus.cid}</a></div>
+            {publishStatus.txHash && <div className="mt-1">Tx: <a href={`https://etherscan.io/tx/${publishStatus.txHash}`} target="_blank" rel="noreferrer" className="underline break-all">{publishStatus.txHash}</a></div>}
             {publishStatus.txError && <div className="mt-1 text-red-600">On-chain error: {publishStatus.txError}</div>}
           </div>
         )}
@@ -1230,8 +1238,8 @@ const VcPresentationManager = ({ onBack = null }) => {
             <div className="flex items-start justify-between">
               <div className="text-sm font-medium">Presentation (JWT)</div>
               <div className="flex items-center gap-2">
-                <button onClick={() => copyToClipboard(presentationJwt, "Presentation JWT")} className="px-2 py-1 rounded bg-slate-100 text-xs">Copy</button>
-                <button onClick={() => generateQr(presentationJwt)} className="px-2 py-1 rounded bg-slate-100 text-xs"><QrIcon size={12} /></button>
+                <button onClick={() => copyToClipboard(presentationJwt, "Presentation JWT")} className="flex items-center gap-2 hover:bg-blue-100 text-gray px-2 py-1 rounded text-xs"><CopyIcon size={12} /> Copy</button>
+                <button onClick={() => generateQr(presentationJwt)} className="flex items-center gap-2 hover:bg-blue-100 text-gray px-2 py-1 rounded text-xs"><QrIcon size={12} /></button>
                 <button onClick={() => {
                   // Download JSON of presentation
                   try {
@@ -1240,26 +1248,26 @@ const VcPresentationManager = ({ onBack = null }) => {
                     if (parsed) downloadJson(parsed, "presentation.json");
                     else downloadJson(presentationJwt, "presentation.jwt.txt");
                   } catch { downloadJson(presentationJwt, "presentation.jwt.txt"); }
-                }} className="px-2 py-1 rounded bg-slate-100 text-xs">Download JSON</button>
+                }} className="flex items-center gap-2 hover:bg-blue-100 text-gray px-2 py-1 rounded text-xs"><DownloadIcon size={12} /> JSON</button>
                 <button onClick={() => {
                   // printable representation
                   const payload = parseJwtPayload(presentationJwt) ?? presentationJwt;
                   const body = `<pre>${JSON.stringify(payload, null, 2)}</pre>`;
                   openPrintablePdfWindow("Presentation", body);
-                }} className="px-2 py-1 rounded bg-slate-100 text-xs">Download PDF</button>
-                <button onClick={() => shareUrlOrText({ text: presentationJwt, title: "Presentation JWT" })} className="px-2 py-1 rounded bg-slate-100 text-xs">Share</button>
-                <button onClick={() => handleVerifyPresentation(presentationJwt)} className="px-2 py-1 rounded bg-indigo-600 text-white text-xs"><CheckCircle size={12} /> Verify</button>
+                }} className="flex items-center gap-2 hover:bg-blue-100 text-gray px-2 py-1 rounded text-xs"><DownloadIcon size={12} /> PDF</button>
+                <button onClick={() => shareUrlOrText({ text: presentationJwt, title: "Presentation JWT" })} className="flex items-center gap-2 hover:bg-blue-100 text-gray px-2 py-1 rounded text-xs"><Share2Icon size={12} /> Share</button>
+                <button onClick={() => handleVerifyPresentation(presentationJwt)} className="flex items-center gap-2 bg-emerald-600 text-white px-2 py-1 rounded text-xs"><CheckCircle size={12} /> Verify</button>
               </div>
             </div>
 
-            <pre className="text-xs mt-2 whitespace-pre-wrap max-h-40 overflow-auto bg-white p-2 rounded">{presentationJwt}</pre>
+            <pre className="text-xs mt-2 whitespace-pre-wrap max-h-40 overflow-auto bg-white p-2 rounded break-all">{presentationJwt}</pre>
           </div>
         )}
 
         {qrDataUrl && qrModalVisible && (
           <div className="mt-3 flex items-center gap-4">
             <div className="p-2 bg-white rounded border">
-              <img src={qrDataUrl} alt="QR" className="w-48 h-48" />
+              <img src={qrDataUrl} alt="QR" className="w-48 h-48 max-w-full" />
             </div>
             <div className="text-sm text-slate-600">Scan to import the presentation JWT.</div>
             <button onClick={() => { setQrModalVisible(false); setQrDataUrl(null); setQrModalSrc(null); }} className="ml-auto px-3 py-1 rounded bg-slate-100">Close</button>
@@ -1278,7 +1286,7 @@ const VcPresentationManager = ({ onBack = null }) => {
             </div>
             <details className="mt-2">
               <summary className="text-sm cursor-pointer">View verification details</summary>
-              <pre className="text-xs mt-2 bg-slate-50 p-2 rounded max-h-56 overflow-auto">{JSON.stringify(verifyResult, null, 2)}</pre>
+              <pre className="text-xs mt-2 bg-slate-50 p-2 rounded max-h-56 overflow-auto break-all">{JSON.stringify(verifyResult, null, 2)}</pre>
             </details>
           </div>
         )}
@@ -1307,19 +1315,19 @@ const VcPresentationManager = ({ onBack = null }) => {
               const ipfsUrl = mappingCID ? `https://dweb.link/ipfs/${mappingCID}` : null;
 
               return (
-                <div key={i} className="p-2 border rounded flex items-start justify-between">
-                  <div className="flex-1 pr-3">
+                <div key={i} className="p-2 bg-gray-100 rounded flex items-start justify-between gap-3">
+                  <div className="flex-1 pr-3 min-w-0">
                     <div className="text-sm font-medium truncate">{displayTitle}</div>
-                    <div className="text-xs text-slate-500 mt-1">Holder: <code className="font-mono text-xs bg-slate-50 px-1 rounded">{p?.holderDid ?? "—"}</code></div>
-                    <div className="text-xs text-slate-500 mt-1">CID: {mappingCID ?? "—"}</div>
+                    <div className="text-xs text-slate-500 mt-1">Holder: <code className="font-mono text-xs bg-slate-50 px-1 rounded break-all max-w-full inline-block">{p?.holderDid ?? "—"}</code></div>
+                    <div className="text-xs text-slate-500 mt-1 truncate">CID: <span className="font-mono">{mappingCID ?? "—"}</span></div>
                     {mappingCID && (
                       <div className="text-xs mt-1">
-                        <a href={ipfsUrl} target="_blank" rel="noreferrer" className="underline text-indigo-600">Open IPFS</a>
+                        <a href={ipfsUrl} target="_blank" rel="noreferrer" className="underline text-indigo-600 truncate block max-w-full break-all">Open IPFS</a>
                       </div>
                     )}
                     {txHash && (
                       <div className="text-xs mt-1">
-                        Tx: <a href={`https://etherscan.io/tx/${txHash}`} target="_blank" rel="noreferrer" className="underline">{txHash}</a>
+                        Tx: <a href={`https://etherscan.io/tx/${txHash}`} target="_blank" rel="noreferrer" className="underline break-all max-w-full">{txHash}</a>
                       </div>
                     )}
                     {p?.ipfsError && <div className="text-xs text-red-600 mt-1">IPFS error: {p.ipfsError}</div>}
@@ -1327,14 +1335,14 @@ const VcPresentationManager = ({ onBack = null }) => {
                     {created && <div className="text-xs text-slate-400 mt-1">Created: {new Date(created).toLocaleString()}</div>}
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex-shrink-0 flex items-center gap-2 flex-wrap">
                     <button
                       onClick={() => {
                         const copyText = ipfsStoredJwt || (p?.ipfsDoc && JSON.stringify(p.ipfsDoc)) || JSON.stringify(p);
                         copyToClipboard(copyText, "Presentation JWT/Document");
                       }}
-                      className="px-2 py-1 rounded text-xs bg-slate-100"
-                    >
+                      className="flex items-center gap-2 bg-blue-100 text-gray px-2 py-1 rounded text-xs"
+                    ><CopyIcon size={12} />
                       Copy
                     </button>
 
@@ -1349,23 +1357,23 @@ const VcPresentationManager = ({ onBack = null }) => {
                           setPresentationJwt(JSON.stringify(p));
                         }
                       }}
-                      className="px-2 py-1 rounded text-xs bg-slate-100"
-                    >
+                      className="flex items-center gap-2 bg-blue-100 text-gray px-2 py-1 rounded text-xs"
+                    ><LoaderPinwheel size={12} />
                       Load
                     </button>
 
                     <button onClick={() => {
                       const payload = ipfsStoredJwt ? (parseJwtPayload(ipfsStoredJwt) ?? ipfsStoredJwt) : (p.ipfsDoc ?? p);
                       downloadJson(payload, `presentation-${mappingCID || p.id || i+1}.json`);
-                    }} className="px-2 py-1 rounded text-xs bg-slate-100">Download JSON</button>
+                    }} className="flex items-center gap-2 bg-blue-100 text-gray px-2 py-1 rounded text-xs"><DownloadIcon size={12} /> JSON</button>
 
                     <button onClick={() => {
                       const payload = ipfsStoredJwt ? (parseJwtPayload(ipfsStoredJwt) ?? ipfsStoredJwt) : (p.ipfsDoc ?? p);
                       const body = `<pre>${JSON.stringify(payload, null, 2)}</pre>`;
                       openPrintablePdfWindow(`Presentation ${p?.id ?? i+1}`, body);
-                    }} className="px-2 py-1 rounded text-xs bg-slate-100">Download PDF</button>
+                    }} className="flex items-center gap-2 bg-blue-100 text-gray px-2 py-1 rounded text-xs"><DownloadIcon size={12} /> PDF</button>
 
-                    <button onClick={() => showQrFor(p)} className="px-2 py-1 rounded text-xs bg-slate-100"><QrIcon size={12} /></button>
+                    <button onClick={() => showQrFor(p)} className="flex items-center gap-2 bg-blue-100 text-gray px-2 py-1 rounded text-xs"  title="QR"><QrIcon size={12} /></button>
 
                     <button onClick={() => {
                       // share IPFS link if possible else the presentation text
@@ -1376,7 +1384,7 @@ const VcPresentationManager = ({ onBack = null }) => {
                       } else {
                         shareUrlOrText({ text: JSON.stringify(p), title: "Presentation" });
                       }
-                    }} className="px-2 py-1 rounded text-xs bg-slate-100">Share</button>
+                    }} className="flex items-center gap-2 bg-blue-100 text-gray px-2 py-1 rounded text-xs"><Share2Icon size={12} /> Share</button>
 
                     {/* allow publish only if not already on-chain (approx) */}
                     {!mappingCID && PRESENTATION_ADDRESS && (
@@ -1386,7 +1394,7 @@ const VcPresentationManager = ({ onBack = null }) => {
                       }} className="px-2 py-1 rounded text-xs bg-emerald-600 text-white">Publish</button>
                     )}
 
-                    <button onClick={() => handleVerifyPresentation(ipfsStoredJwt ?? undefined)} className="px-2 py-1 rounded text-xs bg-indigo-600 text-white">Verify</button>
+                    <button onClick={() => handleVerifyPresentation(ipfsStoredJwt ?? undefined)} className="px-2 py-1 rounded text-xs bg-blue-900 hover:bg-blue-800 text-white">Verify</button>
                   </div>
                 </div>
               );
@@ -1403,13 +1411,13 @@ const VcPresentationManager = ({ onBack = null }) => {
             <strong>Backend credentials (count):</strong> {allCredentials.length}
             <details className="mt-2">
               <summary className="cursor-pointer">Show raw backend list</summary>
-              <pre className="mt-2 max-h-48 overflow-auto bg-slate-50 p-2 rounded">{JSON.stringify(allCredentials, null, 2)}</pre>
+              <pre className="mt-2 max-h-48 overflow-auto bg-slate-50 p-2 rounded break-all">{JSON.stringify(allCredentials, null, 2)}</pre>
             </details>
           </div>
 
           <div>
             <strong>Extracted CIDs:</strong> {extractedCids.length} <button onClick={() => { buildIpfsCredentials(showAll ? allCredentials : credentials); }} className="ml-2 px-2 py-1 rounded bg-slate-100 text-xs">Rebuild</button>
-            <pre className="mt-2 max-h-48 overflow-auto bg-slate-50 p-2 rounded">{JSON.stringify(extractedCids, null, 2)}</pre>
+            <pre className="mt-2 max-h-48 overflow-auto bg-slate-50 p-2 rounded break-all">{JSON.stringify(extractedCids, null, 2)}</pre>
           </div>
         </div>
 
@@ -1460,7 +1468,7 @@ const VcPresentationManager = ({ onBack = null }) => {
         <div className="fixed inset-0 z-40 flex items-center justify-center">
           <div className="absolute inset-0 bg-black opacity-40" onClick={() => { setQrModalVisible(false); setQrModalSrc(null); }} />
           <div className="relative bg-white rounded p-6 z-50">
-            <img src={qrModalSrc} alt="QR" className="w-64 h-64" />
+            <img src={qrModalSrc} alt="QR" className="w-64 h-64 max-w-full" />
             <div className="mt-3 text-right">
               <button className="px-3 py-1 rounded bg-slate-100" onClick={() => { setQrModalVisible(false); setQrModalSrc(null); }}>Close</button>
             </div>

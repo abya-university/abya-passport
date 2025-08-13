@@ -716,7 +716,7 @@ const EthrVcManager = () => {
     <div className="max-w-5xl mx-auto p-6 space-y-6">
       <header className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl text-amber-500 font-semibold">Ethr Credential Manager</h2>
+          <h2 className="text-2xl text-blue-900 font-semibold">Ethr Credential Manager</h2>
           <p className="text-sm text-slate-500 mt-1">Create, publish, and verify verifiable credentials (keeps existing logic).</p>
         </div>
 
@@ -925,14 +925,14 @@ const EthrVcManager = () => {
       {/* Credentials list */}
       <section className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg text-gray-700 font-medium">Stored credentials</h3>
+          <h3 className="text-lg text-blue-900 font-medium">Stored credentials</h3>
           <div className="text-sm text-slate-500">{credentials.length} items</div>
         </div>
 
         {listLoading && <div className="text-sm text-slate-500">Loading credentials…</div>}
 
         {!listLoading && credentials.length === 0 && (
-          <div className="p-3 bg-slate-50 border border-slate-100 rounded text-sm text-slate-600">
+          <div className="p-3 bg-gray-100 border border-slate-100 rounded text-sm text-slate-600">
             <div>No credentials found.</div>
             <div className="mt-2 text-xs">
               <strong>Diagnostics</strong>
@@ -1015,7 +1015,7 @@ const EthrVcManager = () => {
                       className="border px-2 py-1 rounded text-xs w-full bg-slate-50"
                     />
                     <div className="flex gap-2 mt-2 items-center">
-                      <button onClick={() => publishCredentialToIpfsAndStoreOnChain(cred, i)} className="flex items-center gap-2 bg-emerald-600 text-white px-2 py-1 rounded text-xs">
+                      <button onClick={() => publishCredentialToIpfsAndStoreOnChain(cred, i)} className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-1 rounded text-xs">
                         <UploadCloud size={14} /> {ipfsStatus[i]?.uploading ? "Uploading..." : chainStatus[i]?.sending ? "Storing..." : "Publish"}
                       </button>
 
@@ -1051,7 +1051,7 @@ const EthrVcManager = () => {
       <section className="bg-white border border-slate-100 rounded p-4 shadow-sm">
         <div className="flex items-center justify-between mb-2">
           <div>
-            <h3 className="text-lg font-medium">Verify JWT</h3>
+            <h3 className="text-lg text-blue-900 font-medium">Verify JWT</h3>
             <div className="text-xs text-slate-500">Paste a JWT and verify its signature / claims</div>
           </div>
 
@@ -1229,7 +1229,7 @@ const EthrVcManager = () => {
                 <button
                   onClick={() => setCurrentPage("ethrpresent")}
                   className="flex-1 flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-white transition-all duration-150 shadow-md transform
-                    bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 hover:scale-[1.02]"
+                    bg-gradient-to-r from-green-600 to-blue-600 hover:from-blue-700 hover:to-green-700 hover:scale-[1.02]"
                   title="Go to Ethr VC Presentation"
                 >
                   <QrCode size={18} /> Ethr VC Presentation
