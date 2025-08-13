@@ -13,6 +13,22 @@ import {
 import { useEthr } from "../contexts/EthrContext";
 import EthrABI from "../artifacts/contracts/did_contract.json";
 import { useEthersSigner } from "./useClientSigner";
+import EthrPresentation from "./VcPresentationManager";
+
+// Small icons to make the UI compact and scannable
+import {
+  RefreshCw,
+  PlusSquare,
+  FileText,
+  Download,
+  QrCode,
+  Copy,
+  UploadCloud,
+  Link2,
+  CheckCircle,
+  AlertCircle,
+  Database,
+} from "lucide-react";
 
 const API_BASE = "http://localhost:3000";
 const VC_ADDRESS =
@@ -32,6 +48,9 @@ const EthrVcManager = () => {
     didLoading,
     timestamp: new Date().toISOString(),
   });
+
+  // navigation state for showing presentation page
+  const [currentPage, setCurrentPage] = useState("home");
 
   const [formData, setFormData] = useState({
     issuerDid: "",
@@ -53,11 +72,9 @@ const EthrVcManager = () => {
   const [ipfsToken, setIpfsToken] = useState("");
   const [ipfsStatus, setIpfsStatus] = useState({});
   const [chainStatus, setChainStatus] = useState({});
-  // debugging / diagnostics
-  const [lastOnchainIds, setLastOnchainIds] = useState([]); // raw ids returned by getCredentialsForStudent
-  const [lastOnchainRowsDebug, setLastOnchainRowsDebug] = useState([]); // raw row shapes for debugging
+  const [lastOnchainIds, setLastOnchainIds] = useState([]);
+  const [lastOnchainRowsDebug, setLastOnchainRowsDebug] = useState([]);
 
-  // Prefill subjectDid with walletDid when available (don't overwrite user edits)
   useEffect(() => {
     if (didLoading) return;
     if (walletDid) {
@@ -77,7 +94,6 @@ const EthrVcManager = () => {
   }, [walletDid, walletAddress, didLoading]);
 
   useEffect(() => {
-    // re-fetch credentials when wallet DID changes (so UI shows on-chain entries for connected DID)
     fetchCredentials();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [walletDid, walletAddress]);
@@ -99,9 +115,9 @@ const EthrVcManager = () => {
       symbol: "sFUEL",
       decimals: 18,
     },
-    rpcUrls: ["https://mainnet.skalenodes.com/v1/parallel-stormy-spica"],
+    rpcUrls: ["https://testnet.skalenodes.com/v1/aware-fake-trim-testnet"],
     blockExplorerUrls: [
-      "https://parallel-stormy-spica.explorer.mainnet.skalenodes.com/",
+      "https://aware-fake-trim-testnet.explorer.testnet.skalenodes.com/api",
     ],
   };
 
@@ -138,7 +154,6 @@ const EthrVcManager = () => {
   const safeToString = (v) => {
     try {
       if (v === null || v === undefined) return "";
-      // ethers BigNumber (v.toString should be safe)
       if (typeof v === "string") return v;
       if (typeof v === "number") return String(v);
       if (typeof v === "bigint") return v.toString();
@@ -149,8 +164,6 @@ const EthrVcManager = () => {
     }
   };
 
-  // ---------------- provider helpers (works for ethers v6 & v5) ----------------
-  // logs features to help debug environment
   useEffect(() => {
     console.log("ethers features:", {
       hasBrowserProvider: !!ethers?.BrowserProvider,
@@ -275,7 +288,6 @@ const EthrVcManager = () => {
   };
 
   const getContractReadonly = async () => {
-    // prefer injected provider for read operations if available
     if (typeof window !== "undefined" && window.ethereum) {
       if (ethers?.BrowserProvider) {
         const provider = new ethers.BrowserProvider(window.ethereum);
@@ -293,29 +305,23 @@ const EthrVcManager = () => {
       }
     }
 
-    // Fallback to a read-only RPC URL if provided via env (Vite or CRA)
     const rpcUrl =
       (typeof import.meta !== "undefined" &&
         import.meta.env &&
-        import.meta.env.VITE_READ_RPC) ||
-      process.env.REACT_APP_READ_RPC ||
-      process.env.VITE_READ_RPC ||
+        import.meta.env.VITE_APP_RPC_URL) ||
       null;
 
     if (rpcUrl) {
-      // ethers v6 & v5 both expose JsonRpcProvider under ethers.providers.JsonRpcProvider
       if (ethers?.providers?.JsonRpcProvider) {
         const jsonProvider = new ethers.providers.JsonRpcProvider(rpcUrl);
         return new ethers.Contract(VC_ADDRESS, VC_ABI, jsonProvider);
       }
       if (typeof ethers.JsonRpcProvider === "function") {
-        // some v6 builds expose JsonRpcProvider directly
         const jsonProvider = new ethers.JsonRpcProvider(rpcUrl);
         return new ethers.Contract(VC_ADDRESS, VC_ABI, jsonProvider);
       }
     }
 
-    // Last resort: getDefaultProvider if available
     if (typeof ethers.getDefaultProvider === "function") {
       const defaultProvider = ethers.getDefaultProvider();
       return new ethers.Contract(VC_ADDRESS, VC_ABI, defaultProvider);
@@ -372,18 +378,14 @@ Please check the contract address and ABI configuration.`;
           ? ethers.getAddress(hex)
           : null;
         if (checksum) out.push(checksum);
-      } catch (e) {
-        // ignore invalid checksum conversion
-      }
+      } catch (e) {}
     }
 
-    // if did starts with "did:ethr:" try removing network part (e.g., did:ethr:sepolia:0x.. -> 0x..)
     if (did.startsWith("did:ethr:")) {
       const removed = did.replace(/^did:ethr:[^:]+:/, "");
       if (removed && !out.includes(removed)) out.push(removed);
     }
 
-    // ensure uniqueness preserving order
     return out.filter((v, i) => v && out.indexOf(v) === i);
   };
 
@@ -420,7 +422,6 @@ Please check the contract address and ABI configuration.`;
         (typeof cred === "string" ? cred : null);
       if (jwt) setJwtToVerify(jwt);
 
-      // refresh list
       await fetchCredentials();
     } catch (err) {
       console.error("create error:", err);
@@ -459,7 +460,6 @@ Please check the contract address and ABI configuration.`;
         cred?.credentialSubject?.id || cred?.subject || cred?.subjectDid || "";
       let subjectToStore = subjectDidRaw;
 
-      // If subject is not a DID but contains an address, prefer checksummed address to be consistent
       const hexMatch = extractHexAddressFromDid(subjectDidRaw);
       if (!subjectDidRaw?.startsWith("did:") && hexMatch) {
         try {
@@ -679,13 +679,12 @@ Please check the contract address and ABI configuration.`;
     if (ethers.utils && typeof ethers.utils.keccak256 === "function") {
       return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(json));
     }
-    // fallback: non-cryptographic simple hash so code doesn't crash
     let h = 0;
     for (let i = 0; i < json.length; i++) h = (h << 5) - h + json.charCodeAt(i);
     return "0x" + (h >>> 0).toString(16);
   };
 
-  // ---------------- Fetch on-chain IDs for a DID (debuggable) ----------------
+  // ---------------- on-chain fetch helpers (unchanged) ----------------
   const getIdsForDid = async (did) => {
     try {
       const readContract = await getContractReadonly();
@@ -714,12 +713,9 @@ Please check the contract address and ABI configuration.`;
             usedVariant = v;
             break;
           }
-        } catch (inner) {
-          // keep trying variants
-        }
+        } catch (inner) {}
       }
 
-      // if still empty, try walletAddress as last resort
       if ((!ids || ids.length === 0) && walletAddress) {
         try {
           const res2 = await readContract.getCredentialsForStudent(
@@ -750,7 +746,6 @@ Please check the contract address and ABI configuration.`;
     }
   };
 
-  // ---------------- Fetch & construct credential objects for a DID ----------------
   const fetchOnChainCredentialsForDid = async (did) => {
     try {
       const readContract = await getContractReadonly();
@@ -770,12 +765,9 @@ Please check the contract address and ABI configuration.`;
             usedVariant = v;
             break;
           }
-        } catch (inner) {
-          // try next variant
-        }
+        } catch (inner) {}
       }
 
-      // fallback to walletAddress
       if ((!idsRaw || idsRaw.length === 0) && walletAddress) {
         try {
           const res2 = await readContract.getCredentialsForStudent(
@@ -801,7 +793,6 @@ Please check the contract address and ABI configuration.`;
         try {
           const row = await readContract.credentials(idStr);
           rowsDebug.push({ idStr, row });
-          // row indexes: 0 id, 1 studentDID, 2 issuerDID, 3 credentialType, 4 issueDate, 5 metadata, 6 credentialHash, 7 signature, 8 mappingCID, 9 valid
           const mappingCID = row?.[8] ? safeToString(row[8]) : "";
           const issuerDID = row?.[2] ? safeToString(row[2]) : "";
           const issueDateRaw = row?.[4];
@@ -816,7 +807,7 @@ Please check the contract address and ABI configuration.`;
           let ipfsJson = null;
           if (mappingCID) {
             try {
-              ipfsJson = await fetchDidDocument(mappingCID); // your Pinata helper
+              ipfsJson = await fetchDidDocument(mappingCID);
             } catch (fetchErr) {
               console.warn(
                 "fetchDidDocument failed, will fallback to public gateway",
@@ -843,14 +834,12 @@ Please check the contract address and ABI configuration.`;
 
           let displayed;
           if (ipfsJson) {
-            // merge IPFS json into displayed object so UI can show credentialSubject, issuer, issuanceDate etc
             displayed = {
               ...ipfsJson,
               issuanceDate: ipfsJson.issuanceDate || issueDate,
               issuer: ipfsJson.issuer || { id: issuerDID },
             };
           } else {
-            // fallback to metadata field (row[5]) if present
             let metadata = row?.[5] ?? "";
             try {
               metadata =
@@ -896,7 +885,6 @@ Please check the contract address and ABI configuration.`;
     }
   };
 
-  // ---------------- Fallback: read all on-chain credentials ----------------
   const fetchAllOnChainCredentials = async () => {
     try {
       const readContract = await getContractReadonly();
@@ -939,9 +927,7 @@ Please check the contract address and ABI configuration.`;
             },
           };
           out.push(credObj);
-        } catch (inner) {
-          // skip
-        }
+        } catch (inner) {}
       }
       return out;
     } catch (err) {
@@ -950,12 +936,10 @@ Please check the contract address and ABI configuration.`;
     }
   };
 
-  // ---------------- Combined fetch flow ----------------
   const fetchCredentials = async () => {
     setListLoading(true);
     setError("");
     try {
-      // If wallet DID is present, prefer on-chain mapping for that DID
       if (walletDid) {
         const onchainForWallet = await fetchOnChainCredentialsForDid(walletDid);
         if (onchainForWallet && onchainForWallet.length > 0) {
@@ -963,7 +947,6 @@ Please check the contract address and ABI configuration.`;
           setListLoading(false);
           return;
         }
-        // Try DID/address variants
         const variants = normalizeDidVariants(walletDid);
         for (const v of variants) {
           const tryRes = await fetchOnChainCredentialsForDid(v);
@@ -973,7 +956,6 @@ Please check the contract address and ABI configuration.`;
             return;
           }
         }
-        // also try walletAddress explicitly
         if (walletAddress) {
           const tryAddr = await fetchOnChainCredentialsForDid(walletAddress);
           if (tryAddr && tryAddr.length > 0) {
@@ -982,22 +964,18 @@ Please check the contract address and ABI configuration.`;
             return;
           }
         }
-        // If still nothing, continue to backend fallback
       }
 
-      // Otherwise ask backend
       const res = await axios.get(`${API_BASE}/credential/list`);
       const creds = res.data?.credentials ?? res.data ?? [];
 
       if (!creds || creds.length === 0) {
-        // fallback: try read all on-chain
         const onchainAll = await fetchAllOnChainCredentials();
         setCredentials(onchainAll);
         setListLoading(false);
         return;
       }
 
-      // If backend returned creds, show them
       setCredentials(creds);
     } catch (err) {
       console.error("fetchCredentials error:", err);
@@ -1011,7 +989,6 @@ Please check the contract address and ABI configuration.`;
     }
   };
 
-  // ---------------- Retry fetching IPFS JSON for a credential ----------------
   const retryFetchIpfs = async (mappingCID, index) => {
     if (!mappingCID) return alert("No mapping CID");
     setIpfsStatus((s) => ({ ...s, ["retry-" + index]: { fetching: true } }));
@@ -1045,7 +1022,7 @@ Please check the contract address and ABI configuration.`;
     }
   };
 
-  // ---------------- QR / utils / downloads ----------------
+  // ---------------- QR / clipboard / downloads (unchanged) ----------------
   const generateQr = async (text) => {
     if (!text) return alert("No text to create QR for");
     try {
@@ -1153,7 +1130,25 @@ Please check the contract address and ABI configuration.`;
     }
   };
 
-  // ---------------- Render ----------------
+  // ---------- Small visual helper: status dot ----------
+  const StatusDot = ({ status }) => {
+    if (!status) return null;
+    const cls = status.error
+      ? "bg-red-500"
+      : status.success
+      ? "bg-emerald-500"
+      : status.sending || status.uploading
+      ? "bg-yellow-400"
+      : "bg-slate-300";
+    return <span className={`inline-block w-2 h-2 rounded-full ${cls} mr-2`} />;
+  };
+
+  // ---------------- Navigation: render EthrPresentation when requested ----------------
+  if (currentPage === "ethrpresent") {
+    return <EthrPresentation onBack={() => setCurrentPage("home")} />;
+  }
+
+  // ---------------- Render (only UI changed) ----------------
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
       <div className="max-w-6xl mx-auto">
@@ -1777,7 +1772,10 @@ Please check the contract address and ABI configuration.`;
                         />
                       </svg>
                       <span className="text-red-700 font-medium">
-                        Error: {error}
+                        Error:{" "}
+                        {typeof error === "object"
+                          ? JSON.stringify(error)
+                          : error}
                       </span>
                     </div>
                   </div>
@@ -1985,7 +1983,10 @@ Please check the contract address and ABI configuration.`;
                         />
                       </svg>
                       <span className="text-sm text-red-700">
-                        On-chain error: {chainStatus["latest"].error}
+                        On-chain error:{" "}
+                        {typeof chainStatus["latest"].error === "object"
+                          ? JSON.stringify(chainStatus["latest"].error)
+                          : chainStatus["latest"].error}
                       </span>
                     </div>
                   )}
@@ -2411,7 +2412,9 @@ Please check the contract address and ABI configuration.`;
                               )}
                               {ipfsStatus[i]?.error && (
                                 <div className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded">
-                                  {ipfsStatus[i].error}
+                                  {typeof ipfsStatus[i].error === "object"
+                                    ? JSON.stringify(ipfsStatus[i].error)
+                                    : ipfsStatus[i].error}
                                 </div>
                               )}
                               {chainStatus[i]?.txHash && (
@@ -2429,7 +2432,9 @@ Please check the contract address and ABI configuration.`;
                               )}
                               {chainStatus[i]?.error && (
                                 <div className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded">
-                                  {chainStatus[i].error}
+                                  {typeof chainStatus[i].error === "object"
+                                    ? JSON.stringify(chainStatus[i].error)
+                                    : chainStatus[i].error}
                                 </div>
                               )}
                             </div>
@@ -2598,7 +2603,9 @@ Please check the contract address and ABI configuration.`;
                             </svg>
                             <span className="text-red-800 font-semibold text-lg">
                               Verification Failed —{" "}
-                              {verificationResult.error ?? "Unknown error"}
+                              {typeof verificationResult?.error === "object"
+                                ? JSON.stringify(verificationResult.error)
+                                : verificationResult?.error ?? "Unknown error"}
                             </span>
                           </>
                         )}
