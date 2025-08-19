@@ -5,6 +5,7 @@ import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useAccount, useDisconnect } from "wagmi";
 import { useInternetIdentity } from "../contexts/InternetContext";
 import { useEthr } from "../contexts/EthrContext";
+import AbyaLogo from "../assets/abya.png";
 
 const API_URL = process.env.REACT_APP_VERAMO_API_URL || "http://localhost:3000";
 
@@ -134,7 +135,7 @@ function Navbar({ currentPage, setCurrentPage }) {
 
   return (
     <nav
-      className={`fixed top-4 left-1/2 transform -translate-x-1/2 w-[95vw] max-w-5xl transition-all duration-300 p-1 rounded-2xl z-50 ${
+      className={`fixed top-4 left-1/2 transform -translate-x-1/2 w-[95vw] max-w-7xl transition-all duration-300 p-1 rounded-2xl z-50 ${
         isScrolled
           ? "bg-white/95 backdrop-blur-xl shadow-2xl border border-gray-200/20"
           : "bg-white/80 backdrop-blur-lg shadow-xl border border-gray-200/30"
@@ -149,8 +150,13 @@ function Navbar({ currentPage, setCurrentPage }) {
               className="text-2xl font-bold bg-gradient-to-r from-orange-400 via-yellow-500 to-blue-900 bg-clip-text text-transparent 
                         hover:from-orange-500 hover:via-yellow-600 hover:to-blue-800 
                         transition-all duration-300 transform hover:scale-105 
-                        focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2">
-              ABYA Passport
+                        focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2
+                        flex items-center">
+              <img 
+                src={AbyaLogo} 
+                alt="ABYA Passport Logo" 
+                className="h-12 w-auto object-contain" 
+              />
             </a>
           </li>
 
@@ -168,13 +174,13 @@ function Navbar({ currentPage, setCurrentPage }) {
                 onClick={() => setCurrentPage && setCurrentPage(item.page)}
                 className={`relative font-medium transition-all duration-200 group ${
                   currentPage === item.page
-                    ? "text-blue-600"
-                    : "text-gray-700 hover:text-blue-600"
+                    ? "text-yellow-600 font-bold"
+                    : "text-blue-900 hover:text-blue-600"
                 }`}
               >
                 {item.name}
                 <span
-                  className={`absolute -bottom-1 left-0 h-0.5 bg-gradient-to-r from-blue-600 to-purple-600 transition-all duration-200 ${
+                  className={`absolute -bottom-1 left-0 h-0.5 bg-gradient-to-r from-yellow-600 to-blue-900 transition-all duration-200 ${
                     currentPage === item.page
                       ? "w-full"
                       : "w-0 group-hover:w-full"
