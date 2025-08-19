@@ -135,7 +135,7 @@ function Navbar({ currentPage, setCurrentPage }) {
 
   return (
     <nav
-      className={`fixed top-4 left-1/2 transform -translate-x-1/2 w-[95vw] max-w-7xl transition-all duration-300 p-1 rounded-2xl z-50 ${
+      className={`fixed top-4 left-1/2 transform -translate-x-1/2 w-[95vw] max-w-7xl transition-all duration-300 p-1 rounded-4xl z-50 ${
         isScrolled
           ? "bg-white/95 backdrop-blur-xl shadow-2xl border border-gray-200/20"
           : "bg-white/80 backdrop-blur-lg shadow-xl border border-gray-200/30"
