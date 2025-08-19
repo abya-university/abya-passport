@@ -1,3 +1,63 @@
+/* Small yellow glow for Navbar in dark mode */
+.navbar-glow-yellow {
+  box-shadow: 0 0 8px 2px #ffe066, 0 2px 8px 2px #ffe06655 !important;
+  transition: box-shadow 0.3s;
+}
+/* DARK MODE SUPPORT */
+.dark {
+  --abya-bg: transparent;
+  --abya-bg-secondary: transparent;
+  --abya-text: #e5e7eb;
+  --abya-card: #14243a;
+  --abya-border: #22334a;
+  --abya-yellow: #f2b705;
+  --abya-blue: #0b5c85;
+  --abya-link: #f2b705;
+}
+
+.dark body, .dark #root {
+  background: var(--abya-bg) !important;
+  color: var(--abya-text) !important;
+}
+
+.dark .feature-card {
+  background: linear-gradient(135deg, #14243a 60%, #0b1a2a 100%) !important;
+  border-color: var(--abya-border) !important;
+  color: var(--abya-text) !important;
+}
+
+.dark .bg-white, .dark .bg-white\/80, .dark .bg-blue-100, .dark .bg-gradient-to-br, .dark .bg-gradient-to-tr {
+  background: var(--abya-bg-secondary) !important;
+}
+
+.dark .text-blue-900 {
+  color: var(--abya-text) !important;
+}
+.dark .text-yellow-500, .dark .text-yellow-400 {
+  color: var(--abya-yellow) !important;
+}
+.dark .border-blue-200, .dark .border-gray-100 {
+  border-color: var(--abya-border) !important;
+}
+.dark .hover\:text-blue-700:hover {
+  color: var(--abya-yellow) !important;
+}
+.dark .shadow-lg, .dark .shadow-md, .dark .shadow-inner {
+  box-shadow: 0 2px 16px 0 #000a !important;
+}
+.dark .rounded-2xl {
+  background: var(--abya-card) !important;
+}
+.dark .bg-yellow-400, .dark .bg-yellow-500 {
+  background: var(--abya-yellow) !important;
+  color: #0b1a2a !important;
+}
+.dark .text-gray-500, .dark .text-gray-600, .dark .text-gray-100, .dark .text-gray-400 {
+  color: #bfc9d1 !important;
+}
+.dark a {
+  color: var(--abya-link);
+}
 #root {
   max-width: 1280px;
   margin: 0 auto;

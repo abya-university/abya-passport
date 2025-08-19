@@ -1,8 +1,9 @@
 // src/abya-passport-frontend/src/App.jsx
 
 import "./App.css";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Navbar from "./components/Navbar";
+import VantaGlobeBG from "./components/VantaGlobeBG";
 import DIDDocument from "./components/DIDDocument";
 import VCManager from "./components/VCManager";
 import VCVerifier from "./components/VCVerifier";
@@ -19,6 +20,26 @@ const ABYA = {
 
 function App() {
   const [currentPage, setCurrentPage] = useState("home");
+  const [darkMode, setDarkMode] = useState(() => {
+    // Try to use system preference or localStorage
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('abya-dark-mode');
+      if (stored) return stored === 'true';
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (darkMode) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+      localStorage.setItem('abya-dark-mode', darkMode);
+    }
+  }, [darkMode]);
 
   const renderPage = () => {
     switch (currentPage) {
@@ -33,13 +54,10 @@ function App() {
       case "home":
       default:
         return (
-          <div className="relative max-w-6xl mx-auto px-0 py-16">
-            {/* Decorative background (z-0, absolutely positioned) */}
-            <div className="absolute -top-32 -left-32 w-156 h-156 rounded-full bg-gradient-to-tr from-blue-200 to-teal-100 blur-3xl opacity-40 z-0" />
-            <div className="absolute bottom-0 right-0 w-100 h-100 rounded-full bg-gradient-to-tr from-amber-100 to-yellow-200 blur-2xl opacity-40 z-0" />
+          <div className="relative max-w-7xl mx-auto px-0 py-16">
 
-            {/* Main content (z-10, relative) */}
-            <div className="relative z-10">
+            {/* Main content */}
+            <div className="relative z-10 bg-transparent">
               {/* Hero section: two columns */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center mb-40">
                 {/* Left: hero text */}
@@ -185,14 +203,36 @@ function App() {
 
   return (
     <>
+      {/* Animated Globe Background (Vanta.js) */}
+      <VantaGlobeBG darkMode={darkMode} />
+      {/* Dark mode toggle button */}
+      <button
+        onClick={() => setDarkMode((d) => !d)}
+        className="fixed left-6 bottom-6 z-50 px-4 py-3 rounded-full shadow-lg flex items-center gap-3 bg-white dark:bg-blue-900 text-blue-900 dark:text-yellow-400 border border-gray-200 dark:border-yellow-400 transition-colors duration-200"
+        aria-label="Toggle dark mode"
+      >
+        {darkMode ? (
+          <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 0 1 12.79 3a1 1 0 0 0-1.13 1.13A7 7 0 1 0 20.87 13.92a1 1 0 0 0 1.13-1.13z" /></svg>
+        ) : (
+          <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5" /><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" /></svg>
+        )}
+        <span className="text-sm font-semibold">{darkMode ? 'Dark' : 'Light'} Mode</span>
+      </button>
+
       <Navbar currentPage={currentPage} setCurrentPage={setCurrentPage} />
-      <div className="pt-24">{renderPage()}</div>
+      {/* Main content wrapper: ensures white in light mode, transparent in dark mode */}
+      <div className="pt-24 min-h-screen bg-white dark:bg-transparent transition-colors duration-300 text-blue-900 dark:text-gray-100 relative z-10">
+        {renderPage()}
+      </div>
 
       {/* Floating help CTA */}
       <button
         onClick={() => window.alert('Need help? Join Discord')}
-        className="fixed right-6 bottom-6 z-50 px-4 py-3 rounded-full shadow-lg flex items-center gap-3"
-        style={{ background: `linear-gradient(90deg, ${ABYA.deepBlue}, ${ABYA.brightGold})`, color: 'white' }}
+        className={`fixed right-6 bottom-6 z-50 px-4 py-3 rounded-full shadow-lg flex items-center gap-3 transition-colors duration-200
+          ${darkMode
+            ? 'bg-yellow-400 border border-yellow-400 text-blue-900 hover:bg-yellow-500 hover:border-yellow-500 hover:text-blue-900'
+            : 'bg-blue-900 border border-blue-400 text-yellow-400 hover:bg-blue-700 hover:border-blue-500 hover:text-yellow-300'}
+        `}
         aria-label="Help"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
@@ -202,16 +242,16 @@ function App() {
       </button>
 
       {/* Footer */}
-      <footer className="mt-24 py-8 border-t border-gray-100 bg-white/80 text-center text-sm text-gray-500">
+      <footer className="mt-24 py-8 border-t border-gray-100 dark:border-blue-900 bg-white/90 dark:bg-transparent text-center text-sm text-gray-500 dark:text-gray-400 transition-colors duration-300 backdrop-blur-xl relative z-20">
         <div className="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 px-4">
           <div>
             &copy; {new Date().getFullYear()} ABYA Passport. All rights reserved.
           </div>
           <div className="flex items-center gap-4">
-            <a href="https://github.com/abya-university" target="_blank" rel="noopener noreferrer" className="hover:text-blue-700 transition-colors">GitHub</a>
-            <a href="https://discord.gg/t7fUu62h58" target="_blank" rel="noopener noreferrer" className="hover:text-blue-700 transition-colors">Discord</a>
-            <a href="https://www.linkedin.com/company/abyauniversity/" target="_blank" rel="noopener noreferrer" className="hover:text-blue-700 transition-colors">Linkedin</a>
-            <a href="mailto:hello@abya.id" className="hover:text-blue-700 transition-colors">Contact</a>
+            <a href="https://github.com/abya-university" target="_blank" rel="noopener noreferrer" className="hover:text-blue-700 dark:hover:text-yellow-400 transition-colors">GitHub</a>
+            <a href="https://discord.gg/t7fUu62h58" target="_blank" rel="noopener noreferrer" className="hover:text-blue-700 dark:hover:text-yellow-400 transition-colors">Discord</a>
+            <a href="https://www.linkedin.com/company/abyauniversity/" target="_blank" rel="noopener noreferrer" className="hover:text-blue-700 dark:hover:text-yellow-400 transition-colors">Linkedin</a>
+            <a href="mailto:hello@abya.id" className="hover:text-blue-700 dark:hover:text-yellow-400 transition-colors">Contact</a>
           </div>
         </div>
       </footer>

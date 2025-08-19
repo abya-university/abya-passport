@@ -10,6 +10,18 @@ import AbyaLogo from "../assets/abya.png";
 const API_URL = process.env.REACT_APP_VERAMO_API_URL || "http://localhost:3000";
 
 function Navbar({ currentPage, setCurrentPage }) {
+  // Detect dark mode from document root (set by App.jsx)
+  const [isDark, setIsDark] = useState(() =>
+    typeof window !== 'undefined' ? document.documentElement.classList.contains('dark') : false
+  );
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains('dark'));
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
   const [showConnectOptions, setShowConnectOptions] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   //const [walletDid, setWalletDid] = useState(null);
@@ -135,27 +147,26 @@ function Navbar({ currentPage, setCurrentPage }) {
 
   return (
     <nav
-      className={`fixed top-4 left-1/2 transform -translate-x-1/2 w-[95vw] max-w-7xl transition-all duration-300 p-1 rounded-4xl z-50 ${
-        isScrolled
-          ? "bg-white/95 backdrop-blur-xl shadow-2xl border border-gray-200/20"
-          : "bg-white/80 backdrop-blur-lg shadow-xl border border-gray-200/30"
-      }`}
+      className={`fixed top-4 left-1/2 transform -translate-x-1/2 w-[95vw] max-w-7xl transition-all duration-300 p-1 rounded-2xl z-50
+        ${isScrolled
+          ? (isDark
+              ? 'bg-transparent backdrop-blur-xl shadow-2xl border border-transparent'
+              : 'bg-white/95 backdrop-blur-xl shadow-2xl border border-gray-200/20')
+          : 'bg-transparent border-transparent shadow-none backdrop-blur-none'
+        }`}
+      style={{ background: isDark ? 'transparent' : undefined, borderColor: isDark ? 'transparent' : undefined }}
     >
-      <div className="bg-gradient-to-r from-blue-50/50 to-purple-50/50 rounded-xl p-4">
-        <ul className="flex items-center justify-between gap-8">
+      <div className={'bg-transparent rounded-xl p-4 transition-colors duration-300'}>
+        <ul className={`flex items-center justify-between gap-8 ${isDark ? 'text-gray-100 font-sans' : 'text-blue-900 font-sans'}`}>
           {/* Logo/Brand */}
           <li>
             <a
               href="/"
-              className="text-2xl font-bold bg-gradient-to-r from-orange-400 via-yellow-500 to-blue-900 bg-clip-text text-transparent 
-                        hover:from-orange-500 hover:via-yellow-600 hover:to-blue-800 
-                        transition-all duration-300 transform hover:scale-105 
-                        focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2
-                        flex items-center">
+              className={`text-2xl font-bold transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 flex items-center ${isDark ? 'text-yellow-400 font-semibold' : 'text-blue-900 font-bold'}`}>
               <img 
                 src={AbyaLogo} 
                 alt="ABYA Passport Logo" 
-                className="h-12 w-auto object-contain" 
+                className="h-12 w-auto object-contain drop-shadow dark:drop-shadow-lg" 
               />
             </a>
           </li>
@@ -172,19 +183,19 @@ function Navbar({ currentPage, setCurrentPage }) {
               <button
                 key={item.name}
                 onClick={() => setCurrentPage && setCurrentPage(item.page)}
-                className={`relative font-medium transition-all duration-200 group ${
-                  currentPage === item.page
-                    ? "text-yellow-600 font-bold"
-                    : "text-blue-900 hover:text-blue-600"
-                }`}
+                className={`relative transition-all duration-200 group font-medium
+                  ${currentPage === item.page
+                    ? (isDark ? 'text-yellow-400 font-bold' : 'text-yellow-600 font-bold')
+                    : (isDark ? 'text-gray-100 hover:text-yellow-300 font-normal' : 'text-blue-900 hover:text-blue-600 font-normal')}
+                `}
               >
                 {item.name}
                 <span
-                  className={`absolute -bottom-1 left-0 h-0.5 bg-gradient-to-r from-yellow-600 to-blue-900 transition-all duration-200 ${
-                    currentPage === item.page
-                      ? "w-full"
-                      : "w-0 group-hover:w-full"
-                  }`}
+                  className={`absolute -bottom-1 left-0 h-0.5 transition-all duration-200
+                    ${currentPage === item.page
+                      ? (isDark ? 'bg-yellow-400 w-full' : 'bg-yellow-600 w-full')
+                      : (isDark ? 'bg-yellow-400 w-0 group-hover:w-full' : 'bg-yellow-600 w-0 group-hover:w-full')}
+                  `}
                 ></span>
               </button>
             ))}
@@ -192,7 +203,7 @@ function Navbar({ currentPage, setCurrentPage }) {
 
           {/* Mobile Menu Button */}
           <li className="md:hidden">
-            <button className="text-gray-700 hover:text-blue-600 transition-colors">
+            <button className="text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-yellow-400 transition-colors">
               <svg
                 width="24"
                 height="24"
@@ -208,22 +219,22 @@ function Navbar({ currentPage, setCurrentPage }) {
           <li className="relative" ref={dropdownRef}>
             {isAnyConnected ? (
               <div className="flex items-center gap-3">
-                <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 px-4 py-2 rounded-xl flex items-center gap-2">
+                <div className="bg-green-50 dark:bg-green-900/60 border border-green-200 dark:border-green-700 px-4 py-2 rounded-xl flex items-center gap-2 transition-colors duration-300">
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                  <span className="text-sm font-medium text-gray-700">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-100">
                     {isConnected
                       ? shortenAddress(address)
                       : shortenAddress(principal)}
                   </span>
                   {principal && !isConnected && (
-                    <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">
+                    <span className="text-xs bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-200 px-2 py-0.5 rounded-full">
                       II
                     </span>
                   )}
                 </div>
                 <button
                   onClick={() => setShowConnectOptions(true)}
-                  className="text-gray-500 hover:text-gray-700 transition-colors p-2 rounded-lg hover:bg-gray-100"
+                  className="text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-yellow-400 transition-colors p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
                   title="Account Options"
                 >
                   <svg
@@ -239,7 +250,7 @@ function Navbar({ currentPage, setCurrentPage }) {
             ) : !showConnectOptions ? (
               <button
                 onClick={() => setShowConnectOptions(true)}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-2.5 rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center gap-2"
+                className="bg-blue-600 dark:bg-blue-900 hover:bg-blue-700 dark:hover:bg-blue-800 text-white px-6 py-2.5 rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center gap-2"
               >
                 <svg
                   width="16"
@@ -254,16 +265,21 @@ function Navbar({ currentPage, setCurrentPage }) {
             ) : null}
 
             {showConnectOptions && (
-              <div className="absolute top-full mt-3 right-0 animate-in slide-in-from-top-2 duration-200">
-                <div className="bg-white/95 backdrop-blur-xl p-6 rounded-2xl shadow-2xl border border-gray-200/20 min-w-[300px]">
+              <div className="absolute top-full mt-10 right-0 animate-in slide-in-from-top-2 duration-200">
+                <div className={
+                  `${isDark
+                    ? 'bg-[#101c2b]/95 border-blue-900/40 text-gray-100'
+                    : 'bg-white/95 border-gray-200/20 text-gray-800'} ` +
+                  'backdrop-blur-xl p-6 rounded-2xl shadow-2xl border min-w-[300px] transition-colors duration-300'
+                }>
                   {/* Header */}
                   <div className="flex items-center justify-between mb-4">
-                    <span className="text-lg font-semibold text-gray-800">
+                    <span className={`text-lg font-semibold ${isDark ? 'text-gray-100' : 'text-gray-800'}`}>
                       {isAnyConnected ? "Connected Account" : "Connect Account"}
                     </span>
                     <button
                       onClick={() => setShowConnectOptions(false)}
-                      className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100"
+                      className={`transition-colors p-1 rounded-lg ${isDark ? 'text-gray-300 hover:text-yellow-400 hover:bg-gray-800' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}
                     >
                       <svg
                         width="20"
@@ -279,30 +295,37 @@ function Navbar({ currentPage, setCurrentPage }) {
                   <div className="space-y-4">
                     {/* Connected Wallet Info */}
                     {isConnected && (
-                      <div className="p-3 rounded-xl bg-green-50/50 border border-green-200/50">
+                      <div className={`p-3 rounded-xl border font-sans transition-colors duration-300
+                        ${isDark ? 'bg-gray-800 border-green-700' : 'bg-green-50/50 border-green-200/50'}`}
+                      >
                         <div className="flex items-center gap-2 mb-2">
                           <svg
                             width="16"
                             height="16"
                             viewBox="0 0 24 24"
                             fill="currentColor"
-                            className="text-green-600"
+                            className={isDark ? 'text-green-400' : 'text-green-600'}
                           >
                             <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
-                          <span className="text-sm font-medium text-gray-700">
+                          <span className={`text-sm font-medium ${isDark ? 'text-green-100' : 'text-gray-700'}`}>
                             Connected Wallet
                           </span>
                         </div>
-                        <div className="text-sm text-gray-600 font-mono bg-gray-100 p-2 rounded-lg break-all">
+                        <div className={`text-sm font-mono p-2 rounded-lg break-all transition-colors duration-300
+                          ${isDark ? 'bg-gray-800 text-gray-300' : 'text-gray-600 bg-gray-100'}`}
+                        >
                           {shorten(address)}
                         </div>
-                        <div className="text-sm text-gray-600 font-mono bg-gray-100 p-2 rounded-lg break-all">
+                        <div className={`text-sm font-mono p-2 rounded-lg break-all transition-colors duration-300
+                          ${isDark ? 'bg-gray-800 text-gray-300' : 'text-gray-600 bg-gray-100'}`}
+                        >
                           {shorten(walletDid)}
                         </div>
                         <button
                           onClick={() => disconnect()}
-                          className="w-full flex items-center justify-center space-x-2 text-red-500 hover:bg-red-50 mt-5 hover:cursor-pointer p-2 rounded-lg"
+                          className={`w-full flex items-center justify-center space-x-2 mt-5 hover:cursor-pointer p-2 rounded-lg transition-colors duration-200
+                            ${isDark ? 'text-red-400 hover:bg-red-900/20' : 'text-red-500 hover:bg-red-50'}`}
                         >
                           Disconnect Wallet
                         </button>
