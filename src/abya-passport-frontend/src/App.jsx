@@ -63,7 +63,7 @@ function App() {
                 {/* Left: hero text */}
                 <div className="text-left">
                   <h3 className="font-bold tracking-tight text-yellow-500 animate-fadein">ABYA PASSPORT</h3>
-                  <h1 className="text-4xl sm:text-6xl font-bold tracking-tight text-blue-900 animate-fadein delay-100">
+                  <h1 className="text-4xl sm:text-7xl font-bold tracking-tight text-blue-900 animate-fadein delay-100">
                     Your identity, <span className="text-yellow-500">unlocked</span>
                   </h1>
                   <p className="text-lg sm:text-xl text-blue-900 mt-6 mb-2 animate-fadein delay-200">
@@ -89,7 +89,7 @@ function App() {
               </div>
 
               {/* Cards Components section */}
-              <h1 className="font-bold text-4xl text-blue-900 dark:text-yellow-400 mb-4 animate-fadein delay-400">Features</h1>
+              <h2 className="text-3xl font-bold text-blue-900 mb-4 text-center">Key Features</h2>
               <p className="text-xl text-gray-600 mt-8 mb-8 animate-fadein delay-500">Explore the key features of ABYA Passport to enhance your identity management experience.</p>
               <div className={`grid md:grid-cols-3 gap-8 mt-16 transition-colors duration-300 backdrop-blur-xl ${darkMode ? 'bg-transparent' : ''}`}>
                 {/* Card 1 */}
@@ -137,7 +137,7 @@ function App() {
                   aria-label="View DID Documents"
                 >
                   <svg width="22" height="22" fill="none" viewBox="0 0 24 24" className="inline-block"><rect x="3" y="5" width="18" height="14" rx="3" fill="#fff" stroke="#0b5c85" strokeWidth="1.5" /><rect x="7" y="9" width="4" height="4" rx="2" fill="#f0ce00" /><rect x="13" y="11" width="4" height="2" rx="1" fill="#f0ce00" /></svg>
-                  View DID Documents
+                  DID Documents
                 </button>
                 <button
                   onClick={() => setCurrentPage("vc")}
@@ -204,10 +204,11 @@ function App() {
     <>
       {/* Animated Globe Background (Vanta.js) */}
       <VantaGlobeBG darkMode={darkMode} />
+      
       {/* Dark mode toggle button */}
       <button
         onClick={() => setDarkMode((d) => !d)}
-        className="fixed left-6 bottom-6 z-50 px-4 py-3 rounded-full shadow-lg flex items-center gap-3 bg-white dark:bg-blue-900 text-blue-900 dark:text-yellow-400 border border-gray-200 dark:border-yellow-400 transition-colors duration-200"
+        className="fixed right-20 top-10 z-50 px-4 py-3 rounded-full shadow-lg flex items-center gap-3 bg-white text-blue-900 border border-gray-200 transition-colors duration-200"
         aria-label="Toggle dark mode"
       >
         {darkMode ? (
