@@ -9,6 +9,7 @@ import VCManager from "./components/VCManager";
 import VCVerifier from "./components/VCVerifier";
 import EthrVcManager from "./components/EthrVcManager";
 import SimulationPreview from "./components/SimulationPreview";
+import { HandHeartIcon, LucideAArrowDown } from "lucide-react";
 
 const ABYA = {
   blue: "#0b5c85",
@@ -63,11 +64,11 @@ function App() {
                 {/* Left: hero text */}
                 <div className="text-left">
                   <h3 className="font-bold tracking-tight text-yellow-500 animate-fadein">ABYA PASSPORT</h3>
-                  <h1 className="text-4xl sm:text-7xl font-bold tracking-tight text-blue-900 animate-fadein delay-100">
+                  <h1 className="text-4xl sm:text-7xl font-bold tracking-tight text-blue-900 dark-text-white animate-fadein delay-100">
                     Your identity, <span className="text-yellow-500">unlocked</span>
                   </h1>
-                  <p className="text-lg sm:text-xl text-blue-900 mt-6 mb-2 animate-fadein delay-200">
-                    <span className="font-semibold">A new era of digital identity.</span>
+                  <p className="text-lg sm:text-xl text-blue-900 dark-text-white mt-6 mb-2 animate-fadein delay-200">
+                    <span className="font-semibold">- A new era of digital identity -</span>
                   </p>
                   <p className="text-xl text-gray-600 mb-8 animate-fadein delay-300">
                     Create, issue, manage and verify verifiable credentials with ABYA Passport — a lightweight, developer-friendly platform for the Web3 era.
@@ -89,7 +90,7 @@ function App() {
               </div>
 
               {/* Cards Components section */}
-              <h2 className="text-3xl font-bold text-blue-900 mb-4 text-center">Key Features</h2>
+              <h2 className="text-3xl font-bold text-blue-900 dark-text-yellow mb-4 text-center">Key Features</h2>
               <p className="text-xl text-gray-600 mt-8 mb-8 animate-fadein delay-500">Explore the key features of ABYA Passport to enhance your identity management experience.</p>
               <div className={`grid md:grid-cols-3 gap-8 mt-16 transition-colors duration-300 backdrop-blur-xl ${darkMode ? 'bg-transparent' : ''}`}>
                 {/* Card 1 */}
@@ -100,8 +101,8 @@ function App() {
                   <div className="flex items-center justify-center w-14 h-14 rounded-xl bg-blue-100 mb-5 mx-auto shadow-inner">
                     <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><path fill="#f0ce00" fill-rule="evenodd" d="m12 13.386l.023-.027c1.313 1.277 3.208 2.763 4.85 2.763A4.086 4.086 0 0 0 21 12.072c0-2.237-1.845-4.05-4.126-4.05c-1.746 0-3.465 1.296-4.874 2.735zm4.815 1.098c1.404 0 2.543-1.08 2.543-2.413S18.219 9.66 16.81 9.66s-2.781 1.304-3.744 2.411c.639.72 2.34 2.412 3.744 2.412z" clip-rule="evenodd" /><path fill="#f0ce00" fill-rule="evenodd" d="m12.054 13.44l-.09-.09c-1.273 1.264-3.15 2.772-4.837 2.772A4.087 4.087 0 0 1 3 12.072c0-2.237 1.845-4.05 4.127-4.05c1.773 0 3.42 1.399 4.806 2.893l.121-.126zm-4.869 1.043c-1.408 0-2.547-1.08-2.547-2.412S5.777 9.66 7.185 9.66s2.781 1.304 3.744 2.411c-.639.72-2.34 2.412-3.744 2.412" clip-rule="evenodd" /><path fill="#f0ce00" d="m10.758 11.924l.108.094l1.102 1.404c1.296 1.21 3.186 2.7 4.905 2.7a4.11 4.11 0 0 0 4.05-3.267c-.35.634-1.575 1.629-3.762 1.606q-.169.022-.35.023c-1.41 0-3.106-1.692-3.745-2.412l.014-.018l-1.328-1.598l-1.327-1.26c-1.062-.81-2.16-1.318-3.366-1.318c-2.039 0-3.677 1.62-4.005 3.555c.909-1.647 2.866-2.178 4.585-1.724c1.125.194 2.102 1.09 3.119 2.215" /></svg>
                   </div>
-                  <h3 className="text-lg font-bold text-blue-900 mb-2 text-center">Internet Identity</h3>
-                  <p className="text-blue-900 text-sm text-center mb-2">Secure, decentralized authentication powered by the Internet Computer Protocol</p>
+                  <h3 className="text-lg font-bold text-blue-900 dark-text-white mb-2 text-center">Internet Identity</h3>
+                  <p className="text-blue-900 text-sm text-center dark-text-white mb-2">Secure, decentralized authentication powered by the Internet Computer Protocol</p>
                 </div>
 
                 {/* Card 2 */}
@@ -112,8 +113,8 @@ function App() {
                   <div className="flex items-center justify-center w-14 h-14 rounded-xl bg-blue-100 mb-5 mx-auto shadow-inner">
                     <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><g fill="none" stroke="#f0ce00" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"><path d="M3 14.25v9M16.478 2.144A8.3 8.3 0 0 0 11.888.75C7.37.75 3.613 4.453 3.072 9.2M21 23.25V10.375A10.2 10.2 0 0 0 20.023 6" /><path d="M18 15.75v-4.5c0-3.713-2.7-6.75-6-6.75s-6 3.037-6 6.75v12m12 0v-4.5m-9-1.5v6" /><path d="M15 23.25V12c0-2.063-1.35-3.75-3-3.75S9 9.937 9 12v2.25m3 6v3m0-12v6" /></g></svg>
                   </div>
-                  <h3 className="text-lg font-bold text-blue-900 mb-2 text-center">Decentralized Identity</h3>
-                  <p className="text-blue-900 text-sm text-center mb-2">W3C-compliant Decentralized Identity Documents for verifiable credentials</p>
+                  <h3 className="text-lg font-bold text-blue-900 dark-text-white mb-2 text-center">Decentralized Identity</h3>
+                  <p className="text-blue-900 dark-text-white text-sm text-center mb-2">W3C-compliant Decentralized Identity Documents for verifiable credentials</p>
                 </div>
 
                 {/* Card 3 */}
@@ -124,8 +125,8 @@ function App() {
                   <div className="flex items-center justify-center w-14 h-14 rounded-xl bg-blue-100 mb-5 mx-auto shadow-inner">
                     <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 32 32"><path fill="#f0ce00" d="M16 22a4 4 0 1 0-4-4a4 4 0 0 0 4 4m0-6a2 2 0 1 1-2 2a2 2 0 0 1 2-2M14 6h4v2h-4z" /><path fill="#f0ce00" d="M24 2H8a2 2 0 0 0-2 2v24a2 2 0 0 0 2 2h16a2.003 2.003 0 0 0 2-2V4a2 2 0 0 0-2-2m-4 26h-8v-2a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1Zm2 0v-2a3 3 0 0 0-3-3h-6a3 3 0 0 0-3 3v2H8V4h16v24Z" /></svg>
                   </div>
-                  <h3 className="text-lg font-bold text-blue-900 mb-2 text-center">Verifiable Credentials</h3>
-                  <p className="text-blue-900 text-sm text-center mb-2">Issue, manage, and verify digital credentials with cryptographic proof</p>
+                  <h3 className="text-lg font-bold text-blue-900 dark-text-white mb-2 text-center">Verifiable Credentials</h3>
+                  <p className="text-blue-900 text-sm text-center dark-text-white mb-2">Issue, manage, and verify digital credentials with cryptographic proof</p>
                 </div>
               </div>
 
@@ -166,7 +167,7 @@ function App() {
 
                 {/* Testimonials / Trusted by section */}
                 <div className="mt-24 animate-fadein delay-1000 flex flex-col items-center justify-center">
-                  <h2 className="text-3xl font-bold text-blue-900 mb-4 text-center">Join our community</h2>
+                  <h2 className="text-3xl font-bold text-blue-900 dark-text-yellow mb-4 text-center">Join our community</h2>
                   <p className="text-lg text-gray-600 mb-6 text-center max-w-xl">Connect with builders, developers, and digital identity enthusiasts. Share feedback, get support, and help shape the future of ABYA Passport!</p>
                   <div className="flex flex-wrap justify-center gap-6 mb-4">
                     <a href="https://discord.gg/t7fUu62h58" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-6 py-3 bg-blue-900 text-gray-100 rounded-2xl font-bold text-lg shadow-md hover:shadow-xl hover:scale-105 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-yellow-400" aria-label="Join Discord">
@@ -182,16 +183,18 @@ function App() {
                       LinkedIn
                     </a>
                   </div>
-                  <span className="text-sm text-gray-500 text-center">We'd love to have you with us </span>
+                  <span className="text-sm text-gray-500 text-center flex items-center gap-2">
+                    <HandHeartIcon className="inline-block align-middle" />
+                    We'd love to have you with us.
+                  </span>
                 </div>
-                {/* Back to top button */}
                 <button
                   onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                  className="fixed right-6 bottom-24 z-40 p-3 rounded-full bg-blue-900 text-yellow-400 shadow-lg hover:bg-yellow-400 hover:text-blue-900 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-yellow-400 animate-fadein delay-1200"
+                  className="fixed right-6 bottom-24 z-40 p-3 rounded-full bg-transparent text-yellow-400 shadow-lg hover:bg-yellow-400 hover:text-blue-900 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-yellow-400 animate-fadein delay-1200"
                   aria-label="Back to top"
                   style={{ display: 'block' }}
                 >
-                  <svg width="22" height="22" fill="none" viewBox="0 0 24 24"><path d="M12 19V5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /><path d="M5 12l7-7 7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                  <svg width="40" height="40" fill="none" viewBox="0 0 24 24"><path d="M12 19V5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /><path d="M5 12l7-7 7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
                 </button>
               </div>
             </div>
@@ -208,7 +211,7 @@ function App() {
       {/* Dark mode toggle button */}
       <button
         onClick={() => setDarkMode((d) => !d)}
-        className="fixed right-20 top-10 z-50 px-4 py-3 rounded-full shadow-lg flex items-center gap-3 bg-white text-blue-900 border border-gray-200 transition-colors duration-200"
+        className="fixed right-20 top-10 z-50 px-4 py-3 rounded-full shadow-lg flex items-center gap-3 bg-white text-blue-900 dark-text-white border border-gray-200 transition-colors duration-200"
         aria-label="Toggle dark mode"
       >
         {darkMode ? (
@@ -231,7 +234,7 @@ function App() {
         className={`fixed right-6 bottom-6 z-50 px-4 py-3 rounded-full shadow-lg flex items-center gap-3 transition-colors duration-200
           ${darkMode
             ? 'bg-yellow-400 border border-yellow-400 text-blue-900 hover:bg-yellow-500 hover:border-yellow-500 hover:text-blue-900'
-            : 'bg-blue-900 border border-blue-400 text-yellow-400 hover:bg-blue-700 hover:border-blue-500 hover:text-yellow-300'}
+            : 'bg-blue-900 border border-blue-400 text-gray-100 hover:bg-blue-700 hover:border-blue-500 hover:text-yellow-300'}
         `}
         aria-label="Help"
       >

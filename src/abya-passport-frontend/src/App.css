@@ -6,9 +6,10 @@
 /* DARK MODE SUPPORT */
 .dark {
   --abya-bg: transparent;
-  --abya-bg-secondary: transparent;
-  --abya-text: #e5e7eb;
-  --abya-card: transparent;
+  --abya-bg-secondary: rgba(24, 24, 27, 0.3);
+  --abya-text: #ebeae5;
+  --abya-h3: #ffd500;
+  --abya-card: rgba(24, 24, 27, 0.9);
   --abya-border: #5f5e2b;
   --abya-yellow: #f2b705;
   --abya-blue: #0f222c;
@@ -30,7 +31,15 @@
   background: var(--abya-bg-secondary) !important;
 }
 
-.dark .text-blue-900 {
+.dark .dark-text-yellow{
+  color: var(--abya-h3) !important;
+}
+
+.dark .dark-text-blue {
+  color: var(--abya-blue) !important;
+}
+
+.dark .dark-text-white {
   color: var(--abya-text) !important;
 }
 .dark .text-yellow-500, .dark .text-yellow-400 {

@@ -1150,35 +1150,22 @@ Please check the contract address and ABI configuration.`;
 
   // ---------------- Render (only UI changed) ----------------
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
+    <div className="min-h-screen bg-transparentpx-4 py-16">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">
+          <h1 className="text-5xl font-bold text-blue-900 mb-4 text-center">
             Ethereum VC Manager
           </h1>
-          <p className="text-gray-600">
+          <p className="text-xl text-gray-600 mt-8 mb-8 animate-fadein delay-500">
             Create, manage, and verify Ethereum-based Verifiable Credentials
           </p>
         </div>
 
         {/* Connection Status Card */}
-        <div className="mb-8 bg-white rounded-xl shadow-lg p-6 border-l-4 border-blue-500">
+        <div className="mb-8 bg-gradient-to-br from-blue-100 to-white border border-blue-200 rounded-2xl p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xl font-semibold text-gray-800 flex items-center">
-              <svg
-                className="w-6 h-6 mr-2 text-blue-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13 10V3L4 14h7v7l9-11h-7z"
-                />
-              </svg>
+            <h3 className="text-2xl font-bold text-blue-900 h3-yellow-400 flex items-center">
               Connection Status
             </h3>
             <div
@@ -1337,7 +1324,7 @@ Please check the contract address and ABI configuration.`;
 
         {/* Wallet Readiness Warning */}
         {(!walletAddress || !window?.ethereum) && (
-          <div className="mb-8 bg-yellow-50 border border-yellow-200 rounded-xl p-6">
+          <div className="mb-8 bg-gradient-to-br from-blue-100 to-white border border-blue-200 rounded-2xl p-6">
             <div className="flex items-center mb-3">
               <svg
                 className="w-6 h-6 mr-2 text-yellow-600"
@@ -1386,7 +1373,7 @@ Please check the contract address and ABI configuration.`;
 
         {/* Wallet Connection Warning */}
         {!walletAddress && (
-          <div className="mb-8 bg-white rounded-xl shadow-lg p-6 border-l-4 border-yellow-500">
+          <div className="mb-8 bg-gradient-to-br from-blue-100 to-white border border-blue-200 rounded-2xl p-6">
             <div className="flex items-center mb-4">
               <div className="flex-shrink-0">
                 <svg

@@ -42,7 +42,7 @@ const DIDDocument = () => {
         return (
           <div className="max-w-screen-xl mx-auto px-6 py-16">
             <div className="text-center">
-              <h1 className="text-6xl font-bold text-blue-900 mb-4 text-center">
+              <h1 className="text-5xl font-bold text-blue-900 dark-text-white mb-4 text-center">
                 Resolve Decentralized Identities
               </h1>
               <p className="text-xl text-gray-600 mt-8 mb-8 animate-fadein delay-500">
@@ -61,10 +61,10 @@ const DIDDocument = () => {
                   <div className="flex items-center justify-center w-14 h-14 rounded-xl bg-blue-100 mb-5 mx-auto shadow-inner">
                     <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><path fill="#f0ce00" fill-rule="evenodd" d="m12 13.386l.023-.027c1.313 1.277 3.208 2.763 4.85 2.763A4.086 4.086 0 0 0 21 12.072c0-2.237-1.845-4.05-4.126-4.05c-1.746 0-3.465 1.296-4.874 2.735zm4.815 1.098c1.404 0 2.543-1.08 2.543-2.413S18.219 9.66 16.81 9.66s-2.781 1.304-3.744 2.411c.639.72 2.34 2.412 3.744 2.412z" clip-rule="evenodd" /><path fill="#f0ce00" fill-rule="evenodd" d="m12.054 13.44l-.09-.09c-1.273 1.264-3.15 2.772-4.837 2.772A4.087 4.087 0 0 1 3 12.072c0-2.237 1.845-4.05 4.127-4.05c1.773 0 3.42 1.399 4.806 2.893l.121-.126zm-4.869 1.043c-1.408 0-2.547-1.08-2.547-2.412S5.777 9.66 7.185 9.66s2.781 1.304 3.744 2.411c-.639.72-2.34 2.412-3.744 2.412" clip-rule="evenodd" /><path fill="#f0ce00" d="m10.758 11.924l.108.094l1.102 1.404c1.296 1.21 3.186 2.7 4.905 2.7a4.11 4.11 0 0 0 4.05-3.267c-.35.634-1.575 1.629-3.762 1.606q-.169.022-.35.023c-1.41 0-3.106-1.692-3.745-2.412l.014-.018l-1.328-1.598l-1.327-1.26c-1.062-.81-2.16-1.318-3.366-1.318c-2.039 0-3.677 1.62-4.005 3.555c.909-1.647 2.866-2.178 4.585-1.724c1.125.194 2.102 1.09 3.119 2.215" /></svg>
                   </div>
-                  <h3 className="text-lg font-bold text-blue-900 mb-2 text-center">
+                  <h3 className="text-lg font-bold text-blue-900 dark-text-yellow mb-2 text-center">
                     Internet Identity (ICP)
                   </h3>
-                  <p className="text-blue-900 text-sm text-center mb-2">
+                  <p className="text-blue-900 dark-text-white text-sm text-center mb-2">
                     Authenticate and resolve your Internet Identity DID on the
                     Internet Computer using ABYA's secure integration.
                   </p>
@@ -81,10 +81,10 @@ const DIDDocument = () => {
                   <div className="flex items-center justify-center w-14 h-14 rounded-xl bg-blue-100 mb-5 mx-auto shadow-inner">
                     <svg width="48" height="48" fill="none" viewBox="0 0 24 24" className="inline-block"><polygon points="12,2 19,12 12,22 5,12" fill="#0b5c85" /><polygon points="12,2 12,22 19,12" fill="#f0ce00" /></svg>
                   </div>
-                  <h3 className="text-lg font-bold text-blue-900 mb-2 text-center">
+                  <h3 className="text-lg font-bold text-blue-900 dark-text-yellow mb-2 text-center">
                     Ethr DID (Ethereum)
                   </h3>
-                  <p className="text-blue-900 text-sm text-center mb-2">
+                  <p className="text-blue-900 dark-text-white text-sm text-center mb-2">
                     Manage and verify your Ethr DID documents on Ethereum, fully
                     W3C-compliant for verifiable credentials.
                   </p>
@@ -116,10 +116,10 @@ const DIDDocument = () => {
                       <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                     </svg>
                   </div>
-                  <h3 className="text-lg font-bold text-blue-900 mb-2 text-center">
+                  <h3 className="text-lg font-bold text-blue-900 dark-text-yellow mb-2 text-center">
                     Key DID
                   </h3>
-                  <p className="text-blue-900 text-sm text-center mb-2">
+                  <p className="text-blue-900 dark-text-white text-sm text-center mb-2">
                     Issue, manage, and verify your Key-based DIDs with
                     cryptographic proofs.
                   </p>
@@ -151,10 +151,10 @@ const DIDDocument = () => {
                       <path d="M19 4h-4.18C14.4 2.84 13.3 2 12 2s-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-.45-1-.55-1-1 .45-1 1-1zm5 14H6V8h12v10z" />
                     </svg>
                   </div>
-                  <h3 className="text-lg font-bold text-blue-900 mb-2 text-center">
+                  <h3 className="text-lg font-bold text-blue-900 dark-text-yellow mb-2 text-center">
                     Web DID
                   </h3>
-                  <p className="text-blue-900 text-sm text-center mb-2">
+                  <p className="text-blue-900 dark-text-white text-sm text-center mb-2">
                     Create and resolve Web DIDs over HTTP, offering universal
                     decentralized identifiers.
                   </p>
