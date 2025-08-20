@@ -293,14 +293,14 @@ const EthrVcManager = () => {
         const provider = new ethers.BrowserProvider(window.ethereum);
         try {
           await provider.send?.("eth_requestAccounts", []);
-        } catch (_) {}
+        } catch (_) { }
         return new ethers.Contract(VC_ADDRESS, VC_ABI, provider);
       }
       if (ethers?.providers?.Web3Provider) {
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         try {
           await provider.send?.("eth_requestAccounts", []);
-        } catch (_) {}
+        } catch (_) { }
         return new ethers.Contract(VC_ADDRESS, VC_ABI, provider);
       }
     }
@@ -375,10 +375,10 @@ Please check the contract address and ABI configuration.`;
         const checksum = ethers.utils
           ? ethers.utils.getAddress(hex)
           : ethers.getAddress
-          ? ethers.getAddress(hex)
-          : null;
+            ? ethers.getAddress(hex)
+            : null;
         if (checksum) out.push(checksum);
-      } catch (e) {}
+      } catch (e) { }
     }
 
     if (did.startsWith("did:ethr:")) {
@@ -427,8 +427,8 @@ Please check the contract address and ABI configuration.`;
       console.error("create error:", err);
       setError(
         err?.response?.data?.error ||
-          err?.message ||
-          "Failed to create credential"
+        err?.message ||
+        "Failed to create credential"
       );
     } finally {
       setLoading(false);
@@ -595,10 +595,9 @@ Please check the contract address and ABI configuration.`;
         if (errorMessage.includes("Only issuer can perform this action")) {
           errorMessage = `Access denied: Only the contract owner can issue credentials. Your wallet (${walletAddress}) may not be authorized. Please contact the system administrator.`;
         } else if (errorMessage.includes("execution reverted")) {
-          errorMessage = `Transaction failed: ${
-            errorMessage.split("execution reverted: ")[1] ||
+          errorMessage = `Transaction failed: ${errorMessage.split("execution reverted: ")[1] ||
             "Unknown smart contract error"
-          }`;
+            }`;
         } else if (
           errorMessage.includes("Contract does not have issueCredential")
         ) {
@@ -713,7 +712,7 @@ Please check the contract address and ABI configuration.`;
             usedVariant = v;
             break;
           }
-        } catch (inner) {}
+        } catch (inner) { }
       }
 
       if ((!ids || ids.length === 0) && walletAddress) {
@@ -728,7 +727,7 @@ Please check the contract address and ABI configuration.`;
             ids = idStrings2;
             usedVariant = walletAddress;
           }
-        } catch (_) {}
+        } catch (_) { }
       }
 
       setLastOnchainIds(ids);
@@ -765,7 +764,7 @@ Please check the contract address and ABI configuration.`;
             usedVariant = v;
             break;
           }
-        } catch (inner) {}
+        } catch (inner) { }
       }
 
       if ((!idsRaw || idsRaw.length === 0) && walletAddress) {
@@ -780,7 +779,7 @@ Please check the contract address and ABI configuration.`;
             idsRaw = idList2;
             usedVariant = walletAddress;
           }
-        } catch (_) {}
+        } catch (_) { }
       }
 
       const idList = idsRaw;
@@ -850,8 +849,8 @@ Please check the contract address and ABI configuration.`;
             displayed = {
               credentialSubject:
                 metadata &&
-                typeof metadata === "object" &&
-                Object.keys(metadata).length > 0
+                  typeof metadata === "object" &&
+                  Object.keys(metadata).length > 0
                   ? metadata
                   : { id: row?.[1] ?? did },
               issuer: { id: issuerDID },
@@ -906,7 +905,7 @@ Please check the contract address and ABI configuration.`;
               try {
                 const res = await fetch(`https://dweb.link/ipfs/${mappingCID}`);
                 if (res.ok) ipfsJson = await res.json();
-              } catch (e) {}
+              } catch (e) { }
             }
           }
           const issuerDID = row?.[2] ? safeToString(row[2]) : "";
@@ -927,7 +926,7 @@ Please check the contract address and ABI configuration.`;
             },
           };
           out.push(credObj);
-        } catch (inner) {}
+        } catch (inner) { }
       }
       return out;
     } catch (err) {
@@ -981,8 +980,8 @@ Please check the contract address and ABI configuration.`;
       console.error("fetchCredentials error:", err);
       setError(
         err?.response?.data?.error ||
-          err?.message ||
-          "Failed to fetch credentials"
+        err?.message ||
+        "Failed to fetch credentials"
       );
     } finally {
       setListLoading(false);
@@ -1016,8 +1015,8 @@ Please check the contract address and ABI configuration.`;
     } else {
       alert(
         "Failed to fetch IPFS JSON for " +
-          mappingCID +
-          " — see console for details"
+        mappingCID +
+        " — see console for details"
       );
     }
   };
@@ -1136,10 +1135,10 @@ Please check the contract address and ABI configuration.`;
     const cls = status.error
       ? "bg-red-500"
       : status.success
-      ? "bg-emerald-500"
-      : status.sending || status.uploading
-      ? "bg-yellow-400"
-      : "bg-slate-300";
+        ? "bg-emerald-500"
+        : status.sending || status.uploading
+          ? "bg-yellow-400"
+          : "bg-slate-300";
     return <span className={`inline-block w-2 h-2 rounded-full ${cls} mr-2`} />;
   };
 
@@ -1153,9 +1152,9 @@ Please check the contract address and ABI configuration.`;
     <div className="min-h-screen bg-transparentpx-4 py-16">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-5xl font-bold text-blue-900 mb-4 text-center">
-            Ethereum VC Manager
+        <div className="text-center mb-30">
+          <h1 className="text-5xl font-bold text-blue-900 dark-text-white mb-4 text-center">
+            Ethereum Credential Manager
           </h1>
           <p className="text-xl text-gray-600 mt-8 mb-8 animate-fadein delay-500">
             Create, manage, and verify Ethereum-based Verifiable Credentials
@@ -1163,44 +1162,47 @@ Please check the contract address and ABI configuration.`;
         </div>
 
         {/* Connection Status Card */}
-        <div className="mb-8 bg-gradient-to-br from-blue-100 to-white border border-blue-200 rounded-2xl p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-2xl font-bold text-blue-900 h3-yellow-400 flex items-center">
+        <div className="mb-16 bg-white rounded-3xl darkcard shadow-lg p-10">
+          <div className="flex items-center justify-between mb-10">
+            <h3 className="text-2xl font-bold text-blue-900 dark-text-yellow flex items-center">
               Connection Status
             </h3>
             <div
-              className={`px-3 py-1 rounded-full text-sm font-medium ${
-                walletAddress
-                  ? "bg-green-100 text-green-800"
-                  : "bg-red-100 text-red-800"
-              }`}
+              className={`px-3 py-1 rounded-full text-sm font-medium ${walletAddress
+                ? "bg-emerald-100 text-green-800"
+                : "bg-red-100 text-red-800"
+                }`}
             >
               {walletAddress ? "✓ Connected" : "✗ Disconnected"}
             </div>
           </div>
 
           <div className="grid md:grid-cols-2 gap-4 mb-4">
-            <div className="bg-gray-50 rounded-lg p-4">
-              <label className="text-sm font-medium text-gray-600 block mb-1">
+            <div className="bg-emerald-50 rounded-2xl p-4">
+              <div className="flex items-center justify-center w-20 h-20 rounded-xl bg-blue-100 mb-10 mx-auto shadow-inner">
+                <svg xmlns="http://www.w3.org/2000/svg" width="57" height="48" viewBox="0 0 38 32"><g fill="#f0ce00"><path d="M32.509 7.5a.5.5 0 0 0 .5-.5V5.335a1.64 1.64 0 0 0-1.638-1.638h-2.687l-.613-1.809a.5.5 0 0 0-.619-.318L12.899 5.994a.501.501 0 0 0 .292.957L27.28 2.667l1.343 3.965a.499.499 0 1 0 .947-.321l-.547-1.615h2.349c.352 0 .638.286.638.638V7c-.001.276.223.5.499.5" /><path d="M36.5 15a.5.5 0 0 0 0 1c.351 0 .5.149.5.5v6c0 .351-.149.5-.5.5h-8c-.351 0-.5-.149-.5-.5v-5c0-.351.149-.5.5-.5h6a.5.5 0 0 0 .5-.5v-6c0-.911-.589-1.5-1.5-1.5H3c-1.233 0-2-.767-2-2s.767-2 2-2h5.076l-3.026.998a.5.5 0 1 0 .313.949L23.482.974a.5.5 0 1 0-.314-.95l-12.1 3.99C11.045 4.01 11.024 4 11 4H3C1.206 4 0 5.206 0 7v22c0 1.794 1.206 3 3 3h30.5c.911 0 1.5-.589 1.5-1.5v-5a.5.5 0 0 0-1 0v5c0 .351-.149.5-.5.5H3c-1.233 0-2-.767-2-2V9.312c.513.433 1.192.688 2 .688h30.5c.351 0 .5.149.5.5V16h-5.5c-.911 0-1.5.589-1.5 1.5v5c0 .911.589 1.5 1.5 1.5h8c.911 0 1.5-.589 1.5-1.5v-6c0-.911-.589-1.5-1.5-1.5" /><circle cx="32" cy="20" r="1" /></g></svg>
+              </div>
+              <label className="text-sm font-medium text-gray-600 block mb-2">
                 Wallet Address
               </label>
               <div
-                className={`font-mono text-sm break-all ${
-                  walletAddress ? "text-green-700" : "text-gray-400"
-                }`}
+                className={`font-mono text-sm break-all mb-20 ${walletAddress ? "text-emerald-700" : "text-gray-400"
+                  }`}
               >
                 {walletAddress || "Not connected"}
               </div>
             </div>
 
-            <div className="bg-gray-50 rounded-lg p-4">
-              <label className="text-sm font-medium text-gray-600 block mb-1">
+            <div className="bg-emerald-50 rounded-2xl p-4">
+              <div className="flex items-center justify-center w-20 h-20 rounded-xl bg-blue-100 mb-10 mx-auto shadow-inner">
+                <svg xmlns="http://www.w3.org/2000/svg" width="68" height="68" viewBox="0 0 48 48"><rect width="36.65" height="26.043" x="5.675" y="10.979" fill="none" stroke="#f0ce00" stroke-linecap="round" stroke-linejoin="round" rx="3" ry="3" stroke-width="1"/><circle cx="14.838" cy="21.487" r="3.563" fill="none" stroke="#f0ce00" stroke-linecap="round" stroke-linejoin="round" stroke-width="1"/><path fill="none" stroke="#f0ce00" stroke-linecap="round" stroke-linejoin="round" d="M10.328 31.095h9.783a.92.92 0 0 0 .7-1.52a7.172 7.172 0 0 0-11.183 0a.92.92 0 0 0 .7 1.52M28.709 20.85h6.999m-6.999 6.872h6.999m-6.999-3.436h9.671" stroke-width="1"/></svg>
+              </div>
+              <label className="text-sm font-medium text-gray-600 block mb-2">
                 Wallet DID
               </label>
               <div
-                className={`font-mono text-sm break-all ${
-                  walletDid ? "text-green-700" : "text-orange-600"
-                }`}
+                className={`font-mono text-sm break-all ${walletDid ? "text-emerald-700" : "text-orange-600"
+                  }`}
               >
                 {didLoading ? (
                   <span className="flex items-center">
@@ -1234,14 +1236,11 @@ Please check the contract address and ABI configuration.`;
           </div>
 
           {/* Contract Info */}
-          <div className="bg-gray-50 rounded-lg p-4 mb-4">
-            <label className="text-sm font-medium text-gray-600 block mb-1">
-              Smart Contract Address
-            </label>
-            <div className="font-mono text-sm break-all text-blue-700">
+          <div className="bg-transparent rounded-lg p-4 mb-8">
+            <div className="font-mono text-sm break-all text-emerald-600">
               {VC_ADDRESS}
             </div>
-            <div className="text-xs text-gray-500 mt-1">
+            <div className="text-xs text-gray-500 mt-1 mb-4">
               Contract Type:{" "}
               {VC_ABI && VC_ABI.length
                 ? `${VC_ABI.length} functions available`
@@ -1267,19 +1266,14 @@ Please check the contract address and ABI configuration.`;
           </div>
 
           {/* IPFS Status */}
-          <div className="bg-gray-50 rounded-lg p-4">
-            <label className="text-sm font-medium text-gray-600 block mb-2">
-              IPFS Storage Status
-            </label>
+          <div className="rounded-lg p-4">
             <div
-              className={`flex items-center ${
-                isPinataAvailable() ? "text-green-700" : "text-orange-600"
-              }`}
+              className={`flex items-center ${isPinataAvailable() ? "text-emerald-700" : "text-orange-600"
+                }`}
             >
               <svg
-                className={`w-4 h-4 mr-2 ${
-                  isPinataAvailable() ? "text-green-500" : "text-orange-500"
-                }`}
+                className={`w-4 h-4 mr-2 ${isPinataAvailable() ? "text-emerald-500" : "text-orange-500"
+                  }`}
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -1324,10 +1318,10 @@ Please check the contract address and ABI configuration.`;
 
         {/* Wallet Readiness Warning */}
         {(!walletAddress || !window?.ethereum) && (
-          <div className="mb-8 bg-gradient-to-br from-blue-100 to-white border border-blue-200 rounded-2xl p-6">
-            <div className="flex items-center mb-3">
+          <div className="mb-8 bg-gradient-to-br from-blue-100 to-white border border-red-600 rounded-2xl p-6">
+            <div className="flex items-center justify-center mb-3">
               <svg
-                className="w-6 h-6 mr-2 text-yellow-600"
+                className="w-6 h-6 mr-2 text-red-600"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -1339,15 +1333,15 @@ Please check the contract address and ABI configuration.`;
                   d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
                 />
               </svg>
-              <h3 className="text-lg font-semibold text-yellow-800">
+              <h3 className="text-lg font-semibold text-red-600">
                 Wallet Connection Required
               </h3>
             </div>
-            <div className="text-yellow-700">
+            <div className="text-red-600">
               {!window?.ethereum ? (
                 <div>
                   <p className="mb-2">
-                    <strong>No Web3 wallet detected.</strong> Please install
+                    <strong>No Web3 wallet detected:</strong> Please install
                     MetaMask or another compatible wallet to interact with smart
                     contracts.
                   </p>
@@ -1362,7 +1356,7 @@ Please check the contract address and ABI configuration.`;
                 </div>
               ) : !walletAddress ? (
                 <p>
-                  <strong>Wallet not connected.</strong> Please connect your
+                  <strong>Wallet not connected:</strong> Please connect your
                   wallet to create and publish credentials on-chain. This will
                   prevent "Invalid private key" errors during transactions.
                 </p>
@@ -1373,28 +1367,29 @@ Please check the contract address and ABI configuration.`;
 
         {/* Wallet Connection Warning */}
         {!walletAddress && (
-          <div className="mb-8 bg-gradient-to-br from-blue-100 to-white border border-blue-200 rounded-2xl p-6">
-            <div className="flex items-center mb-4">
-              <div className="flex-shrink-0">
-                <svg
-                  className="w-8 h-8 text-yellow-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
-                  />
-                </svg>
-              </div>
+          <div className="mb-8 bg-gradient-to-br from-blue-100 to-white border border-red-600 rounded-2xl p-6">
+            <div className="flex justify-center items-center mb-4 p-4">
+
+              <svg
+                className="w-6 h-6 mr-2 text-red-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                />
+              </svg>
+              <h3 className="text-lg font-semibold text-red-600">
+                Wallet Connection Required:
+              </h3>
+
               <div className="ml-4">
-                <h3 className="text-lg font-semibold text-yellow-800">
-                  Wallet Not Connected
-                </h3>
-                <p className="text-yellow-700 mt-1">
+
+                <p className="text-red-600 mt-1">
                   Connect your Ethereum wallet (MetaMask, etc.) to create and
                   manage verifiable credentials.
                 </p>
@@ -1418,7 +1413,7 @@ Please check the contract address and ABI configuration.`;
                   );
                 }
               }}
-              className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 font-medium shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+              className="bg-blue-900 darkcard text-white dark-text-yellow px-6 py-3 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 font-medium shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
             >
               <span className="flex items-center">
                 <svg
@@ -1442,10 +1437,10 @@ Please check the contract address and ABI configuration.`;
 
         {/* Main Interface */}
         {!walletAddress ? (
-          <div className="text-center py-12 bg-white rounded-xl shadow-lg">
-            <div className="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+          <div className="text-center py-16 bg-white border border-red-600 rounded-2xl shadow-lg">
+            <div className="mx-auto w-24 h-24 bg-gray-100 darkcard rounded-full flex items-center justify-center mb-4">
               <svg
-                className="w-12 h-12 text-gray-400"
+                className="w-12 h-12 text-yellow-400"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -1458,37 +1453,37 @@ Please check the contract address and ABI configuration.`;
                 />
               </svg>
             </div>
-            <h3 className="text-xl font-semibold text-gray-700 mb-2">
-              Wallet Connection Required
-            </h3>
-            <p className="text-gray-500">
-              Please connect your Ethereum wallet to continue with credential
-              management.
-            </p>
+
+            <div className="flex justify-center items-center mb-4 p-4">
+              <svg
+                className="w-6 h-6 mr-2 text-red-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                />
+              </svg>
+              <h3 className="text-xl font-semibold text-red-600 mb-2">
+                Wallet Connection Required!
+              </h3>
+              <p className="text-red-600">
+                Please connect your Ethereum wallet to continue with credential
+                management.
+              </p></div>
           </div>
         ) : (
           <div className="space-y-8">
             {/* Create VC Form */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <div className="flex items-center mb-6">
-                <div className="flex-shrink-0">
-                  <svg
-                    className="w-8 h-8 text-blue-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                    />
-                  </svg>
-                </div>
+            <div className="bg-white darkcard shadow-lg rounded-3xl p-10">
+              <div className="flex justify-center items-center mb-30">
                 <div className="ml-4">
-                  <h3 className="text-xl font-semibold text-gray-800">
-                    Create Verifiable Credential
+                  <h3 className="text-4xl font-bold text-blue-900 dark-text-yellow flex items-center">
+                    Create Ethereum Verifiable Credential
                   </h3>
                   <p className="text-gray-600">
                     Fill in the details to issue a new credential
@@ -1496,25 +1491,25 @@ Please check the contract address and ABI configuration.`;
                 </div>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-6">
+              <form onSubmit={handleSubmit} className="space-y-8">
                 <div className="grid md:grid-cols-2 gap-6">
                   {/* Issuer DID (Auto-filled, read-only) */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark-text-yellow mb-2">
                       Issuer DID <span className="text-red-500 ml-1">*</span>
                     </label>
                     <input
                       type="text"
                       name="issuerDid"
                       value={formData.issuerDid}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 cursor-not-allowed"
+                      className="w-full px-4 py-3 bg-slate-200 border border-yellow-200 darkcard rounded-3xl text-gray-700 dark-text-white cursor-not-allowed"
                       readOnly
                       placeholder="Issuer DID (auto-filled from connected wallet)"
                     />
-                    <div className="mt-2 p-3 bg-green-50 rounded-lg">
+                    <div className="mt-2 p-3 bg-emerald-50 rounded-2xl">
                       <div className="flex items-start">
                         <svg
-                          className="w-5 h-5 text-green-500 mt-0.5 mr-2 flex-shrink-0"
+                          className="w-5 h-5 text-emerald-500 mt-0.5 mr-2 flex-shrink-0"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -1526,7 +1521,7 @@ Please check the contract address and ABI configuration.`;
                             d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                           />
                         </svg>
-                        <div className="text-sm text-green-700">
+                        <div className="text-sm text-emerald-700">
                           <strong>Auto-configured:</strong> The issuer must be
                           your connected wallet address. This ensures only you
                           can issue credentials from your account.
@@ -1537,7 +1532,7 @@ Please check the contract address and ABI configuration.`;
 
                   {/* Subject DID */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark-text-yellow mb-2">
                       Subject DID <span className="text-red-500 ml-1">*</span>
                     </label>
                     <input
@@ -1545,15 +1540,15 @@ Please check the contract address and ABI configuration.`;
                       name="subjectDid"
                       value={formData.subjectDid}
                       onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
+                      className="w-full px-4 py-3 border border-yellow-200 rounded-3xl darkcard text-gray-700 dark-text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
                       disabled={didLoading}
                       required
                       placeholder="Enter subject DID"
                     />
-                    <div className="mt-2 p-3 bg-blue-50 rounded-lg">
+                    <div className="mt-2 p-3 bg-blue-50 darkcard overflow-x-auto rounded-lg">
                       <div className="flex items-start">
                         <svg
-                          className="w-5 h-5 text-blue-500 mt-0.5 mr-2 flex-shrink-0"
+                          className="w-5 h-5 text-blue-900 dark-text-yellow mt-0.5 mr-2 flex-shrink-0"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -1565,7 +1560,7 @@ Please check the contract address and ABI configuration.`;
                             d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                           />
                         </svg>
-                        <div className="text-sm text-blue-700">
+                        <div className="text-sm text-blue-700 dark-text-white">
                           {didLoading ? (
                             <span className="flex items-center">
                               <svg
@@ -1620,10 +1615,10 @@ Please check the contract address and ABI configuration.`;
                           field === "expirationDate" ? "md:col-span-2" : ""
                         }
                       >
-                        <label className="block text-sm font-medium text-gray-700 mb-2 capitalize">
+                        <label className="block text-sm font-medium text-gray-700 dark-text-yellow mb-2 capitalize">
                           {field.replace(/([A-Z])/g, " $1").trim()}
                           {field !== "expirationDate" && (
-                            <span className="text-red-500 ml-1">*</span>
+                            <span className="text-red-500 ml-2">*</span>
                           )}
                         </label>
                         <input
@@ -1635,15 +1630,15 @@ Please check the contract address and ABI configuration.`;
                           name={field}
                           value={formData[field]}
                           onChange={handleChange}
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
+                          className="w-full mb-10 px-4 py-4 border border-yellow-200 darkcard rounded-3xl text-gray-700 dark-text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
                           required={field !== "expirationDate"}
                           placeholder={
                             field === "expirationDate"
                               ? "Optional expiration date"
                               : `Enter ${field
-                                  .replace(/([A-Z])/g, " $1")
-                                  .trim()
-                                  .toLowerCase()}`
+                                .replace(/([A-Z])/g, " $1")
+                                .trim()
+                                .toLowerCase()}`
                           }
                         />
                       </div>
@@ -1655,7 +1650,7 @@ Please check the contract address and ABI configuration.`;
                   <button
                     type="submit"
                     disabled={loading || didLoading}
-                    className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-blue-800 disabled:from-gray-400 disabled:to-gray-500 transition-all duration-200 font-medium shadow-md hover:shadow-lg transform hover:-translate-y-0.5 disabled:transform-none disabled:hover:shadow-md"
+                    className="bg-blue-900 text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-blue-800 disabled:from-gray-400 disabled:to-gray-500 transition-all duration-200 font-medium shadow-md hover:shadow-lg transform hover:-translate-y-0.5 disabled:transform-none disabled:hover:shadow-md"
                   >
                     {loading ? (
                       <span className="flex items-center">
@@ -1689,7 +1684,7 @@ Please check the contract address and ABI configuration.`;
                   <button
                     type="button"
                     onClick={fetchCredentials}
-                    className="bg-gray-100 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-200 transition-colors duration-200 font-medium"
+                    className="bg-gray-100 darkcard text-gray-700 dark-text-yellow px-6 py-3 rounded-lg hover:bg-gray-200 transition-colors duration-200 font-medium"
                   >
                     {listLoading ? (
                       <span className="flex items-center">
@@ -1718,27 +1713,6 @@ Please check the contract address and ABI configuration.`;
                     ) : (
                       "Refresh List"
                     )}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      setListLoading(true);
-                      if (walletDid) {
-                        const ids = await getIdsForDid(walletDid);
-                        const onchain = await fetchOnChainCredentialsForDid(
-                          walletDid
-                        );
-                        setCredentials(onchain);
-                      } else {
-                        const all = await fetchAllOnChainCredentials();
-                        setCredentials(all);
-                      }
-                      setListLoading(false);
-                    }}
-                    className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 font-medium shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
-                  >
-                    Show On-chain Credentials
                   </button>
                 </div>
 
@@ -1772,11 +1746,11 @@ Please check the contract address and ABI configuration.`;
 
             {/* Created Credential Preview */}
             {credential && (
-              <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-green-500">
+              <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-emerald-600">
                 <div className="flex items-center mb-4">
                   <div className="flex-shrink-0">
                     <svg
-                      className="w-8 h-8 text-green-600"
+                      className="w-8 h-8 text-emerald-600"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -1790,12 +1764,9 @@ Please check the contract address and ABI configuration.`;
                     </svg>
                   </div>
                   <div className="ml-4">
-                    <h3 className="text-xl font-semibold text-gray-800">
+                    <h3 className="text-xl font-semibold text-emerald-700">
                       Credential Created Successfully
                     </h3>
-                    <p className="text-gray-600">
-                      Your latest verifiable credential is ready
-                    </p>
                   </div>
                 </div>
 
@@ -1889,8 +1860,8 @@ Please check the contract address and ABI configuration.`;
                     {ipfsStatus["latest"]?.uploading
                       ? "Uploading..."
                       : chainStatus["latest"]?.sending
-                      ? "Storing on-chain..."
-                      : "Publish to IPFS & Blockchain"}
+                        ? "Storing on-chain..."
+                        : "Publish to IPFS & Blockchain"}
                   </button>
                 </div>
 
@@ -2232,8 +2203,8 @@ Please check the contract address and ABI configuration.`;
                                 <p className="text-sm text-gray-800">
                                   {cred?.issuanceDate
                                     ? new Date(
-                                        cred.issuanceDate
-                                      ).toLocaleDateString()
+                                      cred.issuanceDate
+                                    ).toLocaleDateString()
                                     : "N/A"}
                                 </p>
                               </div>
@@ -2364,8 +2335,8 @@ Please check the contract address and ABI configuration.`;
                                 {ipfsStatus[i]?.uploading
                                   ? "Uploading..."
                                   : chainStatus[i]?.sending
-                                  ? "Storing..."
-                                  : "Publish & Store"}
+                                    ? "Storing..."
+                                    : "Publish & Store"}
                               </button>
 
                               {cred?.onchain?.mappingCID && (
@@ -2547,11 +2518,10 @@ Please check the contract address and ABI configuration.`;
                 {verificationResult && (
                   <div className="mt-6">
                     <div
-                      className={`p-4 rounded-lg border-l-4 ${
-                        verificationResult.verified
-                          ? "bg-green-50 border-green-500"
-                          : "bg-red-50 border-red-500"
-                      }`}
+                      className={`p-4 rounded-lg border-l-4 ${verificationResult.verified
+                        ? "bg-green-50 border-green-500"
+                        : "bg-red-50 border-red-500"
+                        }`}
                     >
                       <div className="flex items-center mb-3">
                         {verificationResult.verified ? (
@@ -2623,8 +2593,8 @@ Please check the contract address and ABI configuration.`;
                             <p className="text-sm text-gray-800">
                               {verificationResult.payload?.exp
                                 ? new Date(
-                                    verificationResult.payload.exp * 1000
-                                  ).toLocaleDateString()
+                                  verificationResult.payload.exp * 1000
+                                ).toLocaleDateString()
                                 : "N/A"}
                             </p>
                           </div>

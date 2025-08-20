@@ -624,7 +624,7 @@ const VCManager = () => {
     return (
       <div className="max-w-4xl mx-auto px-6 py-16">
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-800 mb-4">
+          <h1 className="text-5xl font-bold text-gray-800 dark-text-white mb-4">
             Verifiable Credentials Manager
           </h1>
           <p className="text-gray-600 mb-8">
@@ -639,7 +639,7 @@ const VCManager = () => {
   return (
     <div className="max-w-6xl mx-auto px-6 py-16">
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-4">
+        <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-4">
           Verifiable Credentials Manager
         </h1>
         <p className="text-gray-600">

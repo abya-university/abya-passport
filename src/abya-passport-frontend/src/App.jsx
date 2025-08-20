@@ -92,7 +92,7 @@ function App() {
               {/* Cards Components section */}
               <h2 className="text-3xl font-bold text-blue-900 dark-text-yellow mb-4 text-center">Key Features</h2>
               <p className="text-xl text-gray-600 mt-8 mb-8 animate-fadein delay-500">Explore the key features of ABYA Passport to enhance your identity management experience.</p>
-              <div className={`grid md:grid-cols-3 gap-8 mt-16 transition-colors duration-300 backdrop-blur-xl ${darkMode ? 'bg-transparent' : ''}`}>
+              <div className={`grid md:grid-cols-3 gap-8 mt-16 transition-colors duration-300 rounded-2xl ${darkMode ? '' : ''}`}>
                 {/* Card 1 */}
                 <div className={`relative group bg-gradient-to-br from-blue-100 to-white border border-blue-200 ${darkMode ? 'border-yellow-400' : 'border-blue-200'} rounded-2xl p-7 shadow-lg hover:shadow-2xl transition-all duration-200 overflow-hidden feature-card animate-fadein delay-600`}>
                   <div className="absolute -top-4 -right-4 opacity-10 group-hover:opacity-20 transition-opacity duration-200">

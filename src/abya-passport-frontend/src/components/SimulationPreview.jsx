@@ -121,7 +121,7 @@ function SimulationPreview({ onNotify, darkMode }) {
         </div>
         <div>
           <div className={`w-full rounded-full h-2 overflow-hidden mt-3 ${darkMode ? 'bg-yellow-900/30' : 'bg-gray-100'}`}> 
-            <div className="h-2 rounded-full" style={{ width: `${progress}%`, background: `linear-gradient(90deg, ${ABYA.deepBlue}, ${ABYA.brightGold})`, transition: 'width 120ms linear' }} />
+            <div className="h-2 rounded-full" style={{ width: `${progress}%`, background: `linear-gradient(90deg, ${ABYA.gold}, ${ABYA.brightGold})`, transition: 'width 120ms linear' }} />
           </div>
           <div className={`mt-2 text-xs flex items-center justify-between ${darkMode ? 'text-yellow-300' : 'text-slate-500'}`}> 
             <div>{running ? 'Running' : 'Idle'}</div>
