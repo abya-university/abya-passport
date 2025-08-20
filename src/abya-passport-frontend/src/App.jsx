@@ -78,23 +78,22 @@ function App() {
                     aria-label="Get Started with ABYA Passport"
                   >
                     <span className="flex items-center gap-2">
-                      <svg width="22" height="22" fill="none" viewBox="0 0 24 24" className="inline-block"><rect x="3" y="5" width="18" height="14" rx="3" fill="#fff" stroke="#0b5c85" strokeWidth="1.5" /><rect x="7" y="9" width="4" height="4" rx="2" fill="#f0ce00" /><rect x="13" y="11" width="4" height="2" rx="1" fill="#f0ce00" /></svg>
                       Get Started
                     </span>
                   </button>
                 </div>
                 {/* Right: SimulationPreview */}
                 <div className="flex justify-center">
-                  <SimulationPreview />
+                  <SimulationPreview darkMode={darkMode} />
                 </div>
               </div>
 
               {/* Cards Components section */}
-              <h1 className="font-bold text-4xl text-blue-900 mb-4 animate-fadein delay-400">Features</h1>
+              <h1 className="font-bold text-4xl text-blue-900 dark:text-yellow-400 mb-4 animate-fadein delay-400">Features</h1>
               <p className="text-xl text-gray-600 mt-8 mb-8 animate-fadein delay-500">Explore the key features of ABYA Passport to enhance your identity management experience.</p>
-              <div className="grid md:grid-cols-3 gap-8 mt-16">
+              <div className={`grid md:grid-cols-3 gap-8 mt-16 transition-colors duration-300 backdrop-blur-xl ${darkMode ? 'bg-transparent' : ''}`}>
                 {/* Card 1 */}
-                <div className="relative group bg-gradient-to-br from-blue-100 to-white border border-blue-200 rounded-2xl p-7 shadow-lg hover:shadow-2xl transition-all duration-200 overflow-hidden feature-card animate-fadein delay-600">
+                <div className={`relative group bg-gradient-to-br from-blue-100 to-white border border-blue-200 ${darkMode ? 'border-yellow-400' : 'border-blue-200'} rounded-2xl p-7 shadow-lg hover:shadow-2xl transition-all duration-200 overflow-hidden feature-card animate-fadein delay-600`}>
                   <div className="absolute -top-4 -right-4 opacity-10 group-hover:opacity-20 transition-opacity duration-200">
                     <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24"><path fill="#f0ce00" fill-rule="evenodd" d="m12 13.386l.023-.027c1.313 1.277 3.208 2.763 4.85 2.763A4.086 4.086 0 0 0 21 12.072c0-2.237-1.845-4.05-4.126-4.05c-1.746 0-3.465 1.296-4.874 2.735zm4.815 1.098c1.404 0 2.543-1.08 2.543-2.413S18.219 9.66 16.81 9.66s-2.781 1.304-3.744 2.411c.639.72 2.34 2.412 3.744 2.412z" clip-rule="evenodd" /><path fill="#f0ce00" fill-rule="evenodd" d="m12.054 13.44l-.09-.09c-1.273 1.264-3.15 2.772-4.837 2.772A4.087 4.087 0 0 1 3 12.072c0-2.237 1.845-4.05 4.127-4.05c1.773 0 3.42 1.399 4.806 2.893l.121-.126zm-4.869 1.043c-1.408 0-2.547-1.08-2.547-2.412S5.777 9.66 7.185 9.66s2.781 1.304 3.744 2.411c-.639.72-2.34 2.412-3.744 2.412" clip-rule="evenodd" /><path fill="#f0ce00" d="m10.758 11.924l.108.094l1.102 1.404c1.296 1.21 3.186 2.7 4.905 2.7a4.11 4.11 0 0 0 4.05-3.267c-.35.634-1.575 1.629-3.762 1.606q-.169.022-.35.023c-1.41 0-3.106-1.692-3.745-2.412l.014-.018l-1.328-1.598l-1.327-1.26c-1.062-.81-2.16-1.318-3.366-1.318c-2.039 0-3.677 1.62-4.005 3.555c.909-1.647 2.866-2.178 4.585-1.724c1.125.194 2.102 1.09 3.119 2.215" /></svg>
                   </div>
