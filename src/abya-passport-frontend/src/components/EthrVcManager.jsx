@@ -28,6 +28,10 @@ import {
   CheckCircle,
   AlertCircle,
   Database,
+  CopyIcon,
+  QrCodeIcon,
+  DownloadIcon,
+  VerifiedIcon,
 } from "lucide-react";
 
 const API_BASE = "http://localhost:3000";
@@ -293,14 +297,14 @@ const EthrVcManager = () => {
         const provider = new ethers.BrowserProvider(window.ethereum);
         try {
           await provider.send?.("eth_requestAccounts", []);
-        } catch (_) { }
+        } catch (_) {}
         return new ethers.Contract(VC_ADDRESS, VC_ABI, provider);
       }
       if (ethers?.providers?.Web3Provider) {
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         try {
           await provider.send?.("eth_requestAccounts", []);
-        } catch (_) { }
+        } catch (_) {}
         return new ethers.Contract(VC_ADDRESS, VC_ABI, provider);
       }
     }
@@ -375,10 +379,10 @@ Please check the contract address and ABI configuration.`;
         const checksum = ethers.utils
           ? ethers.utils.getAddress(hex)
           : ethers.getAddress
-            ? ethers.getAddress(hex)
-            : null;
+          ? ethers.getAddress(hex)
+          : null;
         if (checksum) out.push(checksum);
-      } catch (e) { }
+      } catch (e) {}
     }
 
     if (did.startsWith("did:ethr:")) {
@@ -427,8 +431,8 @@ Please check the contract address and ABI configuration.`;
       console.error("create error:", err);
       setError(
         err?.response?.data?.error ||
-        err?.message ||
-        "Failed to create credential"
+          err?.message ||
+          "Failed to create credential"
       );
     } finally {
       setLoading(false);
@@ -595,9 +599,10 @@ Please check the contract address and ABI configuration.`;
         if (errorMessage.includes("Only issuer can perform this action")) {
           errorMessage = `Access denied: Only the contract owner can issue credentials. Your wallet (${walletAddress}) may not be authorized. Please contact the system administrator.`;
         } else if (errorMessage.includes("execution reverted")) {
-          errorMessage = `Transaction failed: ${errorMessage.split("execution reverted: ")[1] ||
+          errorMessage = `Transaction failed: ${
+            errorMessage.split("execution reverted: ")[1] ||
             "Unknown smart contract error"
-            }`;
+          }`;
         } else if (
           errorMessage.includes("Contract does not have issueCredential")
         ) {
@@ -712,7 +717,7 @@ Please check the contract address and ABI configuration.`;
             usedVariant = v;
             break;
           }
-        } catch (inner) { }
+        } catch (inner) {}
       }
 
       if ((!ids || ids.length === 0) && walletAddress) {
@@ -727,7 +732,7 @@ Please check the contract address and ABI configuration.`;
             ids = idStrings2;
             usedVariant = walletAddress;
           }
-        } catch (_) { }
+        } catch (_) {}
       }
 
       setLastOnchainIds(ids);
@@ -764,7 +769,7 @@ Please check the contract address and ABI configuration.`;
             usedVariant = v;
             break;
           }
-        } catch (inner) { }
+        } catch (inner) {}
       }
 
       if ((!idsRaw || idsRaw.length === 0) && walletAddress) {
@@ -779,7 +784,7 @@ Please check the contract address and ABI configuration.`;
             idsRaw = idList2;
             usedVariant = walletAddress;
           }
-        } catch (_) { }
+        } catch (_) {}
       }
 
       const idList = idsRaw;
@@ -849,8 +854,8 @@ Please check the contract address and ABI configuration.`;
             displayed = {
               credentialSubject:
                 metadata &&
-                  typeof metadata === "object" &&
-                  Object.keys(metadata).length > 0
+                typeof metadata === "object" &&
+                Object.keys(metadata).length > 0
                   ? metadata
                   : { id: row?.[1] ?? did },
               issuer: { id: issuerDID },
@@ -905,7 +910,7 @@ Please check the contract address and ABI configuration.`;
               try {
                 const res = await fetch(`https://dweb.link/ipfs/${mappingCID}`);
                 if (res.ok) ipfsJson = await res.json();
-              } catch (e) { }
+              } catch (e) {}
             }
           }
           const issuerDID = row?.[2] ? safeToString(row[2]) : "";
@@ -926,7 +931,7 @@ Please check the contract address and ABI configuration.`;
             },
           };
           out.push(credObj);
-        } catch (inner) { }
+        } catch (inner) {}
       }
       return out;
     } catch (err) {
@@ -980,8 +985,8 @@ Please check the contract address and ABI configuration.`;
       console.error("fetchCredentials error:", err);
       setError(
         err?.response?.data?.error ||
-        err?.message ||
-        "Failed to fetch credentials"
+          err?.message ||
+          "Failed to fetch credentials"
       );
     } finally {
       setListLoading(false);
@@ -1015,8 +1020,8 @@ Please check the contract address and ABI configuration.`;
     } else {
       alert(
         "Failed to fetch IPFS JSON for " +
-        mappingCID +
-        " — see console for details"
+          mappingCID +
+          " — see console for details"
       );
     }
   };
@@ -1135,10 +1140,10 @@ Please check the contract address and ABI configuration.`;
     const cls = status.error
       ? "bg-red-500"
       : status.success
-        ? "bg-emerald-500"
-        : status.sending || status.uploading
-          ? "bg-yellow-400"
-          : "bg-slate-300";
+      ? "bg-emerald-500"
+      : status.sending || status.uploading
+      ? "bg-yellow-400"
+      : "bg-slate-300";
     return <span className={`inline-block w-2 h-2 rounded-full ${cls} mr-2`} />;
   };
 
@@ -1162,16 +1167,17 @@ Please check the contract address and ABI configuration.`;
         </div>
 
         {/* Connection Status Card */}
-        <div className="mb-16 bg-white rounded-3xl darkcard shadow-lg p-10">
+        <div className="mb-16 backdrop-blur-md rounded-3xl darkcard shadow-lg p-10">
           <div className="flex items-center justify-between mb-10">
             <h3 className="text-2xl font-bold text-blue-900 dark-text-yellow flex items-center">
               Connection Status
             </h3>
             <div
-              className={`px-3 py-1 rounded-full text-sm font-medium ${walletAddress
-                ? "bg-emerald-100 text-green-800"
-                : "bg-red-100 text-red-800"
-                }`}
+              className={`px-3 py-1 rounded-full text-sm font-medium ${
+                walletAddress
+                  ? "bg-emerald-100 text-green-800"
+                  : "bg-red-100 text-red-800"
+              }`}
             >
               {walletAddress ? "✓ Connected" : "✗ Disconnected"}
             </div>
@@ -1180,14 +1186,26 @@ Please check the contract address and ABI configuration.`;
           <div className="grid md:grid-cols-2 gap-4 mb-4">
             <div className="bg-emerald-50 rounded-2xl p-4">
               <div className="flex items-center justify-center w-20 h-20 rounded-xl bg-blue-100 mb-10 mx-auto shadow-inner">
-                <svg xmlns="http://www.w3.org/2000/svg" width="57" height="48" viewBox="0 0 38 32"><g fill="#f0ce00"><path d="M32.509 7.5a.5.5 0 0 0 .5-.5V5.335a1.64 1.64 0 0 0-1.638-1.638h-2.687l-.613-1.809a.5.5 0 0 0-.619-.318L12.899 5.994a.501.501 0 0 0 .292.957L27.28 2.667l1.343 3.965a.499.499 0 1 0 .947-.321l-.547-1.615h2.349c.352 0 .638.286.638.638V7c-.001.276.223.5.499.5" /><path d="M36.5 15a.5.5 0 0 0 0 1c.351 0 .5.149.5.5v6c0 .351-.149.5-.5.5h-8c-.351 0-.5-.149-.5-.5v-5c0-.351.149-.5.5-.5h6a.5.5 0 0 0 .5-.5v-6c0-.911-.589-1.5-1.5-1.5H3c-1.233 0-2-.767-2-2s.767-2 2-2h5.076l-3.026.998a.5.5 0 1 0 .313.949L23.482.974a.5.5 0 1 0-.314-.95l-12.1 3.99C11.045 4.01 11.024 4 11 4H3C1.206 4 0 5.206 0 7v22c0 1.794 1.206 3 3 3h30.5c.911 0 1.5-.589 1.5-1.5v-5a.5.5 0 0 0-1 0v5c0 .351-.149.5-.5.5H3c-1.233 0-2-.767-2-2V9.312c.513.433 1.192.688 2 .688h30.5c.351 0 .5.149.5.5V16h-5.5c-.911 0-1.5.589-1.5 1.5v5c0 .911.589 1.5 1.5 1.5h8c.911 0 1.5-.589 1.5-1.5v-6c0-.911-.589-1.5-1.5-1.5" /><circle cx="32" cy="20" r="1" /></g></svg>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="57"
+                  height="48"
+                  viewBox="0 0 38 32"
+                >
+                  <g fill="#f0ce00">
+                    <path d="M32.509 7.5a.5.5 0 0 0 .5-.5V5.335a1.64 1.64 0 0 0-1.638-1.638h-2.687l-.613-1.809a.5.5 0 0 0-.619-.318L12.899 5.994a.501.501 0 0 0 .292.957L27.28 2.667l1.343 3.965a.499.499 0 1 0 .947-.321l-.547-1.615h2.349c.352 0 .638.286.638.638V7c-.001.276.223.5.499.5" />
+                    <path d="M36.5 15a.5.5 0 0 0 0 1c.351 0 .5.149.5.5v6c0 .351-.149.5-.5.5h-8c-.351 0-.5-.149-.5-.5v-5c0-.351.149-.5.5-.5h6a.5.5 0 0 0 .5-.5v-6c0-.911-.589-1.5-1.5-1.5H3c-1.233 0-2-.767-2-2s.767-2 2-2h5.076l-3.026.998a.5.5 0 1 0 .313.949L23.482.974a.5.5 0 1 0-.314-.95l-12.1 3.99C11.045 4.01 11.024 4 11 4H3C1.206 4 0 5.206 0 7v22c0 1.794 1.206 3 3 3h30.5c.911 0 1.5-.589 1.5-1.5v-5a.5.5 0 0 0-1 0v5c0 .351-.149.5-.5.5H3c-1.233 0-2-.767-2-2V9.312c.513.433 1.192.688 2 .688h30.5c.351 0 .5.149.5.5V16h-5.5c-.911 0-1.5.589-1.5 1.5v5c0 .911.589 1.5 1.5 1.5h8c.911 0 1.5-.589 1.5-1.5v-6c0-.911-.589-1.5-1.5-1.5" />
+                    <circle cx="32" cy="20" r="1" />
+                  </g>
+                </svg>
               </div>
               <label className="text-sm font-medium text-gray-600 block mb-2">
                 Wallet Address
               </label>
               <div
-                className={`font-mono text-sm break-all mb-20 ${walletAddress ? "text-emerald-700" : "text-gray-400"
-                  }`}
+                className={`font-mono text-sm break-all mb-20 ${
+                  walletAddress ? "text-emerald-700" : "text-gray-400"
+                }`}
               >
                 {walletAddress || "Not connected"}
               </div>
@@ -1195,14 +1213,52 @@ Please check the contract address and ABI configuration.`;
 
             <div className="bg-emerald-50 rounded-2xl p-4">
               <div className="flex items-center justify-center w-20 h-20 rounded-xl bg-blue-100 mb-10 mx-auto shadow-inner">
-                <svg xmlns="http://www.w3.org/2000/svg" width="68" height="68" viewBox="0 0 48 48"><rect width="36.65" height="26.043" x="5.675" y="10.979" fill="none" stroke="#f0ce00" stroke-linecap="round" stroke-linejoin="round" rx="3" ry="3" stroke-width="1"/><circle cx="14.838" cy="21.487" r="3.563" fill="none" stroke="#f0ce00" stroke-linecap="round" stroke-linejoin="round" stroke-width="1"/><path fill="none" stroke="#f0ce00" stroke-linecap="round" stroke-linejoin="round" d="M10.328 31.095h9.783a.92.92 0 0 0 .7-1.52a7.172 7.172 0 0 0-11.183 0a.92.92 0 0 0 .7 1.52M28.709 20.85h6.999m-6.999 6.872h6.999m-6.999-3.436h9.671" stroke-width="1"/></svg>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="68"
+                  height="68"
+                  viewBox="0 0 48 48"
+                >
+                  <rect
+                    width="36.65"
+                    height="26.043"
+                    x="5.675"
+                    y="10.979"
+                    fill="none"
+                    stroke="#f0ce00"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    rx="3"
+                    ry="3"
+                    stroke-width="1"
+                  />
+                  <circle
+                    cx="14.838"
+                    cy="21.487"
+                    r="3.563"
+                    fill="none"
+                    stroke="#f0ce00"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="1"
+                  />
+                  <path
+                    fill="none"
+                    stroke="#f0ce00"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M10.328 31.095h9.783a.92.92 0 0 0 .7-1.52a7.172 7.172 0 0 0-11.183 0a.92.92 0 0 0 .7 1.52M28.709 20.85h6.999m-6.999 6.872h6.999m-6.999-3.436h9.671"
+                    stroke-width="1"
+                  />
+                </svg>
               </div>
               <label className="text-sm font-medium text-gray-600 block mb-2">
                 Wallet DID
               </label>
               <div
-                className={`font-mono text-sm break-all ${walletDid ? "text-emerald-700" : "text-orange-600"
-                  }`}
+                className={`font-mono text-sm break-all ${
+                  walletDid ? "text-emerald-700" : "text-orange-600"
+                }`}
               >
                 {didLoading ? (
                   <span className="flex items-center">
@@ -1268,12 +1324,14 @@ Please check the contract address and ABI configuration.`;
           {/* IPFS Status */}
           <div className="rounded-lg p-4">
             <div
-              className={`flex items-center ${isPinataAvailable() ? "text-emerald-700" : "text-orange-600"
-                }`}
+              className={`flex items-center ${
+                isPinataAvailable() ? "text-emerald-700" : "text-orange-600"
+              }`}
             >
               <svg
-                className={`w-4 h-4 mr-2 ${isPinataAvailable() ? "text-emerald-500" : "text-orange-500"
-                  }`}
+                className={`w-4 h-4 mr-2 ${
+                  isPinataAvailable() ? "text-emerald-500" : "text-orange-500"
+                }`}
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -1318,7 +1376,7 @@ Please check the contract address and ABI configuration.`;
 
         {/* Wallet Readiness Warning */}
         {(!walletAddress || !window?.ethereum) && (
-          <div className="mb-8 bg-gradient-to-br from-blue-100 to-white border border-red-600 rounded-2xl p-6">
+          <div className="mb-8 backdrop-blur-md border border-red-600 rounded-2xl p-6">
             <div className="flex items-center justify-center mb-3">
               <svg
                 className="w-6 h-6 mr-2 text-red-600"
@@ -1369,7 +1427,6 @@ Please check the contract address and ABI configuration.`;
         {!walletAddress && (
           <div className="mb-8 bg-gradient-to-br from-blue-100 to-white border border-red-600 rounded-2xl p-6">
             <div className="flex justify-center items-center mb-4 p-4">
-
               <svg
                 className="w-6 h-6 mr-2 text-red-600"
                 fill="none"
@@ -1388,7 +1445,6 @@ Please check the contract address and ABI configuration.`;
               </h3>
 
               <div className="ml-4">
-
                 <p className="text-red-600 mt-1">
                   Connect your Ethereum wallet (MetaMask, etc.) to create and
                   manage verifiable credentials.
@@ -1474,12 +1530,13 @@ Please check the contract address and ABI configuration.`;
               <p className="text-red-600">
                 Please connect your Ethereum wallet to continue with credential
                 management.
-              </p></div>
+              </p>
+            </div>
           </div>
         ) : (
           <div className="space-y-8">
             {/* Create VC Form */}
-            <div className="bg-white darkcard shadow-lg rounded-3xl p-10">
+            <div className="backdrop-blur-md darkcard shadow-lg rounded-3xl p-10">
               <div className="flex justify-center items-center mb-30">
                 <div className="ml-4">
                   <h3 className="text-4xl font-bold text-blue-900 dark-text-yellow flex items-center">
@@ -1636,9 +1693,9 @@ Please check the contract address and ABI configuration.`;
                             field === "expirationDate"
                               ? "Optional expiration date"
                               : `Enter ${field
-                                .replace(/([A-Z])/g, " $1")
-                                .trim()
-                                .toLowerCase()}`
+                                  .replace(/([A-Z])/g, " $1")
+                                  .trim()
+                                  .toLowerCase()}`
                           }
                         />
                       </div>
@@ -1746,7 +1803,7 @@ Please check the contract address and ABI configuration.`;
 
             {/* Created Credential Preview */}
             {credential && (
-              <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-emerald-600">
+              <div className="backdrop-blur-md rounded-2xl shadow-lg p-6 border-l-4 border-emerald-600">
                 <div className="flex items-center mb-4">
                   <div className="flex-shrink-0">
                     <svg
@@ -1770,8 +1827,8 @@ Please check the contract address and ABI configuration.`;
                   </div>
                 </div>
 
-                <div className="bg-gray-50 rounded-lg p-4 mb-4 max-h-64 overflow-y-auto">
-                  <pre className="text-sm text-gray-700 whitespace-pre-wrap">
+                <div className="bg-white-100 rounded-lg p-4 mb-4 max-h-64 overflow-y-auto">
+                  <pre className="text-sm text-gray-800 dark-text-white whitespace-pre-wrap">
                     {JSON.stringify(credential, null, 2)}
                   </pre>
                 </div>
@@ -1784,23 +1841,10 @@ Please check the contract address and ABI configuration.`;
                         "Credential JSON"
                       )
                     }
-                    className="bg-green-100 text-green-700 px-4 py-2 rounded-lg hover:bg-green-200 transition-colors duration-200 font-medium"
+                    className="bg-green-100 text-green-700 px-4 py-2 rounded-lg hover:bg-emerald-200 transition-colors duration-200 font-medium"
                   >
-                    <span className="flex items-center">
-                      <svg
-                        className="w-4 h-4 mr-2"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                        />
-                      </svg>
-                      Copy JSON
+                    <span className="flex items-center gap-2">
+                      <CopyIcon size={14} /> JSON
                     </span>
                   </button>
 
@@ -1809,32 +1853,32 @@ Please check the contract address and ABI configuration.`;
                       credential?.proof?.jwt &&
                       copyToClipboard(credential.proof.jwt, "JWT")
                     }
-                    className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors duration-200 font-medium"
+                    className="flex items-center gap-2 bg-green-100 text-green-700 px-4 py-2 rounded-lg hover:bg-emerald-200 transition-colors duration-200 font-medium"
                   >
-                    Copy JWT
+                    <CopyIcon size={14} /> JWT
                   </button>
 
                   <button
                     onClick={() =>
                       credential?.proof?.jwt && generateQr(credential.proof.jwt)
                     }
-                    className="bg-indigo-100 text-indigo-700 px-4 py-2 rounded-lg hover:bg-indigo-200 transition-colors duration-200 font-medium"
+                    className="flex items-center gap-2 bg-green-100 text-green-700 px-4 py-2 rounded-lg hover:bg-emerald-200 transition-colors duration-200 font-medium"
                   >
-                    Generate QR
+                    <QrCodeIcon size={14} /> QR
                   </button>
 
                   <button
                     onClick={() => downloadJSON(credential)}
-                    className="bg-yellow-100 text-yellow-700 px-4 py-2 rounded-lg hover:bg-yellow-200 transition-colors duration-200 font-medium"
+                    className="flex items-center gap-2 bg-green-100 text-green-700 px-4 py-2 rounded-lg hover:bg-emerald-200 transition-colors duration-200 font-medium"
                   >
-                    Download JSON
+                    <DownloadIcon size={14} /> JSON
                   </button>
 
                   <button
                     onClick={() => downloadPDF(credential)}
-                    className="bg-purple-100 text-purple-700 px-4 py-2 rounded-lg hover:bg-purple-200 transition-colors duration-200 font-medium"
+                    className="flex items-center gap-2 bg-green-100 text-green-700 px-4 py-2 rounded-lg hover:bg-emerald-200 transition-colors duration-200 font-medium"
                   >
-                    Download PDF
+                    <DownloadIcon size={14} /> PDF
                   </button>
 
                   <button
@@ -1843,9 +1887,9 @@ Please check the contract address and ABI configuration.`;
                         setJwtToVerify(credential.proof.jwt);
                       else alert("No JWT present");
                     }}
-                    className="bg-slate-100 text-slate-700 px-4 py-2 rounded-lg hover:bg-slate-200 transition-colors duration-200 font-medium"
+                    className="flex items-center gap-2 bg-green-100 text-green-700 px-4 py-2 rounded-lg hover:bg-emerald-200 transition-colors duration-200 font-medium"
                   >
-                    Use for Verification
+                    <VerifiedIcon size={14} /> Verify
                   </button>
 
                   <button
@@ -1860,17 +1904,17 @@ Please check the contract address and ABI configuration.`;
                     {ipfsStatus["latest"]?.uploading
                       ? "Uploading..."
                       : chainStatus["latest"]?.sending
-                        ? "Storing on-chain..."
-                        : "Publish to IPFS & Blockchain"}
+                      ? "Storing on-chain..."
+                      : "Publish to IPFS & Blockchain"}
                   </button>
                 </div>
 
                 {/* Status indicators */}
                 <div className="mt-4 space-y-2">
                   {ipfsStatus["latest"]?.cid && (
-                    <div className="flex items-center p-3 bg-blue-50 rounded-lg">
+                    <div className="flex items-center p-3 backdrop-blur-md rounded-lg">
                       <svg
-                        className="w-5 h-5 text-blue-500 mr-2"
+                        className="w-5 h-5 text-emerald-500 mr-2"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -1882,13 +1926,13 @@ Please check the contract address and ABI configuration.`;
                           d="M13 10V3L4 14h7v7l9-11h-7z"
                         />
                       </svg>
-                      <span className="text-sm text-blue-700">
-                        IPFS CID:{" "}
+                      <span className="text-sm text-emerald-500">
+                        IPFS CID :{" "}
                         <a
                           target="_blank"
                           rel="noreferrer"
                           href={`https://dweb.link/ipfs/${ipfsStatus["latest"].cid}`}
-                          className="underline font-mono"
+                          className="underline font-mono dark-text-white"
                         >
                           {ipfsStatus["latest"].cid}
                         </a>
@@ -1897,9 +1941,9 @@ Please check the contract address and ABI configuration.`;
                   )}
 
                   {chainStatus["latest"]?.txHash && (
-                    <div className="flex items-center p-3 bg-green-50 rounded-lg">
+                    <div className="backdrop-blur-md flex items-center p-3 rounded-lg">
                       <svg
-                        className="w-5 h-5 text-green-500 mr-2"
+                        className="w-5 h-5 text-emerald-500 mr-2"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -1911,13 +1955,13 @@ Please check the contract address and ABI configuration.`;
                           d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                         />
                       </svg>
-                      <span className="text-sm text-green-700">
-                        Transaction:{" "}
+                      <span className="text-sm text-emerald-500">
+                        Transaction :{" "}
                         <a
                           target="_blank"
                           rel="noreferrer"
                           href={`https://etherscan.io/tx/${chainStatus["latest"].txHash}`}
-                          className="underline font-mono"
+                          className="underline font-mono dark-text-white"
                         >
                           {chainStatus["latest"].txHash}
                         </a>
@@ -1954,11 +1998,11 @@ Please check the contract address and ABI configuration.`;
 
             {/* QR Code Viewer */}
             {qrDataUrl && (
-              <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="backdrop-blur-md rounded-xl shadow-lg p-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h4 className="text-xl font-semibold text-gray-800 flex items-center">
+                  <h4 className="text-xl font-semibold text-blue-900 dark-text-yellow flex items-center">
                     <svg
-                      className="w-6 h-6 mr-2 text-indigo-600"
+                      className="w-6 h-6 mr-2 text-blue-900 dark-text-yellow"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -2007,26 +2051,12 @@ Please check the contract address and ABI configuration.`;
             )}
 
             {/* Credentials List */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <div className="flex items-center mb-6">
-                <div className="flex-shrink-0">
-                  <svg
-                    className="w-8 h-8 text-purple-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-                    />
-                  </svg>
-                </div>
-                <div className="ml-4">
-                  <h3 className="text-xl font-semibold text-gray-800">
-                    Stored Credentials
+            <div className="bg-transparent rounded-xl p-6 mt-40">
+              <div className="flex justify-center items-center mb-16">
+                <div className="flex-shrink-0"></div>
+                <div className="mb-4">
+                  <h3 className="text-4xl font-semibold text-blue-900 dark-text-yellow">
+                    Stored Verifiable Credentials
                   </h3>
                   <p className="text-gray-600">
                     Manage your verifiable credentials
@@ -2057,7 +2087,9 @@ Please check the contract address and ABI configuration.`;
                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                       ></path>
                     </svg>
-                    <p className="text-gray-600">Loading credentials...</p>
+                    <p className="text-gray-600 dark-text-yellow">
+                      Loading credentials...
+                    </p>
                   </div>
                 </div>
               ) : credentials.length === 0 ? (
@@ -2077,33 +2109,39 @@ Please check the contract address and ABI configuration.`;
                       />
                     </svg>
                   </div>
-                  <h3 className="text-lg font-medium text-gray-700 mb-2">
+                  <h3 className="text-lg font-medium text-blue-900 dark-text-yellow mb-2">
                     No Credentials Found
                   </h3>
-                  <p className="text-gray-500 mb-6">
+                  <p className="text-gray-500 dark-text-yellow mb-6">
                     Create your first verifiable credential to get started
                   </p>
 
                   {/* Diagnostics */}
                   <div className="bg-gray-50 rounded-lg p-4 text-left max-w-md mx-auto">
-                    <h4 className="font-medium text-gray-700 mb-3">
+                    <h4 className="font-medium text-blue-900 dark-text-yellow mb-3">
                       Connection Details
                     </h4>
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Wallet DID:</span>
+                        <span className="text-gray-600 dark-text-yellow">
+                          Wallet DID:
+                        </span>
                         <code className="bg-white px-2 py-1 rounded text-xs font-mono">
                           {walletDid || "—"}
                         </code>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Wallet Address:</span>
+                        <span className="text-gray-600 dark-text-yellow">
+                          Wallet Address:
+                        </span>
                         <code className="bg-white px-2 py-1 rounded text-xs font-mono">
                           {walletAddress || "—"}
                         </code>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-600">On-chain IDs:</span>
+                        <span className="text-gray-600 dark-text-yellow">
+                          On-chain IDs:
+                        </span>
                         <span className="text-xs">
                           {lastOnchainIds.length > 0
                             ? lastOnchainIds.join(", ")
@@ -2114,11 +2152,11 @@ Please check the contract address and ABI configuration.`;
 
                     {lastOnchainRowsDebug.length > 0 && (
                       <details className="mt-3">
-                        <summary className="cursor-pointer text-xs text-gray-600 hover:text-gray-800">
+                        <summary className="cursor-pointer text-xs text-gray-600 dark-text-yellow hover:text-gray-800">
                           Show raw on-chain data
                         </summary>
                         <div className="mt-2 bg-white rounded p-2 max-h-32 overflow-auto">
-                          <pre className="text-xs text-gray-600">
+                          <pre className="text-xs text-gray-600 dark-text-white">
                             {JSON.stringify(lastOnchainRowsDebug, null, 2)}
                           </pre>
                         </div>
@@ -2163,48 +2201,48 @@ Please check the contract address and ABI configuration.`;
                     return (
                       <div
                         key={i}
-                        className="bg-gradient-to-r from-white to-gray-50 rounded-lg border border-gray-200 p-6 hover:shadow-md transition-all duration-200"
+                        className="backdrop-blur-md rounded-2xl border border-gray-100 p-6 hover:shadow-md transition-all duration-200"
                       >
                         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
                           {/* Credential Info */}
                           <div className="flex-1">
-                            <div className="grid md:grid-cols-2 gap-3 mb-4">
-                              <div>
-                                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                            <div className="grid md:grid-cols-2 gap-3 mb-4 p-1">
+                              <div className="flex flex-col mb-4">
+                                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
                                   Subject
                                 </label>
-                                <p className="text-sm font-mono text-gray-800 break-all">
+                                <p className="text-sm font-mono text-gray-800 dark-text-white break-all">
                                   {subjectId}
                                 </p>
                               </div>
-                              <div>
-                                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                              <div className="flex flex-col mb-4">
+                                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
                                   Name
                                 </label>
-                                <p className="text-sm text-gray-800">
+                                <p className="text-sm text-gray-800 dark-text-white">
                                   {cred?.credentialSubject?.name ??
                                     cred?.name ??
                                     cred?.credentialSubject?.fullName ??
                                     "N/A"}
                                 </p>
                               </div>
-                              <div>
-                                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                              <div className="flex flex-col mb-4">
+                                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
                                   Issuer
                                 </label>
-                                <p className="text-sm font-mono text-gray-800 break-all">
+                                <p className="text-sm font-mono text-gray-800 dark-text-white break-all">
                                   {cred?.issuer?.id ?? cred?.issuer ?? "N/A"}
                                 </p>
                               </div>
-                              <div>
-                                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                              <div className="flex flex-col mb-4">
+                                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
                                   Issued
                                 </label>
-                                <p className="text-sm text-gray-800">
+                                <p className="text-sm text-gray-800 dark-text-white">
                                   {cred?.issuanceDate
                                     ? new Date(
-                                      cred.issuanceDate
-                                    ).toLocaleDateString()
+                                        cred.issuanceDate
+                                      ).toLocaleDateString()
                                     : "N/A"}
                                 </p>
                               </div>
@@ -2212,9 +2250,9 @@ Please check the contract address and ABI configuration.`;
 
                             {/* On-chain info */}
                             {cred?.onchain?.mappingCID ? (
-                              <div className="flex items-center p-3 bg-blue-50 rounded-lg">
+                              <div className="flex items-center p-3 bg-blue-100 rounded-lg">
                                 <svg
-                                  className="w-4 h-4 text-blue-500 mr-2 flex-shrink-0"
+                                  className="w-4 h-4 text-blue-400 dark-text-white mr-2 flex-shrink-0"
                                   fill="none"
                                   stroke="currentColor"
                                   viewBox="0 0 24 24"
@@ -2226,7 +2264,7 @@ Please check the contract address and ABI configuration.`;
                                     d="M13 10V3L4 14h7v7l9-11h-7z"
                                   />
                                 </svg>
-                                <span className="text-sm text-blue-700">
+                                <span className="text-sm text-blue-400 dark-text-white">
                                   On-chain CID:{" "}
                                   <a
                                     target="_blank"
@@ -2281,15 +2319,15 @@ Please check the contract address and ABI configuration.`;
                             <div className="flex flex-wrap gap-2">
                               <button
                                 onClick={() => downloadJSON(cred)}
-                                className="bg-yellow-100 text-yellow-700 px-3 py-2 rounded-lg hover:bg-yellow-200 transition-colors duration-200 text-sm font-medium"
+                                className="flex items-center gap-2 bg-blue-100 darkcard text-yellow-600 hover:text-yellow-500 px-3 py-2 rounded-lg hover:bg-yellow-200 transition-colors duration-200 text-sm font-medium"
                               >
-                                JSON
+                                <DownloadIcon size={14} /> JSON
                               </button>
                               <button
                                 onClick={() => downloadPDF(cred)}
-                                className="bg-purple-100 text-purple-700 px-3 py-2 rounded-lg hover:bg-purple-200 transition-colors duration-200 text-sm font-medium"
+                                className="flex items-center gap-2 bg-blue-100 darkcard text-yellow-600 hover:text-yellow-500 px-3 py-2 rounded-lg hover:bg-yellow-200 transition-colors duration-200 text-sm font-medium"
                               >
-                                PDF
+                                <DownloadIcon size={14} /> PDF
                               </button>
                               <button
                                 onClick={() =>
@@ -2297,9 +2335,9 @@ Please check the contract address and ABI configuration.`;
                                     ? copyToClipboard(jwt, "JWT")
                                     : alert("No JWT for this credential")
                                 }
-                                className="bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors duration-200 text-sm font-medium"
+                                className="flex items-center gap-2 bg-blue-100 darkcard text-yellow-600 hover:text-yellow-500 px-3 py-2 rounded-lg hover:bg-yellow-200 transition-colors duration-200 text-sm font-medium"
                               >
-                                Copy JWT
+                                <CopyIcon size={14} /> JWT
                               </button>
                               <button
                                 onClick={() =>
@@ -2307,7 +2345,7 @@ Please check the contract address and ABI configuration.`;
                                     ? generateQr(jwt)
                                     : alert("No JWT to generate QR")
                                 }
-                                className="bg-indigo-100 text-indigo-700 px-3 py-2 rounded-lg hover:bg-indigo-200 transition-colors duration-200 text-sm font-medium"
+                                className="flex items-center gap-2 bg-blue-100 darkcard text-yellow-600 hover:text-yellow-500 px-3 py-2 rounded-lg hover:bg-yellow-200 transition-colors duration-200 text-sm font-medium"
                               >
                                 QR
                               </button>
@@ -2318,7 +2356,7 @@ Please check the contract address and ABI configuration.`;
                               placeholder="IPFS token (optional)"
                               value={ipfsToken}
                               onChange={(e) => setIpfsToken(e.target.value)}
-                              className="w-full border border-gray-300 px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              className="w-full border border-gray-100 text-blue-900 dark-text-white px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             />
 
                             {/* Publish actions */}
@@ -2335,8 +2373,8 @@ Please check the contract address and ABI configuration.`;
                                 {ipfsStatus[i]?.uploading
                                   ? "Uploading..."
                                   : chainStatus[i]?.sending
-                                    ? "Storing..."
-                                    : "Publish & Store"}
+                                  ? "Storing..."
+                                  : "Publish & Store"}
                               </button>
 
                               {cred?.onchain?.mappingCID && (
@@ -2344,7 +2382,7 @@ Please check the contract address and ABI configuration.`;
                                   onClick={() =>
                                     retryFetchIpfs(cred.onchain.mappingCID, i)
                                   }
-                                  className="bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors duration-200 text-sm"
+                                  className="bg-gray-100 text-yellow-600 hover:text-yellow-500 darkcard font-bold px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors duration-200 text-sm"
                                 >
                                   {ipfsStatus["retry-" + i]?.fetching
                                     ? "..."
@@ -2424,11 +2462,11 @@ Please check the contract address and ABI configuration.`;
             </div>
 
             {/* JWT Verification */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
+            <div className="backdrop-blur-md rounded-xl shadow-lg p-6">
               <div className="flex items-center mb-6">
                 <div className="flex-shrink-0">
                   <svg
-                    className="w-8 h-8 text-green-600"
+                    className="w-30 h-30 text-blue-900 dark-text-yellow"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -2442,7 +2480,7 @@ Please check the contract address and ABI configuration.`;
                   </svg>
                 </div>
                 <div className="ml-4">
-                  <h3 className="text-xl font-semibold text-gray-800">
+                  <h3 className="text-3xl font-semibold text-blue-900 mb-2 dark-text-yellow">
                     JWT Verification
                   </h3>
                   <p className="text-gray-600">
@@ -2453,14 +2491,14 @@ Please check the contract address and ABI configuration.`;
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark-text-yellow mb-2">
                     JWT Token <span className="text-red-500">*</span>
                   </label>
                   <textarea
                     value={jwtToVerify}
                     onChange={(e) => setJwtToVerify(e.target.value.trim())}
                     rows={4}
-                    className="w-full border border-gray-300 px-4 py-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors duration-200 font-mono text-sm"
+                    className="w-full border border-gray-100 text-gray-900 dark-text-white px-4 py-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors duration-200 font-mono text-sm"
                     placeholder="Paste JWT token here for verification..."
                   />
                 </div>
@@ -2493,7 +2531,7 @@ Please check the contract address and ABI configuration.`;
                       setJwtToVerify("");
                       setVerificationResult(null);
                     }}
-                    className="bg-gray-100 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-200 transition-colors duration-200 font-medium"
+                    className="bg-gray-100 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-300 transition-colors duration-200 font-medium"
                   >
                     <span className="flex items-center">
                       <svg
@@ -2518,10 +2556,11 @@ Please check the contract address and ABI configuration.`;
                 {verificationResult && (
                   <div className="mt-6">
                     <div
-                      className={`p-4 rounded-lg border-l-4 ${verificationResult.verified
-                        ? "bg-green-50 border-green-500"
-                        : "bg-red-50 border-red-500"
-                        }`}
+                      className={`p-4 rounded-lg border-l-4 ${
+                        verificationResult.verified
+                          ? "bg-green-50 darkcard border-green-500"
+                          : "bg-red-50 border-red-500"
+                      }`}
                     >
                       <div className="flex items-center mb-3">
                         {verificationResult.verified ? (
@@ -2571,30 +2610,30 @@ Please check the contract address and ABI configuration.`;
                       {verificationResult.payload && (
                         <div className="grid md:grid-cols-3 gap-4 mb-4">
                           <div className="bg-white rounded-lg p-3">
-                            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                            <label className="text-xs font-medium text-emerald-500 uppercase tracking-wide">
                               Issuer
                             </label>
-                            <p className="text-sm font-mono text-gray-800 break-all">
+                            <p className="text-sm font-mono text-emerald-800 break-all">
                               {verificationResult.payload?.iss ?? "N/A"}
                             </p>
                           </div>
                           <div className="bg-white rounded-lg p-3">
-                            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                            <label className="text-xs font-medium text-emerald-500 uppercase tracking-wide">
                               Subject
                             </label>
-                            <p className="text-sm font-mono text-gray-800 break-all">
+                            <p className="text-sm font-mono text-emerald-800 break-all">
                               {verificationResult.payload?.sub ?? "N/A"}
                             </p>
                           </div>
                           <div className="bg-white rounded-lg p-3">
-                            <label className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                            <label className="text-xs font-medium text-emerald-500 uppercase tracking-wide">
                               Expiry
                             </label>
-                            <p className="text-sm text-gray-800">
+                            <p className="text-sm text-emerald-800">
                               {verificationResult.payload?.exp
                                 ? new Date(
-                                  verificationResult.payload.exp * 1000
-                                ).toLocaleDateString()
+                                    verificationResult.payload.exp * 1000
+                                  ).toLocaleDateString()
                                 : "N/A"}
                             </p>
                           </div>
@@ -2602,7 +2641,7 @@ Please check the contract address and ABI configuration.`;
                       )}
 
                       <details className="mt-3">
-                        <summary className="cursor-pointer text-sm font-medium text-gray-700 hover:text-gray-900">
+                        <summary className="cursor-pointer text-sm font-medium text-gray-100 hover:text-gray-900">
                           View full verification details
                         </summary>
                         <div className="mt-2 bg-white rounded-lg p-3 max-h-64 overflow-y-auto">
