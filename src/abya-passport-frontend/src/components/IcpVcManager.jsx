@@ -442,7 +442,7 @@ const VCManager = () => {
                         const isLong = stringValue.length > 50;
 
                         return (
-                          <div key={key} className="bg-gray-50 rounded-lg p-3">
+                          <div key={key} className="bg-gray-100 rounded-lg p-3">
                             <div className="flex items-start justify-between">
                               <div className="flex-1">
                                 <div className="text-sm font-medium text-gray-700 mb-1 capitalize">

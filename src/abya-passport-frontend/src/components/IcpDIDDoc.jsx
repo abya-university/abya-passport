@@ -47,16 +47,16 @@ const DIDDocument = () => {
 
       {/* Current User DID Section */}
       {principal && (
-        <div className="bg-white/80 border border-blue-200 rounded-xl p-6 mb-8 shadow-inner">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-4">
+        <div className="bg-white/80 border border-blue-200 rounded-xl p-6 mt-20 mb-8 shadow-inner">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between p-6 gap-8 mb-4">
             <div className="text-blue-900 text-base text-center w-full">
-              <span className="font-semibold">Principal:</span>
-              <span className="ml-2 break-all">{principal}</span>
+              <span className="font-semibold dark-text-yellow">Principal:</span>
+              <span className="ml-2 break-all dark-text-white">{principal}</span>
             </div>
             {did && (
               <div className="text-blue-900 text-base text-center w-full">
-                <span className="font-semibold">Your DID:</span>
-                <span className="ml-2 break-all">{did}</span>
+                <span className="font-semibold dark-text-yellow">Your DID:</span>
+                <span className="ml-2 break-all dark-text-white">{did}</span>
                 <button
                   onClick={() => copyToClipboard(did)}
                   className="ml-2 text-gray-400 hover:text-blue-600 transition-colors p-1"
@@ -77,7 +77,7 @@ const DIDDocument = () => {
           <button
             onClick={() => resolveDid()}
             disabled={isResolvingDid}
-            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 py-2 rounded-xl font-semibold shadow-md hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50"
+            className="w-full bg-blue-900 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-semibold shadow-md hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {isResolvingDid ? (
               <>
@@ -117,7 +117,7 @@ const DIDDocument = () => {
             value={customDid}
             onChange={(e) => setCustomDid(e.target.value)}
             placeholder="Enter DID (e.g., did:icp:rrkah-fqaaa-aaaaa-aaaaq-cai)"
-            className="flex-1 px-4 py-3 border border-blue-200 rounded-xl focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+            className="flex-1 px-4 py-3 border border-blue-200  text-gray-600 rounded-2xl focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
           />
           <button
             onClick={handleCustomResolve}
