@@ -42,7 +42,7 @@
 .dark .dark-text-white {
   color: var(--abya-text) !important;
 }
-.dark .text-yellow-500, .dark .text-yellow-400 {
+.dark .text-yellow-500, .dark .text-yellow-400 .dark-button {
   color: var(--abya-yellow) !important;
 }
 .dark .border-blue-200, .dark .border-gray-100 {

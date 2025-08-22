@@ -172,7 +172,7 @@ function Navbar({ currentPage, setCurrentPage }) {
           </li>
 
           {/* Navigation Links */}
-          <li className="hidden md:flex items-center space-x-8">
+          <li className="hidden md:flex items-center font-bold space-x-8">
             {[
               { name: "Home", page: "home" },
               { name: "DID Documents", page: "did" },

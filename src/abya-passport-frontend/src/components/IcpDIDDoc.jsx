@@ -140,19 +140,19 @@ const DIDDocument = () => {
       {didDocument && (
         <div className="bg-gray-50 border border-blue-200 rounded-2xl p-6 shadow-inner">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-blue-900">
+            <h2 className="text-lg font-semibold text-blue-900 dark-text-yellow">
               DID Document
             </h2>
             <div className="flex gap-2">
               <button
                 onClick={() => setShowRawJson(!showRawJson)}
-                className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
+                className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 border border-blue-100 rounded-lg transition-colors"
               >
                 {showRawJson ? "Pretty View" : "Raw JSON"}
               </button>
               <button
                 onClick={() => copyToClipboard(formatJson(didDocument))}
-                className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
+                className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg border border-blue-100  transition-colors"
               >
                 Copy
               </button>
@@ -168,17 +168,15 @@ const DIDDocument = () => {
               {/* DID Info */}
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="bg-white rounded-lg p-4">
-                  <h3 className="font-medium text-blue-900 mb-2">Identity</h3>
-                  <p className="text-sm text-gray-600 mb-1">DID:</p>
-                  <code className="text-sm bg-gray-50 p-2 rounded border block break-all">
+                  <h3 className="font-medium text-blue-900 dark-text-yellow mb-2">Identity (DID)</h3>
+                  <code className="text-sm text-gray-400 bg-gray-50 p-2 darkcard rounded-2xl border border-blue-200 block break-all">
                     {didDocument.id}
                   </code>
                 </div>
 
                 <div className="bg-white rounded-lg p-4">
-                  <h3 className="font-medium text-blue-900 mb-2">Context</h3>
-                  <p className="text-sm text-gray-600 mb-1">Specification:</p>
-                  <code className="text-sm bg-gray-50 p-2 rounded border block break-all">
+                  <h3 className="font-medium text-blue-900 dark-text-yellow mb-2">Context (specs)</h3>
+                  <code className="text-sm text-gray-400 bg-gray-50 p-2 darkcard rounded-2xl border border-blue-200 block break-all">
                     {didDocument["@context"]}
                   </code>
                 </div>
@@ -187,36 +185,36 @@ const DIDDocument = () => {
               {/* Verification Methods */}
               {didDocument.verificationMethod && (
                 <div className="bg-white rounded-lg p-4">
-                  <h3 className="font-medium text-blue-900 mb-3">
+                  <h3 className="font-medium text-blue-900 dark-text-yellow mb-3">
                     Verification Methods
                   </h3>
                   {didDocument.verificationMethod.map((method, index) => (
                     <div
                       key={index}
-                      className="bg-gray-50 rounded border p-3 mb-3 last:mb-0"
+                      className="bg-gray-100 darkcard rounded-2xl border border border-blue-200 p-3 mb-3 last:mb-0"
                     >
                       <div className="grid md:grid-cols-2 gap-3 text-sm">
                         <div>
-                          <span className="text-gray-600">ID:</span>
-                          <code className="block bg-white p-1 rounded mt-1 break-all">
+                          <span className="text-gray-600 font-bold mt-4">ID:</span>
+                          <code className="block p-1 text-gray-400 mt-3 break-all">
                             {method.id}
                           </code>
                         </div>
                         <div>
-                          <span className="text-gray-600">Type:</span>
-                          <code className="block bg-white p-1 rounded mt-1">
+                          <span className="text-gray-600 font-bold mt-4">Type:</span>
+                          <code className="block p-1 text-gray-400 rounded mt-3">
                             {method.type}
                           </code>
                         </div>
                         <div>
-                          <span className="text-gray-600">Controller:</span>
-                          <code className="block bg-white p-1 rounded mt-1 break-all">
+                          <span className="text-gray-600 font-bold mt-4">Controller:</span>
+                          <code className="block text-gray-400 p-1 rounded mt-3 break-all">
                             {method.controller}
                           </code>
                         </div>
                         <div>
-                          <span className="text-gray-600">Public Key:</span>
-                          <code className="block bg-white p-1 rounded mt-1 break-all">
+                          <span className="text-gray-600 font-bold mt-4">Public Key:</span>
+                          <code className="block text-gray-400 p-1 rounded mt-3 break-all">
                             {method.publicKeyMultibase}
                           </code>
                         </div>
@@ -229,14 +227,14 @@ const DIDDocument = () => {
               {/* Authentication */}
               {didDocument.authentication && (
                 <div className="bg-white rounded-lg p-4">
-                  <h3 className="font-medium text-blue-900 mb-2">
+                  <h3 className="font-medium text-blue-900 dark-text-yellow mb-2">
                     Authentication
                   </h3>
                   <div className="space-y-1">
                     {didDocument.authentication.map((auth, index) => (
                       <code
                         key={index}
-                        className="block text-sm bg-gray-50 p-2 rounded border break-all"
+                        className="block text-sm text-gray-400  p-2 rounded-2xl border border-blue-200 break-all"
                       >
                         {auth}
                       </code>

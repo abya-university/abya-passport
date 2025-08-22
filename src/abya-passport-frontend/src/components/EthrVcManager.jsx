@@ -1158,7 +1158,7 @@ Please check the contract address and ABI configuration.`;
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="text-center mb-30">
-          <h1 className="text-5xl font-bold text-blue-900 dark-text-white mb-4 text-center">
+          <h1 className="text-5xl font-bold text-blue-900 dark-text-yellow mb-4 text-center">
             Ethereum Credential Manager
           </h1>
           <p className="text-xl text-gray-600 mt-8 mb-8 animate-fadein delay-500">
