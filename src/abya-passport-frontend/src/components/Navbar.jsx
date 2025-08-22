@@ -1,25 +1,44 @@
 // src/abya-passport-frontend/src/components/Navbar.jsx
 
 import React, { useState, useEffect, useRef } from "react";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { useAccount, useDisconnect } from "wagmi";
 import { useInternetIdentity } from "../contexts/InternetContext";
 import { useEthr } from "../contexts/EthrContext";
 import AbyaLogo from "../assets/abya.png";
+import {
+  DynamicWidget,
+  useDynamicContext,
+  useIsLoggedIn,
+} from "@dynamic-labs/sdk-react-core";
 
-const API_URL = process.env.REACT_APP_VERAMO_API_URL || "http://localhost:3000";
+const API_URL =
+  import.meta.env.VITE_APP_VERAMO_API_URL || "http://localhost:3000";
 
 function Navbar({ currentPage, setCurrentPage }) {
   // Detect dark mode from document root (set by App.jsx)
   const [isDark, setIsDark] = useState(() =>
-    typeof window !== 'undefined' ? document.documentElement.classList.contains('dark') : false
+    typeof window !== "undefined"
+      ? document.documentElement.classList.contains("dark")
+      : false
   );
+
+  const { user } = useDynamicContext();
+  const isLoggedIn = useIsLoggedIn();
+
+  const smartWallet = user?.verifiedCredentials?.find(
+    (cred) => cred.walletName === "zerodev"
+  );
+
+  console.log("Smart Wallet:", smartWallet?.address);
+  console.log("isLoggedIn:", isLoggedIn);
 
   useEffect(() => {
     const observer = new MutationObserver(() => {
-      setIsDark(document.documentElement.classList.contains('dark'));
+      setIsDark(document.documentElement.classList.contains("dark"));
     });
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
     return () => observer.disconnect();
   }, []);
   const [showConnectOptions, setShowConnectOptions] = useState(false);
@@ -29,8 +48,6 @@ function Navbar({ currentPage, setCurrentPage }) {
   const [walletDid, localSetWalletDid] = useState(ctxDid);
   const [didLoading, setDidLoading] = useState(false);
   const dropdownRef = useRef(null);
-  const { address, isConnected } = useAccount();
-  const { disconnect } = useDisconnect();
   const { did, principal, isAuthenticating, login, developerLogin, logout } =
     useInternetIdentity();
 
@@ -40,6 +57,8 @@ function Navbar({ currentPage, setCurrentPage }) {
   console.log("Principal:", principal);
   console.log("Canister ID:", canisterId);
 
+  console.log("did: ", walletDid);
+
   // Shorteners
   const shortenAddress = (addr) =>
     addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : "";
@@ -48,8 +67,8 @@ function Navbar({ currentPage, setCurrentPage }) {
 
   // Fetch or create DID for connected wallet
   useEffect(() => {
-    if (!isConnected || !address || walletDid) {
-      if (!isConnected || !address) {
+    if (!isLoggedIn || !smartWallet?.address || walletDid) {
+      if (!isLoggedIn || !smartWallet?.address) {
         setWalletDid(null);
         setWalletAddress(null);
         setDidLoading(false);
@@ -57,7 +76,7 @@ function Navbar({ currentPage, setCurrentPage }) {
       return;
     }
 
-    const alias = `issuer-wallet-${address}`;
+    const alias = `issuer-wallet-${smartWallet?.address}`;
 
     const fetchOrCreateDid = async () => {
       setDidLoading(true);
@@ -67,7 +86,7 @@ function Navbar({ currentPage, setCurrentPage }) {
         const { success, identifiers } = await listRes.json();
         if (success && Array.isArray(identifiers)) {
           const existing = identifiers.find((i) =>
-            i.did.toLowerCase().endsWith(address.toLowerCase())
+            i.did.toLowerCase().endsWith(smartWallet?.address.toLowerCase())
           );
           if (existing) {
             localSetWalletDid(existing.did);
@@ -82,7 +101,7 @@ function Navbar({ currentPage, setCurrentPage }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             provider: "did:ethr",
-            walletAddress: address,
+            walletAddress: smartWallet?.address,
             alias,
           }),
         });
@@ -93,16 +112,14 @@ function Navbar({ currentPage, setCurrentPage }) {
           localSetWalletDid(createJson.identifier.did);
         } else if (
           !createJson.success &&
-          createJson.error?.includes("already exists")
+          (createJson.error?.includes("already exists") ||
+            createJson.error?.includes("UNIQUE constraint failed"))
         ) {
           // Alias exists: fetch list again to get DID
           const retryList = await fetch(`${API_URL}/did/list`);
           const { identifiers: retryIds } = await retryList.json();
-          const found = retryIds.find((i) => i.alias === alias);
-          if (found) {
-            localSetWalletDid(found.did);
-            setWalletDid(found.did);
-          }
+          const retryFound = retryIds.find((i) => i.alias === alias);
+          if (retryFound) setWalletDid(retryFound.did);
         } else {
           console.error("Unexpected DID create response:", createJson);
         }
@@ -113,9 +130,9 @@ function Navbar({ currentPage, setCurrentPage }) {
       }
     };
 
-    setWalletAddress(address);
+    setWalletAddress(smartWallet?.address);
     fetchOrCreateDid();
-  }, [isConnected, address, walletDid]);
+  }, [isLoggedIn, smartWallet?.address, walletDid]);
 
   // Scroll effect
   useEffect(() => {
@@ -135,7 +152,12 @@ function Navbar({ currentPage, setCurrentPage }) {
     return () => document.removeEventListener("mousedown", handler);
   }, [showConnectOptions]);
 
-  const isAnyConnected = isConnected || !!principal;
+  // const isAnyConnected = isLoggedIn || !!principal;
+
+  // Separate connection states
+  const isWalletConnected = isLoggedIn && smartWallet?.address;
+  const isInternetIdentityConnected = !!principal;
+  const isAnyConnected = isWalletConnected || isInternetIdentityConnected;
 
   const handleInternetIdentityLogin = async () => {
     try {
@@ -148,25 +170,42 @@ function Navbar({ currentPage, setCurrentPage }) {
   return (
     <nav
       className={`fixed top-4 left-1/2 transform -translate-x-1/2 w-[95vw] max-w-7xl transition-all duration-300 p-1 rounded-2xl z-50
-        ${isScrolled
-          ? (isDark
-              ? 'bg-transparent backdrop-blur-xl shadow-2xl border border-transparent'
-              : 'bg-white/95 backdrop-blur-xl shadow-2xl border border-gray-200/20')
-          : 'bg-transparent border-transparent shadow-none backdrop-blur-none'
+        ${
+          isScrolled
+            ? isDark
+              ? "bg-transparent backdrop-blur-xl shadow-2xl border border-transparent"
+              : "bg-white/95 backdrop-blur-xl shadow-2xl border border-gray-200/20"
+            : "bg-transparent border-transparent shadow-none backdrop-blur-none"
         }`}
-      style={{ background: isDark ? 'transparent' : undefined, borderColor: isDark ? 'transparent' : undefined }}
+      style={{
+        background: isDark ? "transparent" : undefined,
+        borderColor: isDark ? "transparent" : undefined,
+      }}
     >
-      <div className={'bg-transparent rounded-xl p-4 transition-colors duration-300'}>
-        <ul className={`flex items-center justify-between gap-8 ${isDark ? 'text-gray-100 font-sans' : 'text-blue-900 font-sans'}`}>
+      <div
+        className={
+          "bg-transparent rounded-xl p-4 transition-colors duration-300"
+        }
+      >
+        <ul
+          className={`flex items-center justify-between gap-8 ${
+            isDark ? "text-gray-100 font-sans" : "text-blue-900 font-sans"
+          }`}
+        >
           {/* Logo/Brand */}
           <li>
             <a
               href="/"
-              className={`text-2xl font-bold transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 flex items-center ${isDark ? 'text-yellow-400 font-semibold' : 'text-blue-900 font-bold'}`}>
-              <img 
-                src={AbyaLogo} 
-                alt="ABYA Passport Logo" 
-                className="h-12 w-auto object-contain drop-shadow dark:drop-shadow-lg" 
+              className={`text-2xl font-bold transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 flex items-center ${
+                isDark
+                  ? "text-yellow-400 font-semibold"
+                  : "text-blue-900 font-bold"
+              }`}
+            >
+              <img
+                src={AbyaLogo}
+                alt="ABYA Passport Logo"
+                className="h-12 w-auto object-contain drop-shadow dark:drop-shadow-lg"
               />
             </a>
           </li>
@@ -184,17 +223,29 @@ function Navbar({ currentPage, setCurrentPage }) {
                 key={item.name}
                 onClick={() => setCurrentPage && setCurrentPage(item.page)}
                 className={`relative transition-all duration-200 group font-medium
-                  ${currentPage === item.page
-                    ? (isDark ? 'text-yellow-400 font-bold' : 'text-yellow-600 font-bold')
-                    : (isDark ? 'text-gray-100 hover:text-yellow-300 font-normal' : 'text-blue-900 hover:text-blue-600 font-normal')}
+                  ${
+                    currentPage === item.page
+                      ? isDark
+                        ? "text-yellow-400 font-bold"
+                        : "text-yellow-600 font-bold"
+                      : isDark
+                      ? "text-gray-100 hover:text-yellow-300 font-normal"
+                      : "text-blue-900 hover:text-blue-600 font-normal"
+                  }
                 `}
               >
                 {item.name}
                 <span
                   className={`absolute -bottom-1 left-0 h-0.5 transition-all duration-200
-                    ${currentPage === item.page
-                      ? (isDark ? 'bg-yellow-400 w-full' : 'bg-yellow-600 w-full')
-                      : (isDark ? 'bg-yellow-400 w-0 group-hover:w-full' : 'bg-yellow-600 w-0 group-hover:w-full')}
+                    ${
+                      currentPage === item.page
+                        ? isDark
+                          ? "bg-yellow-400 w-full"
+                          : "bg-yellow-600 w-full"
+                        : isDark
+                        ? "bg-yellow-400 w-0 group-hover:w-full"
+                        : "bg-yellow-600 w-0 group-hover:w-full"
+                    }
                   `}
                 ></span>
               </button>
@@ -219,22 +270,22 @@ function Navbar({ currentPage, setCurrentPage }) {
           <li className="relative" ref={dropdownRef}>
             {isAnyConnected ? (
               <div className="flex items-center gap-3">
-                <div className="bg-green-50 dark:bg-green-900/60 border border-green-200 dark:border-green-700 px-4 py-2 rounded-xl flex items-center gap-2 transition-colors duration-300">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-100">
-                    {isConnected
-                      ? shortenAddress(address)
+                <div className="bg-green-50 dark:bg-yellow-500/60 dark:border-yellow-700 px-4 py-2 rounded-xl flex items-center gap-2 transition-colors duration-300">
+                  <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+                  <span className="text-sm font-medium text-cyan-950 dark:text-gray-100">
+                    {isLoggedIn
+                      ? shortenAddress(smartWallet.address)
                       : shortenAddress(principal)}
                   </span>
-                  {principal && !isConnected && (
-                    <span className="text-xs bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-200 px-2 py-0.5 rounded-full">
+                  {principal && !isLoggedIn && (
+                    <span className="text-xs bg-purple-100 dark:bg-green-600 text-purple-700 dark:text-purple-200 px-2 py-0.5 rounded-full">
                       II
                     </span>
                   )}
                 </div>
                 <button
                   onClick={() => setShowConnectOptions(true)}
-                  className="text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-yellow-400 transition-colors p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+                  className="text-gray-200 bg-gray-400 dark:bg-gray-700 hover:cursor-pointer dark:text-gray-300 hover:text-gray-700 dark:hover:text-yellow-400 transition-colors p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
                   title="Account Options"
                 >
                   <svg
@@ -250,7 +301,7 @@ function Navbar({ currentPage, setCurrentPage }) {
             ) : !showConnectOptions ? (
               <button
                 onClick={() => setShowConnectOptions(true)}
-                className="bg-blue-600 dark:bg-blue-900 hover:bg-blue-700 dark:hover:bg-blue-800 text-white px-6 py-2.5 rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center gap-2"
+                className="bg-gray-100 dark:bg-cyan-950 dark:shadow-yellow-500 dark:text-white text-cyan-950 px-6 py-2.5 rounded-xl font-semibold transition-all duration-200 dark:shadow-md hover:shadow-md hover:cursor-pointer transform hover:scale-105 flex items-center gap-2"
               >
                 <svg
                   width="16"
@@ -266,20 +317,32 @@ function Navbar({ currentPage, setCurrentPage }) {
 
             {showConnectOptions && (
               <div className="absolute top-full mt-10 right-0 animate-in slide-in-from-top-2 duration-200">
-                <div className={
-                  `${isDark
-                    ? 'bg-[#101c2b]/95 border-blue-900/40 text-gray-100'
-                    : 'bg-white/95 border-gray-200/20 text-gray-800'} ` +
-                  'backdrop-blur-xl p-6 rounded-2xl shadow-2xl border min-w-[300px] transition-colors duration-300'
-                }>
+                <div
+                  className={
+                    `${
+                      isDark
+                        ? "bg-[#101c2b]/95 border-blue-900/40 text-gray-100"
+                        : "bg-white/95 border-gray-200/20 text-gray-800"
+                    } ` +
+                    "backdrop-blur-xl p-6 rounded-2xl shadow-2xl border min-w-[300px] transition-colors duration-300"
+                  }
+                >
                   {/* Header */}
                   <div className="flex items-center justify-between mb-4">
-                    <span className={`text-lg font-semibold ${isDark ? 'text-gray-100' : 'text-gray-800'}`}>
+                    <span
+                      className={`text-lg font-semibold ${
+                        isDark ? "text-gray-100" : "text-gray-800"
+                      }`}
+                    >
                       {isAnyConnected ? "Connected Account" : "Connect Account"}
                     </span>
                     <button
                       onClick={() => setShowConnectOptions(false)}
-                      className={`transition-colors p-1 rounded-lg ${isDark ? 'text-gray-300 hover:text-yellow-400 hover:bg-gray-800' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'}`}
+                      className={`transition-colors p-1 rounded-lg ${
+                        isDark
+                          ? "text-gray-300 hover:text-yellow-400 hover:bg-gray-800"
+                          : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                      }`}
                     >
                       <svg
                         width="20"
@@ -294,46 +357,8 @@ function Navbar({ currentPage, setCurrentPage }) {
 
                   <div className="space-y-4">
                     {/* Connected Wallet Info */}
-                    {isConnected && (
-                      <div className={`p-3 rounded-xl border font-sans transition-colors duration-300
-                        ${isDark ? 'bg-gray-800 border-green-700' : 'bg-green-50/50 border-green-200/50'}`}
-                      >
-                        <div className="flex items-center gap-2 mb-2">
-                          <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="currentColor"
-                            className={isDark ? 'text-green-400' : 'text-green-600'}
-                          >
-                            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          <span className={`text-sm font-medium ${isDark ? 'text-green-100' : 'text-gray-700'}`}>
-                            Connected Wallet
-                          </span>
-                        </div>
-                        <div className={`text-sm font-mono p-2 rounded-lg break-all transition-colors duration-300
-                          ${isDark ? 'bg-gray-800 text-gray-300' : 'text-gray-600 bg-gray-100'}`}
-                        >
-                          {shorten(address)}
-                        </div>
-                        <div className={`text-sm font-mono p-2 rounded-lg break-all transition-colors duration-300
-                          ${isDark ? 'bg-gray-800 text-gray-300' : 'text-gray-600 bg-gray-100'}`}
-                        >
-                          {shorten(walletDid)}
-                        </div>
-                        <button
-                          onClick={() => disconnect()}
-                          className={`w-full flex items-center justify-center space-x-2 mt-5 hover:cursor-pointer p-2 rounded-lg transition-colors duration-200
-                            ${isDark ? 'text-red-400 hover:bg-red-900/20' : 'text-red-500 hover:bg-red-50'}`}
-                        >
-                          Disconnect Wallet
-                        </button>
-                      </div>
-                    )}
-
                     {/* Connected Internet Identity Info */}
-                    {principal && !isConnected && (
+                    {principal && !isLoggedIn && (
                       <div className="p-4 rounded-xl bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200/60 shadow-sm">
                         <div className="flex items-center gap-3 mb-3">
                           <div className="p-1.5 bg-purple-100 rounded-lg">
@@ -480,9 +505,8 @@ function Navbar({ currentPage, setCurrentPage }) {
                         </div>
                       </div>
                     )}
-
                     {/* Show both wallet and II info if both connected */}
-                    {isConnected && principal && (
+                    {isLoggedIn && principal && (
                       <div className="p-3 rounded-xl bg-purple-50/50 border border-purple-200/50">
                         <div className="flex items-center gap-2 mb-2">
                           <svg
@@ -509,9 +533,8 @@ function Navbar({ currentPage, setCurrentPage }) {
                         </button>
                       </div>
                     )}
-
                     {/* Wallet Connection */}
-                    {!isAnyConnected && (
+                    {!isInternetIdentityConnected && (
                       <div className="p-3 rounded-xl bg-gray-50/50 border border-gray-200/50">
                         <div className="flex items-center gap-2 mb-2">
                           <svg
@@ -527,10 +550,20 @@ function Navbar({ currentPage, setCurrentPage }) {
                             Web3 Wallet
                           </span>
                         </div>
-                        <ConnectButton />
+                        {/* Web3 Widget */}
+                        <div className="flex items-center gap-3">
+                          <DynamicWidget
+                            variant="dropdown"
+                            className="bg-gray-900/80 backdrop-blur-lg border border-gray-700/30 rounded-xl"
+                            innerButtonComponent={
+                              <div className="px-4 py-2 bg-gradient-to-r from-[#f3d10e] to-[#f0b411] text-gray-900 font-medium rounded-lg hover:shadow-lg hover:shadow-[#20ff96]/30 transition-all duration-300">
+                                AA Sign Up or Log In
+                              </div>
+                            }
+                          />
+                        </div>
                       </div>
                     )}
-
                     {!isAnyConnected && (
                       <>
                         {/* Divider */}

@@ -639,7 +639,7 @@ const VCManager = () => {
   return (
     <div className="max-w-6xl mx-auto px-6 py-16">
       <div className="text-center mb-8">
-        <h1 className="text-5xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-4">
+        <h1 className="text-5xl font-bold bg-gradient-to-r from-yellow-500 to-yellow-600 bg-clip-text text-transparent mb-4">
           Verifiable Credentials Manager
         </h1>
         <p className="text-gray-600">
@@ -689,7 +689,7 @@ const VCManager = () => {
       {/* Issue VC Form */}
       {showIssueForm && (
         <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-lg mb-8">
-          <h2 className="text-xl font-semibold text-gray-800 mb-6">
+          <h2 className="text-xl font-semibold dark:text-gray-400 text-gray-900 mb-6">
             Issue New Verifiable Credential
           </h2>
           <form onSubmit={handleIssueVC} className="space-y-6">
