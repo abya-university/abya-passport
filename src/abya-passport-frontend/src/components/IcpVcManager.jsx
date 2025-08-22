@@ -689,7 +689,7 @@ const VCManager = () => {
       {/* Issue VC Form */}
       {showIssueForm && (
         <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-lg mb-8">
-          <h2 className="text-xl font-semibold text-gray-800 mb-6">
+          <h2 className="text-xl font-semibold dark:text-gray-400 text-gray-900 mb-6">
             Issue New Verifiable Credential
           </h2>
           <form onSubmit={handleIssueVC} className="space-y-6">
