@@ -42,7 +42,7 @@ const DIDDocument = () => {
         return (
           <div className="max-w-screen-xl mx-auto px-6 py-16">
             <div className="text-center">
-              <h1 className="text-5xl font-bold text-blue-900 dark-text-white mb-4 text-center">
+              <h1 className="text-5xl font-bold text-blue-900 dark-text-yellow mb-4 text-center">
                 Resolve Decentralized Identities
               </h1>
               <p className="text-xl text-gray-600 mt-8 mb-8 animate-fadein delay-500">

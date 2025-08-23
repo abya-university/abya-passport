@@ -47,16 +47,16 @@ const DIDDocument = () => {
 
       {/* Current User DID Section */}
       {principal && (
-        <div className="bg-white/80 border border-blue-200 rounded-xl p-6 mb-8 shadow-inner">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-4">
+        <div className="bg-white/80 border border-blue-200 rounded-xl p-6 mt-20 mb-8 shadow-inner">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between p-6 gap-8 mb-4">
             <div className="text-blue-900 text-base text-center w-full">
-              <span className="font-semibold">Principal:</span>
-              <span className="ml-2 break-all">{principal}</span>
+              <span className="font-semibold dark-text-yellow">Principal:</span>
+              <span className="ml-2 break-all dark-text-white">{principal}</span>
             </div>
             {did && (
               <div className="text-blue-900 text-base text-center w-full">
-                <span className="font-semibold">Your DID:</span>
-                <span className="ml-2 break-all">{did}</span>
+                <span className="font-semibold dark-text-yellow">Your DID:</span>
+                <span className="ml-2 break-all dark-text-white">{did}</span>
                 <button
                   onClick={() => copyToClipboard(did)}
                   className="ml-2 text-gray-400 hover:text-blue-600 transition-colors p-1"
@@ -77,7 +77,7 @@ const DIDDocument = () => {
           <button
             onClick={() => resolveDid()}
             disabled={isResolvingDid}
-            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 py-2 rounded-xl font-semibold shadow-md hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50"
+            className="w-full bg-blue-900 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-semibold shadow-md hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {isResolvingDid ? (
               <>
@@ -117,7 +117,7 @@ const DIDDocument = () => {
             value={customDid}
             onChange={(e) => setCustomDid(e.target.value)}
             placeholder="Enter DID (e.g., did:icp:rrkah-fqaaa-aaaaa-aaaaq-cai)"
-            className="flex-1 px-4 py-3 border border-blue-200 rounded-xl focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+            className="flex-1 px-4 py-3 border border-blue-200  text-gray-600 rounded-2xl focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
           />
           <button
             onClick={handleCustomResolve}
@@ -140,19 +140,19 @@ const DIDDocument = () => {
       {didDocument && (
         <div className="bg-gray-50 border border-blue-200 rounded-2xl p-6 shadow-inner">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-blue-900">
+            <h2 className="text-lg font-semibold text-blue-900 dark-text-yellow">
               DID Document
             </h2>
             <div className="flex gap-2">
               <button
                 onClick={() => setShowRawJson(!showRawJson)}
-                className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
+                className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 border border-blue-100 rounded-lg transition-colors"
               >
                 {showRawJson ? "Pretty View" : "Raw JSON"}
               </button>
               <button
                 onClick={() => copyToClipboard(formatJson(didDocument))}
-                className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
+                className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg border border-blue-100  transition-colors"
               >
                 Copy
               </button>
@@ -168,17 +168,15 @@ const DIDDocument = () => {
               {/* DID Info */}
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="bg-white rounded-lg p-4">
-                  <h3 className="font-medium text-blue-900 mb-2">Identity</h3>
-                  <p className="text-sm text-gray-600 mb-1">DID:</p>
-                  <code className="text-sm bg-gray-50 p-2 rounded border block break-all">
+                  <h3 className="font-medium text-blue-900 dark-text-yellow mb-2">Identity (DID)</h3>
+                  <code className="text-sm text-gray-400 bg-gray-50 p-2 darkcard rounded-2xl border border-blue-200 block break-all">
                     {didDocument.id}
                   </code>
                 </div>
 
                 <div className="bg-white rounded-lg p-4">
-                  <h3 className="font-medium text-blue-900 mb-2">Context</h3>
-                  <p className="text-sm text-gray-600 mb-1">Specification:</p>
-                  <code className="text-sm bg-gray-50 p-2 rounded border block break-all">
+                  <h3 className="font-medium text-blue-900 dark-text-yellow mb-2">Context (specs)</h3>
+                  <code className="text-sm text-gray-400 bg-gray-50 p-2 darkcard rounded-2xl border border-blue-200 block break-all">
                     {didDocument["@context"]}
                   </code>
                 </div>
@@ -187,36 +185,36 @@ const DIDDocument = () => {
               {/* Verification Methods */}
               {didDocument.verificationMethod && (
                 <div className="bg-white rounded-lg p-4">
-                  <h3 className="font-medium text-blue-900 mb-3">
+                  <h3 className="font-medium text-blue-900 dark-text-yellow mb-3">
                     Verification Methods
                   </h3>
                   {didDocument.verificationMethod.map((method, index) => (
                     <div
                       key={index}
-                      className="bg-gray-50 rounded border p-3 mb-3 last:mb-0"
+                      className="bg-gray-100 darkcard rounded-2xl border border border-blue-200 p-3 mb-3 last:mb-0"
                     >
                       <div className="grid md:grid-cols-2 gap-3 text-sm">
                         <div>
-                          <span className="text-gray-600">ID:</span>
-                          <code className="block bg-white p-1 rounded mt-1 break-all">
+                          <span className="text-gray-600 font-bold mt-4">ID:</span>
+                          <code className="block p-1 text-gray-400 mt-3 break-all">
                             {method.id}
                           </code>
                         </div>
                         <div>
-                          <span className="text-gray-600">Type:</span>
-                          <code className="block bg-white p-1 rounded mt-1">
+                          <span className="text-gray-600 font-bold mt-4">Type:</span>
+                          <code className="block p-1 text-gray-400 rounded mt-3">
                             {method.type}
                           </code>
                         </div>
                         <div>
-                          <span className="text-gray-600">Controller:</span>
-                          <code className="block bg-white p-1 rounded mt-1 break-all">
+                          <span className="text-gray-600 font-bold mt-4">Controller:</span>
+                          <code className="block text-gray-400 p-1 rounded mt-3 break-all">
                             {method.controller}
                           </code>
                         </div>
                         <div>
-                          <span className="text-gray-600">Public Key:</span>
-                          <code className="block bg-white p-1 rounded mt-1 break-all">
+                          <span className="text-gray-600 font-bold mt-4">Public Key:</span>
+                          <code className="block text-gray-400 p-1 rounded mt-3 break-all">
                             {method.publicKeyMultibase}
                           </code>
                         </div>
@@ -229,14 +227,14 @@ const DIDDocument = () => {
               {/* Authentication */}
               {didDocument.authentication && (
                 <div className="bg-white rounded-lg p-4">
-                  <h3 className="font-medium text-blue-900 mb-2">
+                  <h3 className="font-medium text-blue-900 dark-text-yellow mb-2">
                     Authentication
                   </h3>
                   <div className="space-y-1">
                     {didDocument.authentication.map((auth, index) => (
                       <code
                         key={index}
-                        className="block text-sm bg-gray-50 p-2 rounded border break-all"
+                        className="block text-sm text-gray-400  p-2 rounded-2xl border border-blue-200 break-all"
                       >
                         {auth}
                       </code>

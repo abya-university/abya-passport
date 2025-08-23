@@ -442,7 +442,7 @@ const VCManager = () => {
                         const isLong = stringValue.length > 50;
 
                         return (
-                          <div key={key} className="bg-gray-50 rounded-lg p-3">
+                          <div key={key} className="bg-gray-100 rounded-lg p-3">
                             <div className="flex items-start justify-between">
                               <div className="flex-1">
                                 <div className="text-sm font-medium text-gray-700 mb-1 capitalize">
@@ -639,10 +639,10 @@ const VCManager = () => {
   return (
     <div className="max-w-6xl mx-auto px-6 py-16">
       <div className="text-center mb-8">
-        <h1 className="text-5xl font-bold bg-gradient-to-r from-yellow-500 to-yellow-600 bg-clip-text text-transparent mb-4">
-          Verifiable Credentials Manager
+        <h1 className="text-5xl bg-clip-text text-transparent mb-4">
+          Verifiable Credentials Managers
         </h1>
-        <p className="text-gray-600">
+        <p className="text-gray-700">
           Issue, manage, and verify decentralized credentials on the Internet
           Computer
         </p>
@@ -656,7 +656,7 @@ const VCManager = () => {
             className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${
               activeTab === "received"
                 ? "bg-white text-blue-600 shadow-sm"
-                : "text-gray-600 hover:text-gray-800"
+                : "text-yellow-600 hover:text-gray-800"
             }`}
           >
             Received VCs ({myReceivedVCs.length})

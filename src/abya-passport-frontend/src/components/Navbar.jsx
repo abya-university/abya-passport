@@ -74,8 +74,6 @@ function Navbar({ currentPage, setCurrentPage }) {
   console.log("Principal:", principal);
   console.log("Canister ID:", canisterId);
 
-  console.log("did: ", walletDid);
-
   // Shorteners
   const shortenAddress = (addr) =>
     addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : "";
@@ -157,6 +155,7 @@ function Navbar({ currentPage, setCurrentPage }) {
     setWalletAddress(smartWallet?.address);
     fetchOrCreateDid();
   }, [isLoggedIn, smartWallet?.address, walletDid]);
+  console.log("Wallet DID:", walletDid);
 
   // Scroll effect
   useEffect(() => {
@@ -246,7 +245,7 @@ function Navbar({ currentPage, setCurrentPage }) {
           </li>
 
           {/* Navigation Links */}
-          <li className="hidden md:flex items-center space-x-8">
+          <li className="hidden md:flex items-center font-bold space-x-8">
             {[
               { name: "Home", page: "home" },
               { name: "DID Documents", page: "did" },
@@ -336,7 +335,7 @@ function Navbar({ currentPage, setCurrentPage }) {
             ) : !showConnectOptions ? (
               <button
                 onClick={() => setShowConnectOptions(true)}
-                className="bg-gray-100 dark:bg-cyan-950 dark:shadow-yellow-500 dark:text-white text-cyan-950 px-6 py-2.5 rounded-xl font-semibold transition-all duration-200 dark:shadow-md hover:shadow-md hover:cursor-pointer transform hover:scale-105 flex items-center gap-2"
+                className="bg-blue-950 darkcard dark:shadow-yellow-500 dark-text-yellow text-white px-6 py-2.5 border border-blue-200 rounded-2xl font-semibold transition-all duration-200 dark:shadow-md hover:shadow-md hover:cursor-pointer transform hover:scale-105 flex items-center gap-2"
               >
                 <svg
                   width="16"
@@ -605,29 +604,29 @@ function Navbar({ currentPage, setCurrentPage }) {
                     )}
                     {/* Wallet Connection */}
                     {!isInternetIdentityConnected && (
-                      <div className="p-3 rounded-xl bg-gray-50/50 border border-gray-200/50">
+                      <div className="p-3 rounded-xl border border-blue-200">
                         <div className="flex items-center gap-2 mb-2">
                           <svg
                             width="16"
                             height="16"
                             viewBox="0 0 24 24"
                             fill="currentColor"
-                            className="text-blue-600"
+                            className="text-blue-900 dark-text-yellow"
                           >
                             <path d="M21 18v1c0 1.1-.9 2-2 2H5c-1.11 0-2-.9-2-2V5c0-1.1.89-2 2-2h14c1.1 0 2 .9 2 2v1h-9c-1.11 0-2 .9-2 2v8c0 1.1.89 2 2 2h9zm-9-2h10V8H12v8zm4-2.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z" />
                           </svg>
-                          <span className="text-sm font-medium text-gray-700">
+                          <span className="text-sm font-medium text-blue-900 dark-text-yellow">
                             Web3 Wallet
                           </span>
                         </div>
                         {/* Web3 Widget */}
-                        <div className="flex items-center gap-3">
+                        <div className="justify-center flex items-center gap-3">
                           <DynamicWidget
                             variant="dropdown"
-                            className="bg-gray-900/80 backdrop-blur-lg border border-gray-700/30 rounded-xl"
+                            className="w-full bg-blue-950 backdrop-blur-md border border-blue-100 rounded-2xl"
                             innerButtonComponent={
-                              <div className="px-4 py-2 bg-gradient-to-r from-[#f3d10e] to-[#f0b411] text-gray-900 font-medium rounded-lg hover:shadow-lg hover:shadow-[#20ff96]/30 transition-all duration-300">
-                                AA Sign Up or Log In
+                              <div className="w-full px-4 py-2 bg-blue-900 text-gray-900 font-medium rounded-lg hover:shadow-lg hover:shadow-[#20ff96]/30 transition-all duration-300">
+                                Sign Up or Log In
                               </div>
                             }
                           />
@@ -646,25 +645,25 @@ function Navbar({ currentPage, setCurrentPage }) {
                         </div>
 
                         {/* Internet Identity */}
-                        <div className="p-3 rounded-xl bg-gray-50/50 border border-gray-200/50">
+                        <div className="p-3 rounded-xl border border-blue-200">
                           <div className="flex items-center gap-2 mb-3">
                             <svg
                               width="16"
                               height="16"
                               viewBox="0 0 24 24"
                               fill="currentColor"
-                              className="text-purple-600"
+                              className="text-blue-900 dark-text-yellow"
                             >
                               <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" />
                             </svg>
-                            <span className="text-sm font-medium text-gray-700">
+                            <span className="text-sm font-medium text-blue-900 dark-text-yellow">
                               Internet Computer
                             </span>
                           </div>
                           <button
                             onClick={handleInternetIdentityLogin}
                             disabled={isAuthenticating}
-                            className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:from-gray-400 disabled:to-gray-500 text-white px-4 py-3 rounded-xl font-semibold transition-all duration-200 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-[1.02] disabled:transform-none disabled:cursor-not-allowed"
+                            className="w-full bg-blue-950 hover:bg-yellow-600 disabled:from-gray-400 disabled:to-gray-500 text-white px-4 py-3 rounded-xl font-semibold transition-all duration-200 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-[1.02] disabled:transform-none disabled:cursor-not-allowed"
                           >
                             {isAuthenticating ? (
                               <>
@@ -696,7 +695,7 @@ function Navbar({ currentPage, setCurrentPage }) {
                         </div>
 
                         {/* Developer Login (for testing) */}
-                        <div className="p-3 rounded-xl bg-orange-50/50 border border-orange-200/50">
+                        <div className="p-3 rounded-2xl bg-orange-50/50 border border-orange-200/50">
                           <div className="flex items-center gap-2 mb-3">
                             <svg
                               width="16"
@@ -707,7 +706,7 @@ function Navbar({ currentPage, setCurrentPage }) {
                             >
                               <path d="M13 3h8v18h-8v-2h6V5h-6V3zM3 12l4 4v-3h11v-2H7V8l-4 4z" />
                             </svg>
-                            <span className="text-sm font-medium text-gray-700">
+                            <span className="text-sm font-medium text-orange-600">
                               Developer Mode
                             </span>
                           </div>

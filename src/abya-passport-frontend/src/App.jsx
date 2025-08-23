@@ -498,7 +498,7 @@ function App() {
       {/* Dark mode toggle button */}
       <button
         onClick={() => setDarkMode((d) => !d)}
-        className="fixed left-20 bottom-10 z-50 hover:cursor-pointer px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 bg-white text-blue-900 dark-text-white border border-gray-200 transition-colors duration-200"
+        className="fixed left-20 bottom-10 z-50 hover:cursor-pointer px-4 py-3 rounded-2xl shadow-lg flex items-center gap-3 bg-white text-blue-900 dark-text-white border border-blue-200 transition-colors duration-200"
         aria-label="Toggle dark mode"
       >
         {!darkMode ? (

@@ -1158,7 +1158,7 @@ Please check the contract address and ABI configuration.`;
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="text-center mb-30">
-          <h1 className="text-5xl font-bold text-blue-900 dark-text-white mb-4 text-center">
+          <h1 className="text-5xl font-bold text-blue-900 dark-text-yellow mb-4 text-center">
             Ethereum Credential Manager
           </h1>
           <p className="text-xl text-gray-600 mt-8 mb-8 animate-fadein delay-500">
@@ -2094,7 +2094,7 @@ Please check the contract address and ABI configuration.`;
                 </div>
               ) : credentials.length === 0 ? (
                 <div className="text-center py-12">
-                  <div className="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                  <div className="mx-auto w-24 h-24 bg-blue-100 darkcard rounded-full flex items-center justify-center mb-4">
                     <svg
                       className="w-12 h-12 text-gray-400"
                       fill="none"
@@ -2117,32 +2117,32 @@ Please check the contract address and ABI configuration.`;
                   </p>
 
                   {/* Diagnostics */}
-                  <div className="bg-gray-50 rounded-lg p-4 text-left max-w-md mx-auto">
-                    <h4 className="font-medium text-blue-900 dark-text-yellow mb-3">
+                  <div className="backdrop-blur-md rounded-lg p-4 text-left max-w-md mx-auto">
+                    <h4 className="font-bold text-blue-900 dark-text-yellow mb-3">
                       Connection Details
                     </h4>
-                    <div className="space-y-2 text-sm">
+                    <div className="space-y-2 text-sm mb-4">
                       <div className="flex justify-between">
-                        <span className="text-gray-600 dark-text-yellow">
+                        <span className="text-blue-900 dark-text-yellow font-semibold">
                           Wallet DID:
                         </span>
-                        <code className="bg-white px-2 py-1 rounded text-xs font-mono">
+                        <code className="px-2 py-1 rounded overflow-y-auto text-gray-600 text-xs font-mono">
                           {walletDid || "—"}
                         </code>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600 dark-text-yellow">
+                      <div className="flex justify-between mt-8">
+                        <span className="text-blue-900 dark-text-yellow font-semibold">
                           Wallet Address:
                         </span>
-                        <code className="bg-white px-2 py-1 rounded text-xs font-mono">
+                        <code className="px-2 py-1 rounded text-xs text-gray-600 font-mono">
                           {walletAddress || "—"}
                         </code>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600 dark-text-yellow">
+                      <div className="flex justify-between mt-8">
+                        <span className="text-blue-900 dark-text-yellow font-semibold">
                           On-chain IDs:
                         </span>
-                        <span className="text-xs">
+                        <span className="text-xs text-gray-600">
                           {lastOnchainIds.length > 0
                             ? lastOnchainIds.join(", ")
                             : "none"}
@@ -2176,7 +2176,7 @@ Please check the contract address and ABI configuration.`;
                           if ((ids?.length ?? 0) === 0)
                             alert("No on-chain IDs returned for this DID");
                         }}
-                        className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-2 rounded text-sm transition-colors duration-200"
+                        className="bg-yellow-400 hover:bg-yellow-300 font-semibold text-blue-900 px-3 py-2 rounded text-sm transition-colors duration-200"
                       >
                         Fetch IDs for Wallet DID
                       </button>
