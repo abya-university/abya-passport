@@ -12,8 +12,10 @@ import {
 } from "../services/ipfsService";
 import { useEthr } from "../contexts/EthrContext";
 import EthrABI from "../artifacts/contracts/did_contract.json";
-import { useEthersSigner } from "./useClientSigner";
+// import { useEthersSigner } from "./useClientSigner";
 import EthrPresentation from "./VcPresentationManager";
+import { useDynamicContext, useIsLoggedIn } from "@dynamic-labs/sdk-react-core";
+import { isZeroDevConnector } from "@dynamic-labs/ethereum-aa";
 
 // Small icons to make the UI compact and scannable
 import {
@@ -33,17 +35,35 @@ import {
   DownloadIcon,
   VerifiedIcon,
 } from "lucide-react";
+import { encodeFunctionData } from "viem";
+import { Interface } from "ethers";
 
 const API_BASE = "http://localhost:3000";
 const VC_ADDRESS =
-  import.meta.env.VITE_VC_CONTRACT_ADDRESS ||
-  "0x93eEc6FffeE62c79d5ef5Be5b0679aE928E8C1B2";
+  import.meta.env.VITE_VC_CONTRACT_ADDRESS_SEPOLIA ||
+  "0x4a2528C351533b9a6CDF01007883fcCD73d05863";
 
+// const VC_ABI = EthrABI.abi;
 const VC_ABI = EthrABI.abi;
+
+console.log("Using VC contract address:", VC_ADDRESS);
+console.log("Using VC contract ABI:", VC_ABI);
 
 const EthrVcManager = () => {
   const { walletAddress, walletDid, didLoading } = useEthr();
-  const signerPromise = useEthersSigner();
+  // const signerPromise = useEthersSigner();
+  const { user, primaryWallet } = useDynamicContext();
+
+  const smartWallet = user?.verifiedCredentials?.find(
+    (cred) => cred.walletName === "zerodev" || primaryWallet?.address
+  );
+
+  const isLoggedIn = useIsLoggedIn();
+
+  console.log("SMart Wallet: ", smartWallet?.address);
+  console.log("Is Logged In: ", isLoggedIn);
+
+  const contractInterface = new ethers.Interface(VC_ABI);
 
   // Debug logging
   console.log("EthrVcManager render:", {
@@ -168,171 +188,153 @@ const EthrVcManager = () => {
     }
   };
 
-  useEffect(() => {
-    console.log("ethers features:", {
-      hasBrowserProvider: !!ethers?.BrowserProvider,
-      hasV5Providers: !!ethers?.providers?.Web3Provider,
-      hasGetDefault: typeof ethers.getDefaultProvider === "function",
-    });
-  }, []);
+  // useEffect(() => {
+  //   console.log("ethers features:", {
+  //     hasBrowserProvider: !!ethers?.BrowserProvider,
+  //     hasV5Providers: !!ethers?.providers?.Web3Provider,
+  //     hasGetDefault: typeof ethers.getDefaultProvider === "function",
+  //   });
+  // }, []);
 
-  const getContractWithSigner = async () => {
-    if (typeof window === "undefined" || !window.ethereum)
-      throw new Error("No Web3 provider found (window.ethereum)");
+  // const getContractWithSigner = async () => {
+  //   if (typeof window === "undefined" || !window.ethereum)
+  //     throw new Error("No Web3 provider found (window.ethereum)");
 
-    // Check if wallet is connected
-    if (!walletAddress) {
-      throw new Error(
-        "Wallet not connected. Please connect your wallet first."
-      );
-    }
+  //   // Check if wallet is connected
+  //   if (!walletAddress) {
+  //     throw new Error(
+  //       "Wallet not connected. Please connect your wallet first."
+  //     );
+  //   }
 
-    try {
-      // Use the signer from the useEthersSigner hook
-      console.log("Attempting to get signer from hook...");
-      const signer = await signerPromise;
+  //   try {
+  //     // Use the signer from the useEthersSigner hook
+  //     console.log("Attempting to get signer from hook...");
+  //     const signer = await signerPromise;
 
-      if (!signer) {
-        console.log(
-          "Signer from hook is undefined, falling back to manual creation"
-        );
-        throw new Error("Signer from hook is undefined");
-      }
+  //     if (!signer) {
+  //       console.log(
+  //         "Signer from hook is undefined, falling back to manual creation"
+  //       );
+  //       throw new Error("Signer from hook is undefined");
+  //     }
 
-      // Check network compatibility
-      try {
-        const signerAddress = await signer.getAddress();
-        console.log("Successfully got signer from hook:", signerAddress);
+  //     // Check network compatibility
+  //     try {
+  //       const signerAddress = await signer.getAddress();
+  //       console.log("Successfully got signer from hook:", signerAddress);
 
-        // Try to get network info
-        const provider = signer.provider;
-        if (provider && provider.getNetwork) {
-          const network = await provider.getNetwork();
-          console.log("Current network:", network);
-        }
+  //       // Try to get network info
+  //       const provider = signer.provider;
+  //       if (provider && provider.getNetwork) {
+  //         const network = await provider.getNetwork();
+  //         console.log("Current network:", network);
+  //       }
 
-        return new ethers.Contract(VC_ADDRESS, VC_ABI, signer);
-      } catch (addressError) {
-        console.error("Error getting signer address:", addressError);
-        throw new Error(
-          "Failed to get signer address: " + addressError.message
-        );
-      }
-    } catch (error) {
-      console.error("getContractWithSigner error:", error);
+  //       return new ethers.Contract(VC_ADDRESS, VC_ABI, signer);
+  //     } catch (addressError) {
+  //       console.error("Error getting signer address:", addressError);
+  //       throw new Error(
+  //         "Failed to get signer address: " + addressError.message
+  //       );
+  //     }
+  //   } catch (error) {
+  //     console.error("getContractWithSigner error:", error);
 
-      // Fallback to manual provider creation if the hook fails
-      try {
-        console.log("Falling back to manual provider creation...");
+  //     // Fallback to manual provider creation if the hook fails
+  //     try {
+  //       console.log("Falling back to manual provider creation...");
 
-        // Ethers v6: BrowserProvider
-        if (ethers?.BrowserProvider) {
-          const provider = new ethers.BrowserProvider(window.ethereum);
-          try {
-            // Ensure accounts are connected
-            const accounts = await provider.send("eth_requestAccounts", []);
-            if (!accounts || accounts.length === 0) {
-              throw new Error("No accounts found. Please connect your wallet.");
-            }
-            console.log("Connected accounts:", accounts);
-          } catch (accountError) {
-            console.error("Account connection error:", accountError);
-            throw new Error(
-              "Failed to connect to wallet accounts: " + accountError.message
-            );
-          }
+  //       // Ethers v6: BrowserProvider
+  //       if (ethers?.BrowserProvider) {
+  //         const provider = new ethers.BrowserProvider(window.ethereum);
+  //         try {
+  //           // Ensure accounts are connected
+  //           const accounts = await provider.send("eth_requestAccounts", []);
+  //           if (!accounts || accounts.length === 0) {
+  //             throw new Error("No accounts found. Please connect your wallet.");
+  //           }
+  //           console.log("Connected accounts:", accounts);
+  //         } catch (accountError) {
+  //           console.error("Account connection error:", accountError);
+  //           throw new Error(
+  //             "Failed to connect to wallet accounts: " + accountError.message
+  //           );
+  //         }
 
-          try {
-            const signer = await provider.getSigner();
-            console.log("Fallback signer obtained:", await signer.getAddress());
-            return new ethers.Contract(VC_ADDRESS, VC_ABI, signer);
-          } catch (signerError) {
-            console.error("Signer creation error:", signerError);
-            throw new Error("Failed to create signer: " + signerError.message);
-          }
-        }
+  //         try {
+  //           const signer = await provider.getSigner();
+  //           console.log("Fallback signer obtained:", await signer.getAddress());
+  //           return new ethers.Contract(VC_ADDRESS, VC_ABI, signer);
+  //         } catch (signerError) {
+  //           console.error("Signer creation error:", signerError);
+  //           throw new Error("Failed to create signer: " + signerError.message);
+  //         }
+  //       }
 
-        // Ethers v5: providers.Web3Provider
-        if (ethers?.providers?.Web3Provider) {
-          const provider = new ethers.providers.Web3Provider(window.ethereum);
-          try {
-            // Ensure accounts are connected
-            const accounts = await provider.send("eth_requestAccounts", []);
-            if (!accounts || accounts.length === 0) {
-              throw new Error("No accounts found. Please connect your wallet.");
-            }
-            console.log("Connected accounts:", accounts);
-          } catch (accountError) {
-            console.error("Account connection error:", accountError);
-            throw new Error(
-              "Failed to connect to wallet accounts: " + accountError.message
-            );
-          }
+  //       // Ethers v5: providers.Web3Provider
+  //       if (ethers?.providers?.Web3Provider) {
+  //         const provider = new ethers.providers.Web3Provider(window.ethereum);
+  //         try {
+  //           // Ensure accounts are connected
+  //           const accounts = await provider.send("eth_requestAccounts", []);
+  //           if (!accounts || accounts.length === 0) {
+  //             throw new Error("No accounts found. Please connect your wallet.");
+  //           }
+  //           console.log("Connected accounts:", accounts);
+  //         } catch (accountError) {
+  //           console.error("Account connection error:", accountError);
+  //           throw new Error(
+  //             "Failed to connect to wallet accounts: " + accountError.message
+  //           );
+  //         }
 
-          try {
-            const signer = provider.getSigner();
-            console.log("Fallback signer obtained:", await signer.getAddress());
-            return new ethers.Contract(VC_ADDRESS, VC_ABI, signer);
-          } catch (signerError) {
-            console.error("Signer creation error:", signerError);
-            throw new Error("Failed to create signer: " + signerError.message);
-          }
-        }
+  //         try {
+  //           const signer = provider.getSigner();
+  //           console.log("Fallback signer obtained:", await signer.getAddress());
+  //           return new ethers.Contract(VC_ADDRESS, VC_ABI, signer);
+  //         } catch (signerError) {
+  //           console.error("Signer creation error:", signerError);
+  //           throw new Error("Failed to create signer: " + signerError.message);
+  //         }
+  //       }
 
-        throw new Error(
-          "Unsupported ethers version: no BrowserProvider or providers.Web3Provider found"
-        );
-      } catch (fallbackError) {
-        console.error("Fallback provider creation failed:", fallbackError);
-        throw new Error(
-          "Failed to create contract with signer: " + error.message
-        );
-      }
-    }
-  };
+  //       throw new Error(
+  //         "Unsupported ethers version: no BrowserProvider or providers.Web3Provider found"
+  //       );
+  //     } catch (fallbackError) {
+  //       console.error("Fallback provider creation failed:", fallbackError);
+  //       throw new Error(
+  //         "Failed to create contract with signer: " + error.message
+  //       );
+  //     }
+  //   }
+  // };
 
-  const getContractReadonly = async () => {
-    if (typeof window !== "undefined" && window.ethereum) {
-      if (ethers?.BrowserProvider) {
-        const provider = new ethers.BrowserProvider(window.ethereum);
-        try {
-          await provider.send?.("eth_requestAccounts", []);
-        } catch (_) {}
-        return new ethers.Contract(VC_ADDRESS, VC_ABI, provider);
-      }
-      if (ethers?.providers?.Web3Provider) {
-        const provider = new ethers.providers.Web3Provider(window.ethereum);
-        try {
-          await provider.send?.("eth_requestAccounts", []);
-        } catch (_) {}
-        return new ethers.Contract(VC_ADDRESS, VC_ABI, provider);
-      }
-    }
+  //   const rpcUrl =
+  //     (typeof import.meta !== "undefined" &&
+  //       import.meta.env &&
+  //       import.meta.env.VITE_APP_RPC_URL) ||
+  //     null;
 
-    const rpcUrl =
-      (typeof import.meta !== "undefined" &&
-        import.meta.env &&
-        import.meta.env.VITE_APP_RPC_URL) ||
-      null;
+  //   if (rpcUrl) {
+  //     if (ethers?.providers?.JsonRpcProvider) {
+  //       const jsonProvider = new ethers.providers.JsonRpcProvider(rpcUrl);
+  //       return new ethers.Contract(VC_ADDRESS, VC_ABI, jsonProvider);
+  //     }
+  //     if (typeof ethers.JsonRpcProvider === "function") {
+  //       const jsonProvider = new ethers.JsonRpcProvider(rpcUrl);
+  //       return new ethers.Contract(VC_ADDRESS, VC_ABI, jsonProvider);
+  //     }
+  //   }
 
-    if (rpcUrl) {
-      if (ethers?.providers?.JsonRpcProvider) {
-        const jsonProvider = new ethers.providers.JsonRpcProvider(rpcUrl);
-        return new ethers.Contract(VC_ADDRESS, VC_ABI, jsonProvider);
-      }
-      if (typeof ethers.JsonRpcProvider === "function") {
-        const jsonProvider = new ethers.JsonRpcProvider(rpcUrl);
-        return new ethers.Contract(VC_ADDRESS, VC_ABI, jsonProvider);
-      }
-    }
+  //   if (typeof ethers.getDefaultProvider === "function") {
+  //     const defaultProvider = ethers.getDefaultProvider();
+  //     return new ethers.Contract(VC_ADDRESS, VC_ABI, defaultProvider);
+  //   }
 
-    if (typeof ethers.getDefaultProvider === "function") {
-      const defaultProvider = ethers.getDefaultProvider();
-      return new ethers.Contract(VC_ADDRESS, VC_ABI, defaultProvider);
-    }
-
-    throw new Error("No provider available for readonly operations");
-  };
+  //   throw new Error("No provider available for readonly operations");
+  // };
 
   // Contract validation helper
   const validateContract = async (contract) => {
@@ -360,6 +362,7 @@ Please check the contract address and ABI configuration.`;
       throw new Error(error);
     }
   };
+
   const extractHexAddressFromDid = (did) => {
     if (!did || typeof did !== "string") return null;
     const m = did.match(/0x[0-9a-fA-F]{40}/);
@@ -449,11 +452,8 @@ Please check the contract address and ABI configuration.`;
         );
       }
 
-      // Check if wallet is available
-      if (typeof window === "undefined" || !window.ethereum) {
-        throw new Error(
-          "Web3 wallet not available. Please install MetaMask or another Web3 wallet."
-        );
+      if (!primaryWallet?.connector) {
+        throw new Error("Wallet not connected");
       }
 
       const statusKey = idx ?? "latest";
@@ -478,7 +478,10 @@ Please check the contract address and ABI configuration.`;
       const profileData = { ...cred };
 
       const cid = await storeCredential(subjectToStore, profileData);
-      setIpfsStatus((s) => ({ ...s, [statusKey]: { cid, uploading: false } }));
+      setIpfsStatus((s) => ({
+        ...s,
+        [statusKey]: { cid, uploading: false },
+      }));
 
       let credentialHash = "";
       try {
@@ -497,99 +500,117 @@ Please check the contract address and ABI configuration.`;
         );
       }
 
+      const isZeroDev = isZeroDevConnector(primaryWallet?.connector);
+
       // send tx and capture txHash robustly
       try {
         setChainStatus((s) => ({ ...s, [statusKey]: { sending: true } }));
-        const contract = await getContractWithSigner();
+        // const contract = await getContractWithSigner();
 
-        // Check if the contract has the expected function
-        if (!contract.issueCredential) {
-          throw new Error(
-            "Contract does not have issueCredential function. Please check the contract ABI."
-          );
-        }
+        if (isZeroDev) {
+          // Try to get the wallet's sendTransaction method
+          const walletClient = await primaryWallet.connector.getWalletClient();
 
-        const credentialType = Array.isArray(cred?.type)
-          ? cred.type[0]
-          : cred?.type || "VerifiableCredential";
-        const metadata = JSON.stringify(cred?.credentialSubject || {});
+          if (!walletClient) {
+            throw new Error("Failed to get wallet client");
+          }
 
-        console.log("Issuing credential with parameters:", {
-          subjectToStore,
-          credentialType,
-          metadata,
-          credentialHash,
-          signature,
-          cid,
-          issuerAddress,
-        });
+          const credentialType = Array.isArray(cred?.type)
+            ? cred.type[0]
+            : cred?.type || "VerifiableCredential";
+          const metadata = JSON.stringify(cred?.credentialSubject || {});
 
-        let txOrReceipt;
-        try {
-          txOrReceipt = await contract.issueCredential(
+          // Encode the transaction data
+          const data = encodeFunctionData({
+            abi: VC_ABI,
+            functionName: "issueCredential",
+            args: [
+              subjectToStore,
+              credentialType,
+              metadata,
+              credentialHash,
+              signature,
+              cid,
+            ],
+          });
+
+          console.log("Issuing credential with parameters:", {
             subjectToStore,
             credentialType,
             metadata,
             credentialHash,
             signature,
-            cid
-          );
-          console.log("Transaction result:", txOrReceipt);
-        } catch (contractError) {
-          console.error("Contract call error:", contractError);
-          throw contractError;
-        }
+            cid,
+            issuerAddress,
+          });
 
-        let txHash = null;
-        try {
-          if (txOrReceipt?.hash) txHash = txOrReceipt.hash;
-          if (!txHash && txOrReceipt?.transactionHash)
-            txHash = txOrReceipt.transactionHash;
-          if (!txHash && txOrReceipt?.request?.hash)
-            txHash = txOrReceipt.request.hash;
-          if (!txHash && txOrReceipt?.receipt?.transactionHash)
-            txHash = txOrReceipt.receipt.transactionHash;
-
-          console.log("Extracted txHash:", txHash);
-        } catch (hashError) {
-          console.error("Error extracting transaction hash:", hashError);
-          txHash = null;
-        }
-
-        setChainStatus((s) => ({
-          ...s,
-          [statusKey]: { sending: true, txHash },
-        }));
-
-        if (typeof txOrReceipt?.wait === "function") {
+          let txOrReceipt;
           try {
-            console.log("Waiting for transaction confirmation...");
-            const receipt = await txOrReceipt.wait();
-            console.log("Transaction receipt:", receipt);
+            // Send transaction using wallet client
+            const txOrReceipt = await walletClient.sendTransaction({
+              to: VC_ADDRESS,
+              data,
+              value: 0n,
+            });
+            console.log("Transaction result:", txOrReceipt);
+          } catch (contractError) {
+            console.error("Contract call error:", contractError);
+            throw contractError;
+          }
 
-            if (!txHash && receipt?.transactionHash)
-              txHash = receipt.transactionHash;
+          let txHash = null;
+          try {
+            if (txOrReceipt?.hash) txHash = txOrReceipt.hash;
+            if (!txHash && txOrReceipt?.transactionHash)
+              txHash = txOrReceipt.transactionHash;
+            if (!txHash && txOrReceipt?.request?.hash)
+              txHash = txOrReceipt.request.hash;
+            if (!txHash && txOrReceipt?.receipt?.transactionHash)
+              txHash = txOrReceipt.receipt.transactionHash;
+
+            console.log("Extracted txHash:", txHash);
+          } catch (hashError) {
+            console.error("Error extracting transaction hash:", hashError);
+            txHash = null;
+          }
+
+          setChainStatus((s) => ({
+            ...s,
+            [statusKey]: { sending: true, txHash },
+          }));
+
+          if (typeof txOrReceipt?.wait === "function") {
+            try {
+              console.log("Waiting for transaction confirmation...");
+              const receipt = await txOrReceipt.wait();
+              console.log("Transaction receipt:", receipt);
+
+              if (!txHash && receipt?.transactionHash)
+                txHash = receipt.transactionHash;
+              setChainStatus((s) => ({
+                ...s,
+                [statusKey]: { success: true, txHash },
+              }));
+            } catch (waitErr) {
+              console.error("tx wait error:", waitErr);
+              setChainStatus((s) => ({
+                ...s,
+                [statusKey]: {
+                  error: waitErr?.message || String(waitErr),
+                  txHash,
+                },
+              }));
+            }
+          } else {
+            // no wait() - assume txHash is enough
+            console.log("No wait function available, using txHash directly");
             setChainStatus((s) => ({
               ...s,
-              [statusKey]: { success: true, txHash },
-            }));
-          } catch (waitErr) {
-            console.error("tx wait error:", waitErr);
-            setChainStatus((s) => ({
-              ...s,
-              [statusKey]: {
-                error: waitErr?.message || String(waitErr),
-                txHash,
-              },
+              [statusKey]: { success: txHash ? true : false, txHash },
             }));
           }
         } else {
-          // no wait() - assume txHash is enough
-          console.log("No wait function available, using txHash directly");
-          setChainStatus((s) => ({
-            ...s,
-            [statusKey]: { success: txHash ? true : false, txHash },
-          }));
+          throw Error("Only ZeroDev wallet is supported in this context");
         }
       } catch (chainErr) {
         console.error("On-chain error:", chainErr);
@@ -691,48 +712,54 @@ Please check the contract address and ABI configuration.`;
   // ---------------- on-chain fetch helpers (unchanged) ----------------
   const getIdsForDid = async (did) => {
     try {
-      const readContract = await getContractReadonly();
-
-      // Check if the contract has the expected function
-      if (!readContract.getCredentialsForStudent) {
-        console.warn(
-          "Contract does not have getCredentialsForStudent function"
-        );
-        setLastOnchainIds([]);
-        return [];
+      if (!primaryWallet?.connector) {
+        throw Error("Wallet not connected");
       }
 
+      const walletClient = await primaryWallet?.connector.getWalletClient();
+      if (!walletClient) throw Error("Failed to get wallet client");
+
+      // Try all normalized variants of the DID/address
       const variants = normalizeDidVariants(did);
       let ids = [];
       let usedVariant = null;
 
       for (const v of variants) {
         try {
-          const res = await readContract.getCredentialsForStudent(v);
-          const idStrings = Array.isArray(res)
-            ? res.map((x) => safeToString(x))
+          const data = contractInterface.encodeFunctionData(
+            "getCredentialsForStudent",
+            [v]
+          );
+          const result = await walletClient.request({
+            method: "eth_call",
+            params: [
+              {
+                to: VC_ADDRESS,
+                data,
+              },
+              "latest",
+            ],
+          });
+
+          // ethers v6 decodeFunctionResult expects a bytes-like result
+          const decodedResult = contractInterface.decodeFunctionResult(
+            "getCredentialsForStudent",
+            result
+          );
+
+          // decodedResult is usually an array of BigNumbers/strings
+          const idStrings = Array.isArray(decodedResult[0])
+            ? decodedResult[0].map((x) => safeToString(x))
             : [];
+
           if (idStrings && idStrings.length > 0) {
             ids = idStrings;
             usedVariant = v;
             break;
           }
-        } catch (inner) {}
-      }
-
-      if ((!ids || ids.length === 0) && walletAddress) {
-        try {
-          const res2 = await readContract.getCredentialsForStudent(
-            walletAddress
-          );
-          const idStrings2 = Array.isArray(res2)
-            ? res2.map((x) => safeToString(x))
-            : [];
-          if (idStrings2 && idStrings2.length > 0) {
-            ids = idStrings2;
-            usedVariant = walletAddress;
-          }
-        } catch (_) {}
+        } catch (inner) {
+          // Try next variant
+        }
       }
 
       setLastOnchainIds(ids);
@@ -752,7 +779,12 @@ Please check the contract address and ABI configuration.`;
 
   const fetchOnChainCredentialsForDid = async (did) => {
     try {
-      const readContract = await getContractReadonly();
+      if (!primaryWallet?.connector) {
+        throw Error("Wallet not connected");
+      }
+
+      const walletClient = await primaryWallet.connector.getWalletClient();
+      if (!walletClient) throw Error("Failed to get wallet client");
 
       const variants = normalizeDidVariants(did);
       let idsRaw = [];
@@ -760,25 +792,66 @@ Please check the contract address and ABI configuration.`;
 
       for (const v of variants) {
         try {
-          const res = await readContract.getCredentialsForStudent(v);
-          const idList = Array.isArray(res)
-            ? res.map((x) => safeToString(x))
+          const data = contractInterface.encodeFunctionData(
+            "getCredentialsForStudent",
+            [v]
+          );
+          const result = await walletClient.request({
+            method: "eth_call",
+            params: [
+              {
+                to: VC_ADDRESS,
+                data,
+              },
+              "latest",
+            ],
+          });
+
+          console.log("Raw result for variant", v, ":", result);
+
+          const decodedResult = contractInterface.decodeFunctionResult(
+            "getCredentialsForStudent",
+            result
+          );
+
+          console.log("Decoded result for variant", v, ":", decodedResult);
+
+          const idList = Array.isArray(decodedResult[0])
+            ? decodedResult[0].map((x) => safeToString(x))
             : [];
           if (idList && idList.length > 0) {
             idsRaw = idList;
             usedVariant = v;
             break;
           }
-        } catch (inner) {}
+        } catch (inner) {
+          // Try next variant
+        }
       }
 
+      // Optionally, fallback to walletAddress if no IDs found
       if ((!idsRaw || idsRaw.length === 0) && walletAddress) {
         try {
-          const res2 = await readContract.getCredentialsForStudent(
-            walletAddress
+          const data = contractInterface.encodeFunctionData(
+            "getCredentialsForStudent",
+            [walletAddress]
           );
-          const idList2 = Array.isArray(res2)
-            ? res2.map((x) => safeToString(x))
+          const result = await walletClient.request({
+            method: "eth_call",
+            params: [
+              {
+                to: VC_ADDRESS,
+                data,
+              },
+              "latest",
+            ],
+          });
+          const decodedResult = contractInterface.decodeFunctionResult(
+            "getCredentialsForStudent",
+            result
+          );
+          const idList2 = Array.isArray(decodedResult[0])
+            ? decodedResult[0].map((x) => safeToString(x))
             : [];
           if (idList2 && idList2.length > 0) {
             idsRaw = idList2;
@@ -795,7 +868,25 @@ Please check the contract address and ABI configuration.`;
 
       for (const idStr of idList) {
         try {
-          const row = await readContract.credentials(idStr);
+          // Now fetch the credential row using the contract's credentials mapping
+          // This can still use a read-only contract if you want, or you can use eth_call again
+          const data = contractInterface.encodeFunctionData("credentials", [
+            idStr,
+          ]);
+          const rowResult = await walletClient.request({
+            method: "eth_call",
+            params: [
+              {
+                to: VC_ADDRESS,
+                data,
+              },
+              "latest",
+            ],
+          });
+          const row = contractInterface.decodeFunctionResult(
+            "credentials",
+            rowResult
+          )[0];
           rowsDebug.push({ idStr, row });
           const mappingCID = row?.[8] ? safeToString(row[8]) : "";
           const issuerDID = row?.[2] ? safeToString(row[2]) : "";
@@ -813,10 +904,6 @@ Please check the contract address and ABI configuration.`;
             try {
               ipfsJson = await fetchDidDocument(mappingCID);
             } catch (fetchErr) {
-              console.warn(
-                "fetchDidDocument failed, will fallback to public gateway",
-                fetchErr
-              );
               const gateways = [
                 `https://dweb.link/ipfs/${mappingCID}`,
                 `https://ipfs.io/ipfs/${mappingCID}`,
@@ -829,9 +916,7 @@ Please check the contract address and ABI configuration.`;
                     ipfsJson = await res.json();
                     break;
                   }
-                } catch (gerr) {
-                  console.warn("gateway fetch failed", g, gerr);
-                }
+                } catch (gerr) {}
               }
             }
           }
@@ -848,9 +933,7 @@ Please check the contract address and ABI configuration.`;
             try {
               metadata =
                 typeof metadata === "string" ? JSON.parse(metadata) : metadata;
-            } catch (e) {
-              // leave as string
-            }
+            } catch (e) {}
             displayed = {
               credentialSubject:
                 metadata &&
@@ -891,16 +974,57 @@ Please check the contract address and ABI configuration.`;
 
   const fetchAllOnChainCredentials = async () => {
     try {
-      const readContract = await getContractReadonly();
-      const count = await readContract.credentialCount();
+      if (!primaryWallet?.connector) {
+        throw Error("Wallet not connected");
+      }
+      const walletClient = await primaryWallet.connector.getWalletClient();
+      if (!walletClient) throw Error("Failed to get wallet client");
+
+      // Get credential count
+      const countData = contractInterface.encodeFunctionData(
+        "credentialCount",
+        []
+      );
+      const countResult = await walletClient.request({
+        method: "eth_call",
+        params: [
+          {
+            to: VC_ADDRESS,
+            data: countData,
+          },
+          "latest",
+        ],
+      });
+      const decodedCount = contractInterface.decodeFunctionResult(
+        "credentialCount",
+        countResult
+      );
       const n =
-        count && typeof count?.toString === "function"
-          ? Number(safeToString(count))
-          : Number(count || 0);
+        decodedCount && typeof decodedCount[0]?.toString === "function"
+          ? Number(safeToString(decodedCount[0]))
+          : Number(decodedCount[0] || 0);
+
       const out = [];
       for (let i = 1; i <= n; i++) {
         try {
-          const row = await readContract.credentials(i);
+          // Fetch credential row
+          const credData = contractInterface.encodeFunctionData("credentials", [
+            i,
+          ]);
+          const credResult = await walletClient.request({
+            method: "eth_call",
+            params: [
+              {
+                to: VC_ADDRESS,
+                data: credData,
+              },
+              "latest",
+            ],
+          });
+          const row = contractInterface.decodeFunctionResult(
+            "credentials",
+            credResult
+          )[0];
           const mappingCID = row?.[8] ? safeToString(row[8]) : "";
           let ipfsJson = null;
           if (mappingCID) {
@@ -931,7 +1055,9 @@ Please check the contract address and ABI configuration.`;
             },
           };
           out.push(credObj);
-        } catch (inner) {}
+        } catch (inner) {
+          // skip this credential if error
+        }
       }
       return out;
     } catch (err) {
