@@ -29,7 +29,7 @@ import { getResolver as keyDidResolver } from "key-did-resolver";
 console.log("ENV:", {
   ETH_NETWORK: process.env.ETH_NETWORK,
   ETH_PROVIDER_URL: process.env.ETH_PROVIDER_URL,
-  ETH_REGISTRY_ADDRESS: process.env.ETH_REGISTRY_ADDRESS,
+  ETH_REGISTRY_ADDRESS: process.env.ETH_REGISTRY_ADDRESS_SEPOLIA,
   INFURA_PROJECT_ID: process.env.INFURA_PROJECT_ID,
 });
 
@@ -40,7 +40,7 @@ const SKALE_TITAN_CONFIG = {
   rpcUrl: "https://testnet.skalenodes.com/v1/aware-fake-trim-testnet",
   // Use a known deployed registry or fallback to zero address for custom handling
   registry:
-    process.env.ETH_REGISTRY_ADDRESS ||
+    process.env.ETH_REGISTRY_ADDRESS_SEPOLIA ||
     "0x0979446EB2A4a373eaA702336aC3c390B0139Fc5", // ERC1056 registry on SKALE mainnet
 };
 
@@ -52,7 +52,7 @@ const NETWORK_CONFIGS = {
     name: "sepolia",
     chainId: 11155111,
     rpcUrl: "https://sepolia.infura.io/v3/0ab3a5daf9d64bbaaeac8ae7c09af18e",
-    registry: "0xc0660d54f4655dC3B045D69ced4308f1709FD35e",
+    registry: "0x93eEc6FffeE62c79d5ef5Be5b0679aE928E8C1B2",
   },
 };
 

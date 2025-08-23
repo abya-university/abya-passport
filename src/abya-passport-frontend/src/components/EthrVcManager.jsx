@@ -37,7 +37,7 @@ import {
 const API_BASE = "http://localhost:3000";
 const VC_ADDRESS =
   import.meta.env.VITE_VC_CONTRACT_ADDRESS ||
-  "0x0979446EB2A4a373eaA702336aC3c390B0139Fc5";
+  "0x93eEc6FffeE62c79d5ef5Be5b0679aE928E8C1B2";
 
 const VC_ABI = EthrABI.abi;
 
@@ -125,34 +125,34 @@ const EthrVcManager = () => {
     ],
   };
 
-  const switchToSkaleTitan = async () => {
-    if (!window.ethereum) return false;
+  // const switchToSkaleTitan = async () => {
+  //   if (!window.ethereum) return false;
 
-    try {
-      // Try switching to the network
-      await window.ethereum.request({
-        method: "wallet_switchEthereumChain",
-        params: [{ chainId: SKALE_TITAN_CONFIG.chainId }],
-      });
-      return true;
-    } catch (switchError) {
-      // This error code indicates that the chain has not been added to MetaMask.
-      if (switchError.code === 4902) {
-        try {
-          await window.ethereum.request({
-            method: "wallet_addEthereumChain",
-            params: [SKALE_TITAN_CONFIG],
-          });
-          return true;
-        } catch (addError) {
-          console.error("Failed to add network:", addError);
-          return false;
-        }
-      }
-      console.error("Failed to switch network:", switchError);
-      return false;
-    }
-  };
+  //   try {
+  //     // Try switching to the network
+  //     await window.ethereum.request({
+  //       method: "wallet_switchEthereumChain",
+  //       params: [{ chainId: SKALE_TITAN_CONFIG.chainId }],
+  //     });
+  //     return true;
+  //   } catch (switchError) {
+  //     // This error code indicates that the chain has not been added to MetaMask.
+  //     if (switchError.code === 4902) {
+  //       try {
+  //         await window.ethereum.request({
+  //           method: "wallet_addEthereumChain",
+  //           params: [SKALE_TITAN_CONFIG],
+  //         });
+  //         return true;
+  //       } catch (addError) {
+  //         console.error("Failed to add network:", addError);
+  //         return false;
+  //       }
+  //     }
+  //     console.error("Failed to switch network:", switchError);
+  //     return false;
+  //   }
+  // };
 
   // ---------------- helpers for ethers / BigNumber handling ----------------
   const safeToString = (v) => {
@@ -1302,7 +1302,7 @@ Please check the contract address and ABI configuration.`;
                 ? `${VC_ABI.length} functions available`
                 : "ABI not loaded"}
             </div>
-            <div className="text-xs text-orange-600 mt-2 bg-orange-50 p-2 rounded border border-orange-200">
+            {/* <div className="text-xs text-orange-600 mt-2 bg-orange-50 p-2 rounded border border-orange-200">
               <div className="flex items-center justify-between">
                 <div>
                   <strong>Network:</strong> This contract is configured for
@@ -1318,7 +1318,7 @@ Please check the contract address and ABI configuration.`;
                   Switch Network
                 </button>
               </div>
-            </div>
+            </div> */}
           </div>
 
           {/* IPFS Status */}

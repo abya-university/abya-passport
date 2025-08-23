@@ -117,7 +117,7 @@ const customEvmNetworks = [
 
 const config = createConfig({
   chains: [
-    mainnet,
+    // mainnet,
     sepolia,
     polygon,
     optimism,
@@ -134,7 +134,7 @@ const config = createConfig({
   },
   multiInjectedProviderDiscovery: false,
   transports: {
-    [mainnet.id]: http(),
+    // [mainnet.id]: http(),
     [sepolia.id]: http(),
     [polygon.id]: http(),
     [optimism.id]: http(),

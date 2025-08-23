@@ -1,6 +1,5 @@
 // src/contexts/EthrContext.jsx
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { useAccount } from "wagmi";
 import { useDynamicContext, useIsLoggedIn } from "@dynamic-labs/sdk-react-core";
 
 const API_URL =
@@ -16,16 +15,15 @@ const EthrContext = createContext({
 });
 
 export function EthrProvider({ children }) {
-  const { address, isConnected } = useAccount();
   const [walletAddress, _setWalletAddress] = useState(null);
   const [walletDid, _setWalletDid] = useState(null);
   const [didLoading, setDidLoading] = useState(false);
 
-  const { user } = useDynamicContext();
+  const { user, primaryWallet } = useDynamicContext();
   const isLoggedIn = useIsLoggedIn();
 
   const smartWallet = user?.verifiedCredentials?.find(
-    (cred) => cred.walletName === "zerodev"
+    (cred) => cred.walletName === "zerodev" || primaryWallet?.address
   );
 
   // whenever the connected address changes, reset state
@@ -88,10 +86,10 @@ export function EthrProvider({ children }) {
 
   // automatically run refreshDid once when address appears
   useEffect(() => {
-    if (isLoggedIn && smartWallet?.address) {
+    if ((isLoggedIn && smartWallet?.address) || primaryWallet?.address) {
       refreshDid();
     }
-  }, [isLoggedIn, smartWallet?.address]);
+  }, [isLoggedIn, smartWallet?.address || primaryWallet?.address]);
 
   return (
     <EthrContext.Provider

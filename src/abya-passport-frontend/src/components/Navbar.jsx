@@ -9,6 +9,8 @@ import {
   useDynamicContext,
   useIsLoggedIn,
 } from "@dynamic-labs/sdk-react-core";
+import { useAccount } from "wagmi";
+import { Copy, CopyCheckIcon, CopyIcon } from "lucide-react";
 
 const API_URL =
   import.meta.env.VITE_APP_VERAMO_API_URL || "http://localhost:3000";
@@ -21,14 +23,23 @@ function Navbar({ currentPage, setCurrentPage }) {
       : false
   );
 
-  const { user } = useDynamicContext();
+  const { user, primaryWallet } = useDynamicContext();
   const isLoggedIn = useIsLoggedIn();
 
+  const { isConnected, address } = useAccount();
+
+  console.log("Connected:", isConnected);
+  console.log("Address:", address);
+
   const smartWallet = user?.verifiedCredentials?.find(
-    (cred) => cred.walletName === "zerodev"
+    (cred) => cred.walletName === "zerodev" || primaryWallet?.address
   );
 
-  console.log("Smart Wallet:", smartWallet?.address);
+  console.log("Smart Wallet:", smartWallet);
+  console.log("Smart Wallet Address:", smartWallet?.address);
+  console.log("Primary Wallet:", primaryWallet);
+  console.log("Primary Wallet Address:", primaryWallet?.address);
+
   console.log("isLoggedIn:", isLoggedIn);
 
   useEffect(() => {
@@ -51,6 +62,12 @@ function Navbar({ currentPage, setCurrentPage }) {
   const { did, principal, isAuthenticating, login, developerLogin, logout } =
     useInternetIdentity();
 
+  const [isCopied, setIsCopied] = useState(false);
+
+  useEffect(() => {
+    localSetWalletDid(ctxDid);
+  }, [ctxDid]);
+
   const canisterId = "uxrrr-q7777-77774-qaaaq-cai";
 
   console.log("DID2:", did);
@@ -67,7 +84,12 @@ function Navbar({ currentPage, setCurrentPage }) {
 
   // Fetch or create DID for connected wallet
   useEffect(() => {
-    if (!isLoggedIn || !smartWallet?.address || walletDid) {
+    if (
+      !isLoggedIn ||
+      !smartWallet?.address ||
+      walletDid ||
+      primaryWallet?.address
+    ) {
       if (!isLoggedIn || !smartWallet?.address) {
         setWalletDid(null);
         setWalletAddress(null);
@@ -76,7 +98,9 @@ function Navbar({ currentPage, setCurrentPage }) {
       return;
     }
 
-    const alias = `issuer-wallet-${smartWallet?.address}`;
+    const alias = `issuer-wallet-${
+      smartWallet?.address || primaryWallet?.address
+    }`;
 
     const fetchOrCreateDid = async () => {
       setDidLoading(true);
@@ -155,7 +179,8 @@ function Navbar({ currentPage, setCurrentPage }) {
   // const isAnyConnected = isLoggedIn || !!principal;
 
   // Separate connection states
-  const isWalletConnected = isLoggedIn && smartWallet?.address;
+  const isWalletConnected =
+    (isLoggedIn && smartWallet?.address) || primaryWallet?.address;
   const isInternetIdentityConnected = !!principal;
   const isAnyConnected = isWalletConnected || isInternetIdentityConnected;
 
@@ -165,6 +190,16 @@ function Navbar({ currentPage, setCurrentPage }) {
     } catch (error) {
       console.error("Internet Identity login failed:", error);
     }
+  };
+
+  const copyText = (text, setCopied) => {
+    navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(() => {});
   };
 
   return (
@@ -271,8 +306,8 @@ function Navbar({ currentPage, setCurrentPage }) {
             {isAnyConnected ? (
               <div className="flex items-center gap-3">
                 <div className="bg-green-50 dark:bg-yellow-500/60 dark:border-yellow-700 px-4 py-2 rounded-xl flex items-center gap-2 transition-colors duration-300">
-                  <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
-                  <span className="text-sm font-medium text-cyan-950 dark:text-gray-100">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-sm font-medium dark:text-cyan-950 text-gray-100">
                     {isLoggedIn
                       ? shortenAddress(smartWallet.address)
                       : shortenAddress(principal)}
@@ -329,13 +364,17 @@ function Navbar({ currentPage, setCurrentPage }) {
                 >
                   {/* Header */}
                   <div className="flex items-center justify-between mb-4">
-                    <span
-                      className={`text-lg font-semibold ${
-                        isDark ? "text-gray-100" : "text-gray-800"
-                      }`}
-                    >
-                      {isAnyConnected ? "Connected Account" : "Connect Account"}
-                    </span>
+                    <div className="flex flex-col gap-3">
+                      <span
+                        className={`text-lg font-semibold ${
+                          isDark ? "text-gray-100" : "text-gray-800"
+                        }`}
+                      >
+                        {isAnyConnected
+                          ? "Connected Account"
+                          : "Connect Account"}
+                      </span>
+                    </div>
                     <button
                       onClick={() => setShowConnectOptions(false)}
                       className={`transition-colors p-1 rounded-lg ${
@@ -354,6 +393,37 @@ function Navbar({ currentPage, setCurrentPage }) {
                       </svg>
                     </button>
                   </div>
+
+                  {/* Wallet DID */}
+                  {isWalletConnected && walletDid && (
+                    <div className="flex flex-row- space-x-5 w-full  my-auto">
+                      <div
+                        className={`relative mb-3 w-[93%] rounded-lg px-3 py-1 flex items-center justify-between
+  ${isDark ? "bg-yellow-700/60" : "bg-yellow-200/60"}
+`}
+                      >
+                        {isWalletConnected && walletDid && (
+                          <span className="text-xs font-mono break-all text-gray-400 dark:text-gray-800">
+                            {shorten(walletDid)}
+                          </span>
+                        )}
+                        <button
+                          className="ml-2 p-1 rounded hover:text-yellow-400 hover:cursor-pointer transition-colors"
+                          style={{ lineHeight: 1 }}
+                          onClick={() => {
+                            copyText(walletDid, setIsCopied);
+                          }}
+                          aria-label="Copy DID"
+                        >
+                          {isCopied ? (
+                            <CopyCheckIcon className="w-5 h-5 text-yellow-700 dark:text-yellow-200" />
+                          ) : (
+                            <CopyIcon className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="space-y-4">
                     {/* Connected Wallet Info */}
