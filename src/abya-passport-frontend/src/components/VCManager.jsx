@@ -1,7 +1,10 @@
+// src/abya-passport-frontend/src/components/VCManager.jsx
+
 import React, { useState, useEffect } from "react";
 import { useInternetIdentity } from "../contexts/InternetContext";
 import { useToast } from "./Toast";
 import VCSharer from "./VCSharer";
+import { Delete } from "lucide-react";
 
 const VCManager = () => {
   const {
@@ -755,10 +758,10 @@ const VCManager = () => {
     return (
       <div className="max-w-4xl mx-auto px-6 py-16">
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-800 mb-4">
+          <h1 className="text-5xl font-bold text-blue-900 dark-text-yellow mb-4 text-center">
             Verifiable Credentials Manager
           </h1>
-          <p className="text-gray-600 mb-8">
+          <p className="text-xl text-gray-600 mt-8 mb-8 animate-fadein delay-500">
             Please sign in with Internet Identity to manage your verifiable
             credentials.
           </p>
@@ -770,10 +773,10 @@ const VCManager = () => {
   return (
     <div className="max-w-6xl mx-auto px-6 py-16">
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-4">
+        <h1 className="text-5xl font-bold text-blue-900 dark-text-yellow mb-4 text-center">
           Verifiable Credentials Manager
         </h1>
-        <p className="text-gray-600">
+        <p className="text-xl text-gray-600 mt-8 mb-8 animate-fadein delay-500">
           Issue, manage, and verify decentralized credentials on the Internet
           Computer
         </p>
@@ -781,12 +784,12 @@ const VCManager = () => {
 
       {/* Tabs */}
       <div className="flex justify-center mb-8">
-        <div className="bg-gray-100 rounded-lg p-1">
+        <div className="backdrop-blur-md rounded-lg p-1">
           <button
             onClick={() => setActiveTab("received")}
             className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${
               activeTab === "received"
-                ? "bg-white text-blue-600 shadow-sm"
+                ? "bg-white text-blue-600 dark-text-yellow border border-blue-200 shadow-sm"
                 : "text-gray-600 hover:text-gray-800"
             }`}
           >
@@ -796,7 +799,7 @@ const VCManager = () => {
             onClick={() => setActiveTab("issued")}
             className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${
               activeTab === "issued"
-                ? "bg-white text-blue-600 shadow-sm"
+                ? "bg-white text-blue-600 dark-text-yellow border border-blue-200 shadow-sm"
                 : "text-gray-600 hover:text-gray-800"
             }`}
           >
@@ -810,7 +813,7 @@ const VCManager = () => {
         <div className="text-center mb-8">
           <button
             onClick={() => setShowIssueForm(!showIssueForm)}
-            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
+            className="bg-blue-900 darkcard text-white px-6 py-3 rounded-2xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
           >
             {showIssueForm ? "Cancel" : "Issue New VC"}
           </button>
@@ -819,13 +822,13 @@ const VCManager = () => {
 
       {/* Issue VC Form */}
       {showIssueForm && (
-        <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-lg mb-8">
-          <h2 className="text-xl font-semibold text-gray-800 mb-6">
+        <div className="backdrop-blur-md darkcard rounded-xl p-6 shadow-lg mb-8 mt-20">
+          <h2 className="text-xl font-semibold text-blue-900 dark-text-yellow mb-6">
             Issue New Verifiable Credential
           </h2>
-          <form onSubmit={handleIssueVC} className="space-y-6">
+          <form onSubmit={handleIssueVC} className="space-y-6 mt-20">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark-text-white mb-2">
                 Recipient DID
               </label>
               <input
@@ -839,13 +842,13 @@ const VCManager = () => {
                 }
                 placeholder="did:icp:... or did:key:..."
                 required
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-3 border border-blue-200 text-gray-700 dark-text-yellow rounded-2xl focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent darkcard"
               />
             </div>
 
             {/* Credential Type Selection */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark-text-white mb-2 mt-10">
                 Credential Type
               </label>
               <div className="space-y-3">
@@ -863,7 +866,7 @@ const VCManager = () => {
                         e.target.value === "custom" ? prev.customType : "",
                     }));
                   }}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-3 darkcard text-gray-700 dark-text-yellow border border-blue-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-yellow-500"
                 >
                   <option value="">Select credential type...</option>
                   <option value="EducationalCredential">
@@ -900,7 +903,7 @@ const VCManager = () => {
                         }))
                       }
                       placeholder="CustomCredentialType"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-4 py-3 text-gray-700 dark-text-yellow border border-blue-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-yellow-500"
                     />
                   )}
 
@@ -909,13 +912,13 @@ const VCManager = () => {
                   {issueForm.credentialTypes.map((type, index) => (
                     <span
                       key={index}
-                      className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium"
+                      className="px-3 py-1 bg-blue-100 darkcard text-blue-900 dark-text-white rounded-full text-sm font-medium border border-blue-200"
                     >
                       {type}
                     </span>
                   ))}
                   {issueForm.customType && (
-                    <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm font-medium">
+                    <span className="px-3 py-1 bg-blue-100 text-blue-900 dark-text-white rounded-full text-sm font-medium border border-blue-200">
                       {issueForm.customType}
                     </span>
                   )}
@@ -924,8 +927,8 @@ const VCManager = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Claims
+              <label className="block text-sm font-medium text-gray-700 dark-text-white mb-8 mt-20">
+                Credential Claim
               </label>
               <div className="space-y-3">
                 {issueForm.claims.map((claim, index) => (
@@ -937,7 +940,7 @@ const VCManager = () => {
                         updateClaimField(index, "key", e.target.value)
                       }
                       placeholder="Key (e.g., name, degree, university)"
-                      className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="flex-1 px-4 py-3 border border-blue-200 rounded-2xl text-gray-700 dark-text-yellow focus:outline-none focus:ring-2 focus:ring-yellow-500"
                     />
                     <input
                       type="text"
@@ -946,7 +949,7 @@ const VCManager = () => {
                         updateClaimField(index, "value", e.target.value)
                       }
                       placeholder="Value (e.g., John Doe, Computer Science, MIT)"
-                      className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="flex-1 px-4 py-3 border border-blue-200 rounded-2xl text-gray-700 dark-text-yellow focus:outline-none focus:ring-2 focus:ring-yellow-500"
                     />
                     {issueForm.claims.length > 1 && (
                       <button
@@ -962,7 +965,7 @@ const VCManager = () => {
                 <button
                   type="button"
                   onClick={addClaimField}
-                  className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-blue-600 hover:border-blue-400 hover:text-blue-700 font-medium transition-colors"
+                  className="w-full py-3 border-2 border-dashed border-blue-200 rounded-lg text-blue-900 dark-text-yellow hover:border-blue-400 hover:text-blue-700 font-medium transition-colors"
                 >
                   + Add Another Claim
                 </button>
@@ -970,7 +973,7 @@ const VCManager = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark-text-white mb-8 mt-20">
                 Expires in (hours)
               </label>
               <div className="flex space-x-4">
@@ -985,7 +988,7 @@ const VCManager = () => {
                   }
                   min="1"
                   max="8760"
-                  className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 px-4 py-3 text-gray-700 dark-text-yellow border border-blue-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-yellow-500"
                 />
                 <div className="flex space-x-2">
                   {[24, 168, 720, 8760].map((hours) => (
@@ -998,7 +1001,7 @@ const VCManager = () => {
                           expiresInHours: hours,
                         }))
                       }
-                      className="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                      className="px-3 py-2 text-sm text-yellow-500 bg-blue-100 hover:bg-gray-200 border hover:border-blue-200 rounded-2xl transition-colors"
                     >
                       {hours === 24
                         ? "1d"
@@ -1017,7 +1020,7 @@ const VCManager = () => {
               <button
                 type="submit"
                 disabled={isIssuing}
-                className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-3 px-6 rounded-lg font-semibold disabled:opacity-50 transition-all duration-200 shadow-md hover:shadow-lg"
+                className="flex-1 bg-blue-900 hover:bg-blue-700 darkcard hover:to-purple-700 text-white hover:text-yellow-500 border border-blue-200 py-3 px-6 rounded-lg font-semibold disabled:opacity-50 transition-all duration-200 shadow-md hover:shadow-lg"
               >
                 {isIssuing
                   ? "Issuing Credential..."
@@ -1026,9 +1029,9 @@ const VCManager = () => {
               <button
                 type="button"
                 onClick={() => setShowIssueForm(false)}
-                className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 py-3 px-6 rounded-lg font-semibold transition-colors"
+                className="justify-center gap-2 flex hover:bg-gray-300 text-gray-700 dark-text-yellow py-3 px-6 rounded-lg font-semibold transition-colors"
               >
-                Cancel
+                <Delete/>Cancel
               </button>
             </div>
           </form>

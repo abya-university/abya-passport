@@ -1,3 +1,5 @@
+// src/abya-passport-frontend/src/contexts/InternetContext.jsx
+
 import { createContext, useContext, useState, useEffect } from "react";
 import { AuthClient } from "@dfinity/auth-client";
 import { HttpAgent } from "@dfinity/agent";
