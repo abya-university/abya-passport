@@ -1,0 +1,7 @@
+dfx stop
+dfx start --background --clean
+dfx deps pull
+dfx deploy
+dfx deps deploy
+dfx generate
+dfx generate internet_identity

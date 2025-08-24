@@ -3,6 +3,7 @@ import { useInternetIdentity } from "../contexts/InternetContext";
 import { useToast } from "./Toast";
 import QRCode from "react-qr-code";
 import QRCodeLib from "qrcode";
+import { Copy, CopyIcon, Download, DownloadIcon, LinkIcon, Pin, PinIcon, QrCode, QrCodeIcon, Share2, X } from "lucide-react";
 
 const VCSharer = ({ vc, isOpen, onClose }) => {
   const { identity } = useInternetIdentity();
@@ -133,53 +134,53 @@ const VCSharer = ({ vc, isOpen, onClose }) => {
   return (
     <div
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-      style={{ backgroundColor: "rgba(0, 0, 0, 0.6)" }}
+      style={{ backgroundColor: "rgba(0, 0, 0, 0.7)" }}
     >
-      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="mt-100 mb-80 bg-gray-100 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto z-999">
         {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 p-6 rounded-t-xl">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-gray-800">
+        <div className="sticky top-0 bg-white border-b border-blue-200 p-6 rounded-t-xl">
+          <div className="justify-center flex items-center">
+            <h2 className="text-5xl font-bold text-blue-900 dark-text-yellow">
               Share Credential
             </h2>
             <button
               onClick={onClose}
               className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
             >
-              ✕
+              <X size={24} />
             </button>
           </div>
-          <p className="text-gray-600 mt-2">
+          <p className="text-xl text-gray-600 mt-8 mb-8 animate-fadein delay-500">
             Generate QR codes or shareable links for your verifiable credential
           </p>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6 mt-20">
           {/* Share Method Selection */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <button
               onClick={() => setShareMethod("qr")}
-              className={`p-4 rounded-lg border-2 transition-colors ${
+              className={`p-4 rounded-2xl border-2 transition-colors ${
                 shareMethod === "qr"
-                  ? "border-blue-500 bg-blue-50 text-blue-700"
-                  : "border-gray-200 hover:border-gray-300"
+                  ? "border-yellow-500 bg-blue-50 text-blue-900 dark-text-yellow"
+                  : "border-blue-200 hover:border-gray-300"
               }`}
             >
-              <div className="text-3xl mb-2">📱</div>
-              <div className="font-medium">QR Code</div>
+              <div className="justify-center flex text-3xl text-gray-600 mb-2"><QrCodeIcon size={34} /></div>
+              <div className="font-medium text-gray-600">QR Code</div>
               <div className="text-sm text-gray-600">Scannable QR code</div>
             </button>
 
             <button
               onClick={() => setShareMethod("url")}
-              className={`p-4 rounded-lg border-2 transition-colors ${
+              className={`p-4 rounded-2xl border-2 transition-colors ${
                 shareMethod === "url"
-                  ? "border-blue-500 bg-blue-50 text-blue-700"
-                  : "border-gray-200 hover:border-gray-300"
+                  ? "border-yellow-500 bg-blue-50 text-blue-900 dark-text-yellow"
+                  : "border-blue-200 hover:border-gray-300"
               }`}
             >
-              <div className="text-3xl mb-2">🔗</div>
-              <div className="font-medium">Shareable URL</div>
+              <div className="justify-center flex text-3xl text-gray-600 mb-2"><LinkIcon size={34} /> </div>
+              <div className="font-medium text-gray-600">Shareable URL</div>
               <div className="text-sm text-gray-600">
                 Direct verification link
               </div>
@@ -187,14 +188,14 @@ const VCSharer = ({ vc, isOpen, onClose }) => {
 
             <button
               onClick={() => setShareMethod("selective")}
-              className={`p-4 rounded-lg border-2 transition-colors ${
+              className={`p-4 rounded-2xl border-2 transition-colors ${
                 shareMethod === "selective"
-                  ? "border-blue-500 bg-blue-50 text-blue-700"
-                  : "border-gray-200 hover:border-gray-300"
+                  ? "border-yellow-500 bg-blue-50 text-blue-700"
+                  : "border-blue-200 hover:border-gray-300"
               }`}
             >
-              <div className="text-3xl mb-2">🎯</div>
-              <div className="font-medium">Selective Disclosure</div>
+              <div className="justify-center text-gray-600 flex text-3xl mb-2"><PinIcon size={34} /></div>
+              <div className="font-medium text-gray-600">Selective Disclosure</div>
               <div className="text-sm text-gray-600">
                 Share specific claims only
               </div>
@@ -203,49 +204,49 @@ const VCSharer = ({ vc, isOpen, onClose }) => {
 
           {/* QR Code Sharing */}
           {shareMethod === "qr" && (
-            <div className="bg-gray-50 rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">
+            <div className="rounded-2xl p-6 mt-20">
+              <h3 className="text-lg font-semibold text-blue-900 dark-text-yellow mb-8">
                 QR Code Options
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <button
                   onClick={() => generateQRCode("reference")}
-                  className="p-3 bg-blue-100 hover:bg-blue-200 rounded-lg text-left transition-colors"
+                  className="p-3 bg-blue-100 hover:bg-blue-200 rounded-2xl border border-blue-200 text-left transition-colors"
                 >
-                  <div className="font-medium text-blue-800">
+                  <div className="font-medium text-blue-900 dark-text-yellow">
                     Reference (Recommended)
                   </div>
-                  <div className="text-sm text-blue-600">
+                  <div className="text-sm text-gray-600">
                     Lightweight, requires internet
                   </div>
                 </button>
 
                 <button
                   onClick={() => generateQRCode("full")}
-                  className="p-3 bg-green-100 hover:bg-green-200 rounded-lg text-left transition-colors"
+                  className="p-3 bg-blue-100 hover:bg-blue-200 rounded-2xl border border-blue-200 text-left transition-colors"
                 >
-                  <div className="font-medium text-green-800">
+                  <div className="font-medium text-blue-900 dark-text-yellow">
                     Full Document
                   </div>
-                  <div className="text-sm text-green-600">
+                  <div className="text-sm text-gray-600">
                     Complete VC, works offline
                   </div>
                 </button>
 
                 <button
                   onClick={() => generateQRCode("selective")}
-                  className="p-3 bg-purple-100 hover:bg-purple-200 rounded-lg text-left transition-colors"
+                  className="p-3 bg-blue-100 hover:bg-blue-200 rounded-2xl border border-blue-200 text-left transition-colors"
                 >
-                  <div className="font-medium text-purple-800">Selective</div>
-                  <div className="text-sm text-purple-600">
+                  <div className="font-medium text-blue-900 dark-text-yellow">Selective</div>
+                  <div className="text-sm text-gray-600">
                     Only chosen claims
                   </div>
                 </button>
               </div>
 
               {qrCodeData && (
-                <div className="flex flex-col md:flex-row items-start space-y-4 md:space-y-0 md:space-x-6">
+                <div className="flex flex-col md:flex-row items-start space-y-4 md:space-y-0 md:space-x-6 mt-20">
                   {/* QR Code Display */}
                   <div className="flex-shrink-0">
                     {generateQRCodeSVG(qrCodeData)}
@@ -254,10 +255,10 @@ const VCSharer = ({ vc, isOpen, onClose }) => {
                   {/* QR Code Data */}
                   <div className="flex-1 space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="font-bold block text-sm font-medium text-blue-900 dark-text-yellow mb-2">
                         QR Code Data
                       </label>
-                      <div className="bg-white border rounded-lg p-3">
+                      <div className="bg-white border border-blue-200 rounded-2xl p-3">
                         <code className="text-xs text-gray-600 break-all">
                           {qrCodeData.length > 200
                             ? qrCodeData.substring(0, 200) + "..."
@@ -271,22 +272,22 @@ const VCSharer = ({ vc, isOpen, onClose }) => {
                         onClick={() =>
                           copyToClipboard(qrCodeData, "QR Code data")
                         }
-                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+                        className="justify-center flex gap-2 bg-yellow-500 hover:bg-yellow-700 text-white py-2 px-4 rounded-lg font-medium transition-colors"
                       >
-                        📋 Copy Data
+                        <CopyIcon /> Copy Data
                       </button>
                       <button
                         onClick={() => {
                           const filename = `vc-qr-${vc.id.substring(0, 8)}.png`;
                           downloadQRCode(qrCodeData, filename);
                         }}
-                        className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-lg font-medium transition-colors"
+                        className="justify-center gap-2 flex bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-lg font-medium transition-colors"
                       >
-                        💾 Download QR
+                        <DownloadIcon /> QR
                       </button>
                     </div>
 
-                    <div className="text-xs text-gray-500 bg-blue-50 p-3 rounded-lg">
+                    <div className="text-xs text-gray-600 bg-blue-100 p-3 rounded-lg mt-4">
                       <strong>QR Code Types:</strong>
                       <ul className="mt-1 space-y-1">
                         <li>
@@ -311,23 +312,23 @@ const VCSharer = ({ vc, isOpen, onClose }) => {
 
           {/* URL Sharing */}
           {shareMethod === "url" && (
-            <div className="bg-gray-50 rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">
+            <div className="rounded-lg p-6 mt-20">
+              <h3 className="text-lg font-semibold text-blue-900 dark-text-yellow mb-8">
                 Shareable URL
               </h3>
 
               <div className="space-y-4">
                 <button
                   onClick={generateShareableUrl}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg font-medium transition-colors"
+                  className="w-full bg-amber-500 hover:bg-yellow-600 text-white py-3 px-6 rounded-3xl font-medium transition-colors mb-4"
                 >
-                  🔗 Generate Verification URL
+                  Generate Verification URL
                 </button>
 
                 {shareableUrl && (
                   <div className="space-y-3">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-gray-600 mt-8 mb-4">
                         Verification URL
                       </label>
                       <div className="flex space-x-2">
@@ -335,15 +336,15 @@ const VCSharer = ({ vc, isOpen, onClose }) => {
                           type="text"
                           value={shareableUrl}
                           readOnly
-                          className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm"
+                          className="flex-1 px-3 py-2 bg-white border border-blue-200 rounded-2xl text-sm"
                         />
                         <button
                           onClick={() =>
                             copyToClipboard(shareableUrl, "Verification URL")
                           }
-                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+                          className="justify-center flex gap-2 px-2 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg text-sm font-medium transition-colors"
                         >
-                          📋
+                          <CopyIcon size={16} /> Copy
                         </button>
                       </div>
                     </div>
@@ -360,9 +361,8 @@ const VCSharer = ({ vc, isOpen, onClose }) => {
                             )}&body=${encodeURIComponent(emailBody)}`
                           );
                         }}
-                        className="flex items-center justify-center space-x-2 py-2 px-4 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 transition-colors"
+                        className="flex items-center justify-center space-x-2 py-2 px-4 text-gray-100 hover:bg-yellow-600 rounded-3xl text-gray-700 transition-colors"
                       >
-                        <span>📧</span>
                         <span>Email</span>
                       </button>
 
@@ -379,17 +379,16 @@ const VCSharer = ({ vc, isOpen, onClose }) => {
                             copyToClipboard(text, "Share text");
                           }
                         }}
-                        className="flex items-center justify-center space-x-2 py-2 px-4 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-700 transition-colors"
+                        className="flex items-center justify-center space-x-2 py-2 px-4 text-gray-100 hover:bg-yellow-600 rounded-3xl text-gray-700 transition-colors"
                       >
-                        <span>📤</span>
-                        <span>Share</span>
+                        <span><Share2 /></span>
                       </button>
                     </div>
                   </div>
                 )}
               </div>
 
-              <div className="mt-4 text-xs text-gray-500 bg-blue-50 p-3 rounded-lg">
+              <div className="mt-4 text-xs text-gray-500 bg-blue-100 p-3 rounded-2xl mt-20 mb-20">
                 <strong>How it works:</strong> The URL contains a reference to
                 your credential. When someone opens it, they'll be taken to a
                 verification page that fetches your credential from IPFS and
@@ -400,14 +399,14 @@ const VCSharer = ({ vc, isOpen, onClose }) => {
 
           {/* Selective Disclosure */}
           {shareMethod === "selective" && (
-            <div className="bg-gray-50 rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">
+            <div className="rounded-2xl p-6 mt-20">
+              <h3 className="text-lg font-semibold text-blue-900 dark-text-yellow mb-10">
                 Selective Disclosure
               </h3>
 
               <div className="space-y-4">
                 <div>
-                  <p className="text-sm text-gray-600 mb-3">
+                  <p className="text-sm text-gray-600 mb-6">
                     Choose which claims to share. Only selected information will
                     be included in the verification.
                   </p>
@@ -418,19 +417,19 @@ const VCSharer = ({ vc, isOpen, onClose }) => {
                       .map(([key, value]) => (
                         <label
                           key={key}
-                          className="flex items-start space-x-3 p-3 bg-white rounded-lg border"
+                          className="flex items-start space-x-3 p-3 bg-white rounded-2xl border border-blue-200"
                         >
                           <input
                             type="checkbox"
                             checked={!!selectiveClaims[key]}
                             onChange={() => toggleClaim(key)}
-                            className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                            className="mt-1 h-4 w-4 text-blue-600 dark-text-yellow focus:ring-blue-500 border-blue-200 rounded-2xl"
                           />
                           <div className="flex-1">
-                            <div className="font-medium text-gray-700 capitalize">
+                            <div className="font-medium text-blue-900 dark-text-yellow capitalize">
                               {key.replace(/([A-Z])/g, " $1").trim()}
                             </div>
-                            <div className="text-sm text-gray-500 break-words">
+                            <div className="text-sm text-gray-600 break-words">
                               {typeof value === "object"
                                 ? JSON.stringify(value)
                                 : String(value)}
@@ -441,7 +440,7 @@ const VCSharer = ({ vc, isOpen, onClose }) => {
                   </div>
                 </div>
 
-                <div className="flex space-x-3">
+                <div className="flex space-x-3 mb-20">
                   <button
                     onClick={() => generateQRCode("selective")}
                     disabled={
@@ -449,9 +448,9 @@ const VCSharer = ({ vc, isOpen, onClose }) => {
                         (key) => selectiveClaims[key]
                       ).length === 0
                     }
-                    className="flex-1 bg-purple-600 hover:bg-purple-700 text-white py-3 px-6 rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="justify-center gap-2 flex bg-blue-900 hover:border border-yellow-400 text-white hover:text-yellow-400 py-3 px-6 rounded-2xl font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
-                    📱 Generate Selective QR
+                    <QrCode /> Generate Selective QR
                   </button>
 
                   <button
@@ -466,9 +465,9 @@ const VCSharer = ({ vc, isOpen, onClose }) => {
                       generateQRCode("selective");
                       copyToClipboard(qrCodeData, "Selective credential data");
                     }}
-                    className="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors"
+                    className="px-6 py-3 justify-center gap-2 flex bg-blue-900 hover:border border-yellow-400 text-white hover:text-yellow-400 rounded-2xl font-medium transition-colors"
                   >
-                    📋 Copy Data
+                    <CopyIcon /> Data
                   </button>
 
                   {qrCodeData && shareMethod === "selective" && (
@@ -480,9 +479,9 @@ const VCSharer = ({ vc, isOpen, onClose }) => {
                         )}.png`;
                         downloadQRCode(qrCodeData, filename);
                       }}
-                      className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors"
+                      className="px-6 py-3 justify-center gap-2 flex bg-blue-900 hover:border border-yellow-400 text-white hover:text-yellow-400 rounded-2xl font-medium transition-colors"
                     >
-                      💾 Download
+                      <DownloadIcon /> Download
                     </button>
                   )}
                 </div>
@@ -491,15 +490,15 @@ const VCSharer = ({ vc, isOpen, onClose }) => {
                   <div className="space-y-4">
                     {/* QR Code Display */}
                     <div className="flex flex-col md:flex-row items-start space-y-4 md:space-y-0 md:space-x-6">
-                      <div className="flex-shrink-0">
+                    <div className="flex-shrink-0">
                         {generateQRCodeSVG(qrCodeData)}
                       </div>
                       <div className="flex-1">
-                        <div className="text-sm text-gray-600 mb-2">
+                        <div className="text-sm text-blue-900 dark-text-yellow mb-2">
                           Selected Claims Preview:
                         </div>
-                        <div className="bg-white rounded-lg border p-3 max-h-64 overflow-y-auto">
-                          <pre className="text-xs text-gray-700 overflow-x-auto">
+                        <div className="bg-white rounded-2xl border border-blue-200 p-3 max-h-64 overflow-y-auto">
+                          <pre className="text-xs text-gray-600 overflow-x-auto">
                             <code>
                               {JSON.stringify(JSON.parse(qrCodeData), null, 2)}
                             </code>
@@ -514,31 +513,31 @@ const VCSharer = ({ vc, isOpen, onClose }) => {
           )}
 
           {/* VC Information */}
-          <div className="bg-blue-50 rounded-lg p-4">
-            <h4 className="font-medium text-blue-900 mb-2">
+          <div className="bg-blue-100 rounded-lg p-4">
+            <h4 className="font-medium text-blue-900 dark-text-yellow mb-15">
               Credential Information
             </h4>
-            <div className="grid grid-cols-2 gap-4 text-sm text-blue-800">
+            <div className="grid grid-cols-2 gap-10 text-sm text-gray-600">
               <div>
-                <span className="font-medium">Type:</span>
+                <span className="font-bold dark-text-yellow">Type:</span>
                 <div>
                   {Array.isArray(vc.type) ? vc.type.join(", ") : vc.type}
                 </div>
               </div>
               <div>
-                <span className="font-medium">Issuer:</span>
+                <span className="font-bold dark-text-yellow">Issuer:</span>
                 <div className="break-all">
                   {vc.issuer?.id || vc.issuer || "Unknown"}
                 </div>
               </div>
               <div>
-                <span className="font-medium">Subject:</span>
+                <span className="font-bold dark-text-yellow">Subject:</span>
                 <div className="break-all">
                   {vc.credentialSubject?.id || "Anonymous"}
                 </div>
               </div>
               <div>
-                <span className="font-medium">Issued:</span>
+                <span className="font-bold dark-text-yellow">Issued:</span>
                 <div>
                   {vc.issuanceDate
                     ? new Date(vc.issuanceDate).toLocaleDateString()
