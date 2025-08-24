@@ -10,7 +10,7 @@ import {
   useIsLoggedIn,
 } from "@dynamic-labs/sdk-react-core";
 import { useAccount } from "wagmi";
-import { Copy, CopyCheckIcon, CopyIcon } from "lucide-react";
+import { Copy, CopyCheckIcon, CopyIcon, WalletMinimal } from "lucide-react";
 
 const API_URL =
   import.meta.env.VITE_APP_VERAMO_API_URL || "http://localhost:3000";
@@ -23,7 +23,7 @@ function Navbar({ currentPage, setCurrentPage }) {
       : false
   );
 
-  const { user, primaryWallet } = useDynamicContext();
+  const { user, primaryWallet, setShowAuthFlow } = useDynamicContext();
   const isLoggedIn = useIsLoggedIn();
 
   const { isConnected, address } = useAccount();
@@ -621,7 +621,7 @@ function Navbar({ currentPage, setCurrentPage }) {
                         </div>
                         {/* Web3 Widget */}
                         <div className="justify-center flex items-center gap-3">
-                          <DynamicWidget
+                          {/* <DynamicWidget
                             variant="dropdown"
                             className="w-full bg-blue-950 backdrop-blur-md border border-blue-100 rounded-2xl"
                             innerButtonComponent={
@@ -629,7 +629,15 @@ function Navbar({ currentPage, setCurrentPage }) {
                                 Sign Up or Log In
                               </div>
                             }
-                          />
+                          /> */}
+
+                          <button
+                            className="shadow-sm shadow-cyan-950  dark:bg-transparent dark:shadow-sm dark:shadow-yellow-500  rounded-lg p-2  px-5 font-semibold hover:cursor-pointer flex flex-row gap-2"
+                            onClick={() => setShowAuthFlow(true)}
+                          >
+                            <WalletMinimal className="w-5" />
+                            Sign Up or Log In
+                          </button>
                         </div>
                       </div>
                     )}

@@ -770,7 +770,7 @@ const VCManager = () => {
   return (
     <div className="max-w-6xl mx-auto px-6 py-16">
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-4">
+        <h1 className="text-3xl font-bold 0 bg-clip-text text-yellow-500 mb-4">
           Verifiable Credentials Manager
         </h1>
         <p className="text-gray-600">
@@ -786,7 +786,7 @@ const VCManager = () => {
             onClick={() => setActiveTab("received")}
             className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${
               activeTab === "received"
-                ? "bg-white text-blue-600 shadow-sm"
+                ? "bg-white text-cyan-950 shadow-sm"
                 : "text-gray-600 hover:text-gray-800"
             }`}
           >
@@ -796,7 +796,7 @@ const VCManager = () => {
             onClick={() => setActiveTab("issued")}
             className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${
               activeTab === "issued"
-                ? "bg-white text-blue-600 shadow-sm"
+                ? "bg-white text-cyan-950 shadow-sm"
                 : "text-gray-600 hover:text-gray-800"
             }`}
           >
@@ -810,7 +810,7 @@ const VCManager = () => {
         <div className="text-center mb-8">
           <button
             onClick={() => setShowIssueForm(!showIssueForm)}
-            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
+            className="shadow-sm shadow-yellow-500 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200  hover:shadow-md transform hover:cursor-pointer"
           >
             {showIssueForm ? "Cancel" : "Issue New VC"}
           </button>

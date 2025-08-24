@@ -4,6 +4,7 @@ import { useInternetIdentity } from "../contexts/InternetContext";
 const DIDDocument = () => {
   const { did, didDocument, isResolvingDid, resolveDid, principal } =
     useInternetIdentity();
+  const context = useInternetIdentity();
 
   const [customDid, setCustomDid] = useState("");
   const [showRawJson, setShowRawJson] = useState(false);
@@ -29,13 +30,72 @@ const DIDDocument = () => {
     return JSON.stringify(obj, null, 2);
   };
 
+  if (!context) {
+    return (
+      <div className="max-w-4xl mx-auto px-6 py-8">
+        <div className="text-center">
+          <div className="text-red-600 mb-4">
+            ⚠️ Error: Internet Identity context not available
+          </div>
+          <p className="text-gray-600">
+            Please make sure the InternetIdentityProvider is properly set up.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="relative group bg-transparent border border-blue-200 rounded-2xl max-w-4xl mx-auto p-8 shadow-lg hover:shadow-2xl transition-all duration-200 overflow-hidden feature-card backdrop-blur-xl mt-12">
       <div className="absolute -top-4 -right-4 opacity-10 group-hover:opacity-20 transition-opacity duration-200 pointer-events-none">
-        <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24"><path fill="#f0ce00" fill-rule="evenodd" d="m12 13.386l.023-.027c1.313 1.277 3.208 2.763 4.85 2.763A4.086 4.086 0 0 0 21 12.072c0-2.237-1.845-4.05-4.126-4.05c-1.746 0-3.465 1.296-4.874 2.735zm4.815 1.098c1.404 0 2.543-1.08 2.543-2.413S18.219 9.66 16.81 9.66s-2.781 1.304-3.744 2.411c.639.72 2.34 2.412 3.744 2.412z" clip-rule="evenodd" /><path fill="#f0ce00" fill-rule="evenodd" d="m12.054 13.44l-.09-.09c-1.273 1.264-3.15 2.772-4.837 2.772A4.087 4.087 0 0 1 3 12.072c0-2.237 1.845-4.05 4.127-4.05c1.773 0 3.42 1.399 4.806 2.893l.121-.126zm-4.869 1.043c-1.408 0-2.547-1.08-2.547-2.412S5.777 9.66 7.185 9.66s2.781 1.304 3.744 2.411c-.639.72-2.34 2.412-3.744 2.412" clip-rule="evenodd" /><path fill="#f0ce00" d="m10.758 11.924l.108.094l1.102 1.404c1.296 1.21 3.186 2.7 4.905 2.7a4.11 4.11 0 0 0 4.05-3.267c-.35.634-1.575 1.629-3.762 1.606q-.169.022-.35.023c-1.41 0-3.106-1.692-3.745-2.412l.014-.018l-1.328-1.598l-1.327-1.26c-1.062-.81-2.16-1.318-3.366-1.318c-2.039 0-3.677 1.62-4.005 3.555c.909-1.647 2.866-2.178 4.585-1.724c1.125.194 2.102 1.09 3.119 2.215" /></svg>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="100"
+          height="100"
+          viewBox="0 0 24 24"
+        >
+          <path
+            fill="#f0ce00"
+            fill-rule="evenodd"
+            d="m12 13.386l.023-.027c1.313 1.277 3.208 2.763 4.85 2.763A4.086 4.086 0 0 0 21 12.072c0-2.237-1.845-4.05-4.126-4.05c-1.746 0-3.465 1.296-4.874 2.735zm4.815 1.098c1.404 0 2.543-1.08 2.543-2.413S18.219 9.66 16.81 9.66s-2.781 1.304-3.744 2.411c.639.72 2.34 2.412 3.744 2.412z"
+            clip-rule="evenodd"
+          />
+          <path
+            fill="#f0ce00"
+            fill-rule="evenodd"
+            d="m12.054 13.44l-.09-.09c-1.273 1.264-3.15 2.772-4.837 2.772A4.087 4.087 0 0 1 3 12.072c0-2.237 1.845-4.05 4.127-4.05c1.773 0 3.42 1.399 4.806 2.893l.121-.126zm-4.869 1.043c-1.408 0-2.547-1.08-2.547-2.412S5.777 9.66 7.185 9.66s2.781 1.304 3.744 2.411c-.639.72-2.34 2.412-3.744 2.412"
+            clip-rule="evenodd"
+          />
+          <path
+            fill="#f0ce00"
+            d="m10.758 11.924l.108.094l1.102 1.404c1.296 1.21 3.186 2.7 4.905 2.7a4.11 4.11 0 0 0 4.05-3.267c-.35.634-1.575 1.629-3.762 1.606q-.169.022-.35.023c-1.41 0-3.106-1.692-3.745-2.412l.014-.018l-1.328-1.598l-1.327-1.26c-1.062-.81-2.16-1.318-3.366-1.318c-2.039 0-3.677 1.62-4.005 3.555c.909-1.647 2.866-2.178 4.585-1.724c1.125.194 2.102 1.09 3.119 2.215"
+          />
+        </svg>
       </div>
       <div className="flex items-center justify-center w-14 h-14 rounded-xl bg-blue-100 darkcard mb-8 mx-auto shadow-inner">
-        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><path fill="#f0ce00" fill-rule="evenodd" d="m12 13.386l.023-.027c1.313 1.277 3.208 2.763 4.85 2.763A4.086 4.086 0 0 0 21 12.072c0-2.237-1.845-4.05-4.126-4.05c-1.746 0-3.465 1.296-4.874 2.735zm4.815 1.098c1.404 0 2.543-1.08 2.543-2.413S18.219 9.66 16.81 9.66s-2.781 1.304-3.744 2.411c.639.72 2.34 2.412 3.744 2.412z" clip-rule="evenodd" /><path fill="#f0ce00" fill-rule="evenodd" d="m12.054 13.44l-.09-.09c-1.273 1.264-3.15 2.772-4.837 2.772A4.087 4.087 0 0 1 3 12.072c0-2.237 1.845-4.05 4.127-4.05c1.773 0 3.42 1.399 4.806 2.893l.121-.126zm-4.869 1.043c-1.408 0-2.547-1.08-2.547-2.412S5.777 9.66 7.185 9.66s2.781 1.304 3.744 2.411c-.639.72-2.34 2.412-3.744 2.412" clip-rule="evenodd" /><path fill="#f0ce00" d="m10.758 11.924l.108.094l1.102 1.404c1.296 1.21 3.186 2.7 4.905 2.7a4.11 4.11 0 0 0 4.05-3.267c-.35.634-1.575 1.629-3.762 1.606q-.169.022-.35.023c-1.41 0-3.106-1.692-3.745-2.412l.014-.018l-1.328-1.598l-1.327-1.26c-1.062-.81-2.16-1.318-3.366-1.318c-2.039 0-3.677 1.62-4.005 3.555c.909-1.647 2.866-2.178 4.585-1.724c1.125.194 2.102 1.09 3.119 2.215" /></svg>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="48"
+          height="48"
+          viewBox="0 0 24 24"
+        >
+          <path
+            fill="#f0ce00"
+            fill-rule="evenodd"
+            d="m12 13.386l.023-.027c1.313 1.277 3.208 2.763 4.85 2.763A4.086 4.086 0 0 0 21 12.072c0-2.237-1.845-4.05-4.126-4.05c-1.746 0-3.465 1.296-4.874 2.735zm4.815 1.098c1.404 0 2.543-1.08 2.543-2.413S18.219 9.66 16.81 9.66s-2.781 1.304-3.744 2.411c.639.72 2.34 2.412 3.744 2.412z"
+            clip-rule="evenodd"
+          />
+          <path
+            fill="#f0ce00"
+            fill-rule="evenodd"
+            d="m12.054 13.44l-.09-.09c-1.273 1.264-3.15 2.772-4.837 2.772A4.087 4.087 0 0 1 3 12.072c0-2.237 1.845-4.05 4.127-4.05c1.773 0 3.42 1.399 4.806 2.893l.121-.126zm-4.869 1.043c-1.408 0-2.547-1.08-2.547-2.412S5.777 9.66 7.185 9.66s2.781 1.304 3.744 2.411c-.639.72-2.34 2.412-3.744 2.412"
+            clip-rule="evenodd"
+          />
+          <path
+            fill="#f0ce00"
+            d="m10.758 11.924l.108.094l1.102 1.404c1.296 1.21 3.186 2.7 4.905 2.7a4.11 4.11 0 0 0 4.05-3.267c-.35.634-1.575 1.629-3.762 1.606q-.169.022-.35.023c-1.41 0-3.106-1.692-3.745-2.412l.014-.018l-1.328-1.598l-1.327-1.26c-1.062-.81-2.16-1.318-3.366-1.318c-2.039 0-3.677 1.62-4.005 3.555c.909-1.647 2.866-2.178 4.585-1.724c1.125.194 2.102 1.09 3.119 2.215"
+          />
+        </svg>
       </div>
       <h1 className="text-3xl font-bold text-blue-900 dark-text-yellow mb-6 text-center">
         Internet Identity DID Resolver
@@ -51,11 +111,15 @@ const DIDDocument = () => {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between p-6 gap-8 mb-4">
             <div className="text-blue-900 text-base text-center w-full">
               <span className="font-semibold dark-text-yellow">Principal:</span>
-              <span className="ml-2 break-all dark-text-white">{principal}</span>
+              <span className="ml-2 break-all dark-text-white">
+                {principal}
+              </span>
             </div>
             {did && (
               <div className="text-blue-900 text-base text-center w-full">
-                <span className="font-semibold dark-text-yellow">Your DID:</span>
+                <span className="font-semibold dark-text-yellow">
+                  Your DID:
+                </span>
                 <span className="ml-2 break-all dark-text-white">{did}</span>
                 <button
                   onClick={() => copyToClipboard(did)}
@@ -77,7 +141,7 @@ const DIDDocument = () => {
           <button
             onClick={() => resolveDid()}
             disabled={isResolvingDid}
-            className="w-full bg-blue-900 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-semibold shadow-md hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50"
+            className="w-full bg-transparent shadow-sm shadow-yellow-500 text-gray-500 px-4 py-2 rounded-xl font-semibold  hover:shadow-md transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50"
           >
             {isResolvingDid ? (
               <>
@@ -125,9 +189,10 @@ const DIDDocument = () => {
             className={`
               px-6 py-3 rounded-xl font-semibold shadow-md hover:shadow-xl transition-all duration-200 disabled:opacity-100 border
               ${
-                typeof window !== "undefined" && window.matchMedia('(prefers-color-scheme: dark)').matches
-                  ? 'bg-yellow-400 border-yellow-400 text-blue-900 hover:bg-yellow-500 hover:border-yellow-500 hover:text-blue-900'
-                  : 'bg-blue-900 border-blue-400 text-gray-100 hover:bg-blue-700 hover:border-blue-500 hover:text-yellow-300'
+                typeof window !== "undefined" &&
+                window.matchMedia("(prefers-color-scheme: dark)").matches
+                  ? "bg-yellow-400 border-yellow-400 text-blue-900 hover:bg-yellow-500 hover:border-yellow-500 hover:text-blue-900"
+                  : "bg-blue-900 border-blue-400 text-gray-100 hover:bg-blue-700 hover:border-blue-500 hover:text-yellow-300"
               }
             `}
           >
@@ -160,22 +225,28 @@ const DIDDocument = () => {
           </div>
 
           {showRawJson ? (
-            <pre className="bg-gray-50 border rounded-lg p-4 text-sm overflow-x-auto">
-              <code className="text-left">{formatJson(didDocument)}</code>
+            <pre className="bg-gray-50 dark:bg-transparent border dark:border-yellow-500 rounded-lg p-4 text-sm overflow-x-auto">
+              <code className="text-left dark:text-gray-500">
+                {formatJson(didDocument)}
+              </code>
             </pre>
           ) : (
             <div className="space-y-4">
               {/* DID Info */}
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="bg-white rounded-lg p-4">
-                  <h3 className="font-medium text-blue-900 dark-text-yellow mb-2">Identity (DID)</h3>
+                  <h3 className="font-medium text-blue-900 dark-text-yellow mb-2">
+                    Identity (DID)
+                  </h3>
                   <code className="text-sm text-gray-400 bg-gray-50 p-2 darkcard rounded-2xl border border-blue-200 block break-all">
                     {didDocument.id}
                   </code>
                 </div>
 
                 <div className="bg-white rounded-lg p-4">
-                  <h3 className="font-medium text-blue-900 dark-text-yellow mb-2">Context (specs)</h3>
+                  <h3 className="font-medium text-blue-900 dark-text-yellow mb-2">
+                    Context (specs)
+                  </h3>
                   <code className="text-sm text-gray-400 bg-gray-50 p-2 darkcard rounded-2xl border border-blue-200 block break-all">
                     {didDocument["@context"]}
                   </code>
@@ -195,25 +266,33 @@ const DIDDocument = () => {
                     >
                       <div className="grid md:grid-cols-2 gap-3 text-sm">
                         <div>
-                          <span className="text-gray-600 font-bold mt-4">ID:</span>
+                          <span className="text-gray-600 font-bold mt-4">
+                            ID:
+                          </span>
                           <code className="block p-1 text-gray-400 mt-3 break-all">
                             {method.id}
                           </code>
                         </div>
                         <div>
-                          <span className="text-gray-600 font-bold mt-4">Type:</span>
+                          <span className="text-gray-600 font-bold mt-4">
+                            Type:
+                          </span>
                           <code className="block p-1 text-gray-400 rounded mt-3">
                             {method.type}
                           </code>
                         </div>
                         <div>
-                          <span className="text-gray-600 font-bold mt-4">Controller:</span>
+                          <span className="text-gray-600 font-bold mt-4">
+                            Controller:
+                          </span>
                           <code className="block text-gray-400 p-1 rounded mt-3 break-all">
                             {method.controller}
                           </code>
                         </div>
                         <div>
-                          <span className="text-gray-600 font-bold mt-4">Public Key:</span>
+                          <span className="text-gray-600 font-bold mt-4">
+                            Public Key:
+                          </span>
                           <code className="block text-gray-400 p-1 rounded mt-3 break-all">
                             {method.publicKeyMultibase}
                           </code>
