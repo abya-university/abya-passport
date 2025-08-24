@@ -136,9 +136,9 @@ const VCSharer = ({ vc, isOpen, onClose }) => {
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
       style={{ backgroundColor: "rgba(0, 0, 0, 0.7)" }}
     >
-      <div className="mt-100 mb-80 bg-gray-100 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto z-999">
+      <div className="mt-100 mb-80 bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto z-999">
         {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-blue-200 p-6 rounded-t-xl">
+        <div className="sticky top-0 bg-gray-100 darkcard border-b border-blue-200 p-6 rounded-t-xl">
           <div className="justify-center flex items-center">
             <h2 className="text-5xl font-bold text-blue-900 dark-text-yellow">
               Share Credential
@@ -513,7 +513,7 @@ const VCSharer = ({ vc, isOpen, onClose }) => {
           )}
 
           {/* VC Information */}
-          <div className="bg-blue-100 rounded-lg p-4">
+          <div className="rounded-2xl p-4 mt-20">
             <h4 className="font-medium text-blue-900 dark-text-yellow mb-15">
               Credential Information
             </h4>
