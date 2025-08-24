@@ -102,17 +102,19 @@ const Toast = ({ toast, onRemove }) => {
   return (
     <div
       className={`${getToastStyles()} ${
-        isVisible ? "translate-x-0 opacity-100" : "translate-x-full opacity-0"
+        isVisible
+          ? "translate-x-0  bg-transparent dark:shadow-lg dark:shadow-yellow-400 shadow-white"
+          : "translate-x-full opacity-0"
       }`}
     >
       <div className="flex items-start justify-between">
-        <div className="flex items-start space-x-3">
+        <div className="flex items-start space-x-3 ">
           <span className="text-lg flex-shrink-0">{getIcon()}</span>
           <p className="text-sm font-medium leading-5">{toast.message}</p>
         </div>
         <button
           onClick={handleRemove}
-          className="ml-4 flex-shrink-0 text-gray-400 hover:text-gray-600 transition-colors"
+          className="ml-4 flex-shrink-0 text-red-400 hover:text-gray-600 transition-colors"
         >
           <span className="sr-only">Close</span>
           <svg

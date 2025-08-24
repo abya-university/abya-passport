@@ -18,23 +18,7 @@ import { useDynamicContext, useIsLoggedIn } from "@dynamic-labs/sdk-react-core";
 import { isZeroDevConnector } from "@dynamic-labs/ethereum-aa";
 
 // Small icons to make the UI compact and scannable
-import {
-  RefreshCw,
-  PlusSquare,
-  FileText,
-  Download,
-  QrCode,
-  Copy,
-  UploadCloud,
-  Link2,
-  CheckCircle,
-  AlertCircle,
-  Database,
-  CopyIcon,
-  QrCodeIcon,
-  DownloadIcon,
-  VerifiedIcon,
-} from "lucide-react";
+import { CopyIcon, QrCodeIcon, DownloadIcon, VerifiedIcon } from "lucide-react";
 import { encodeFunctionData } from "viem";
 import { Interface } from "ethers";
 
@@ -145,35 +129,6 @@ const EthrVcManager = () => {
     ],
   };
 
-  // const switchToSkaleTitan = async () => {
-  //   if (!window.ethereum) return false;
-
-  //   try {
-  //     // Try switching to the network
-  //     await window.ethereum.request({
-  //       method: "wallet_switchEthereumChain",
-  //       params: [{ chainId: SKALE_TITAN_CONFIG.chainId }],
-  //     });
-  //     return true;
-  //   } catch (switchError) {
-  //     // This error code indicates that the chain has not been added to MetaMask.
-  //     if (switchError.code === 4902) {
-  //       try {
-  //         await window.ethereum.request({
-  //           method: "wallet_addEthereumChain",
-  //           params: [SKALE_TITAN_CONFIG],
-  //         });
-  //         return true;
-  //       } catch (addError) {
-  //         console.error("Failed to add network:", addError);
-  //         return false;
-  //       }
-  //     }
-  //     console.error("Failed to switch network:", switchError);
-  //     return false;
-  //   }
-  // };
-
   // ---------------- helpers for ethers / BigNumber handling ----------------
   const safeToString = (v) => {
     try {
@@ -187,154 +142,6 @@ const EthrVcManager = () => {
       return String(v);
     }
   };
-
-  // useEffect(() => {
-  //   console.log("ethers features:", {
-  //     hasBrowserProvider: !!ethers?.BrowserProvider,
-  //     hasV5Providers: !!ethers?.providers?.Web3Provider,
-  //     hasGetDefault: typeof ethers.getDefaultProvider === "function",
-  //   });
-  // }, []);
-
-  // const getContractWithSigner = async () => {
-  //   if (typeof window === "undefined" || !window.ethereum)
-  //     throw new Error("No Web3 provider found (window.ethereum)");
-
-  //   // Check if wallet is connected
-  //   if (!walletAddress) {
-  //     throw new Error(
-  //       "Wallet not connected. Please connect your wallet first."
-  //     );
-  //   }
-
-  //   try {
-  //     // Use the signer from the useEthersSigner hook
-  //     console.log("Attempting to get signer from hook...");
-  //     const signer = await signerPromise;
-
-  //     if (!signer) {
-  //       console.log(
-  //         "Signer from hook is undefined, falling back to manual creation"
-  //       );
-  //       throw new Error("Signer from hook is undefined");
-  //     }
-
-  //     // Check network compatibility
-  //     try {
-  //       const signerAddress = await signer.getAddress();
-  //       console.log("Successfully got signer from hook:", signerAddress);
-
-  //       // Try to get network info
-  //       const provider = signer.provider;
-  //       if (provider && provider.getNetwork) {
-  //         const network = await provider.getNetwork();
-  //         console.log("Current network:", network);
-  //       }
-
-  //       return new ethers.Contract(VC_ADDRESS, VC_ABI, signer);
-  //     } catch (addressError) {
-  //       console.error("Error getting signer address:", addressError);
-  //       throw new Error(
-  //         "Failed to get signer address: " + addressError.message
-  //       );
-  //     }
-  //   } catch (error) {
-  //     console.error("getContractWithSigner error:", error);
-
-  //     // Fallback to manual provider creation if the hook fails
-  //     try {
-  //       console.log("Falling back to manual provider creation...");
-
-  //       // Ethers v6: BrowserProvider
-  //       if (ethers?.BrowserProvider) {
-  //         const provider = new ethers.BrowserProvider(window.ethereum);
-  //         try {
-  //           // Ensure accounts are connected
-  //           const accounts = await provider.send("eth_requestAccounts", []);
-  //           if (!accounts || accounts.length === 0) {
-  //             throw new Error("No accounts found. Please connect your wallet.");
-  //           }
-  //           console.log("Connected accounts:", accounts);
-  //         } catch (accountError) {
-  //           console.error("Account connection error:", accountError);
-  //           throw new Error(
-  //             "Failed to connect to wallet accounts: " + accountError.message
-  //           );
-  //         }
-
-  //         try {
-  //           const signer = await provider.getSigner();
-  //           console.log("Fallback signer obtained:", await signer.getAddress());
-  //           return new ethers.Contract(VC_ADDRESS, VC_ABI, signer);
-  //         } catch (signerError) {
-  //           console.error("Signer creation error:", signerError);
-  //           throw new Error("Failed to create signer: " + signerError.message);
-  //         }
-  //       }
-
-  //       // Ethers v5: providers.Web3Provider
-  //       if (ethers?.providers?.Web3Provider) {
-  //         const provider = new ethers.providers.Web3Provider(window.ethereum);
-  //         try {
-  //           // Ensure accounts are connected
-  //           const accounts = await provider.send("eth_requestAccounts", []);
-  //           if (!accounts || accounts.length === 0) {
-  //             throw new Error("No accounts found. Please connect your wallet.");
-  //           }
-  //           console.log("Connected accounts:", accounts);
-  //         } catch (accountError) {
-  //           console.error("Account connection error:", accountError);
-  //           throw new Error(
-  //             "Failed to connect to wallet accounts: " + accountError.message
-  //           );
-  //         }
-
-  //         try {
-  //           const signer = provider.getSigner();
-  //           console.log("Fallback signer obtained:", await signer.getAddress());
-  //           return new ethers.Contract(VC_ADDRESS, VC_ABI, signer);
-  //         } catch (signerError) {
-  //           console.error("Signer creation error:", signerError);
-  //           throw new Error("Failed to create signer: " + signerError.message);
-  //         }
-  //       }
-
-  //       throw new Error(
-  //         "Unsupported ethers version: no BrowserProvider or providers.Web3Provider found"
-  //       );
-  //     } catch (fallbackError) {
-  //       console.error("Fallback provider creation failed:", fallbackError);
-  //       throw new Error(
-  //         "Failed to create contract with signer: " + error.message
-  //       );
-  //     }
-  //   }
-  // };
-
-  //   const rpcUrl =
-  //     (typeof import.meta !== "undefined" &&
-  //       import.meta.env &&
-  //       import.meta.env.VITE_APP_RPC_URL) ||
-  //     null;
-
-  //   if (rpcUrl) {
-  //     if (ethers?.providers?.JsonRpcProvider) {
-  //       const jsonProvider = new ethers.providers.JsonRpcProvider(rpcUrl);
-  //       return new ethers.Contract(VC_ADDRESS, VC_ABI, jsonProvider);
-  //     }
-  //     if (typeof ethers.JsonRpcProvider === "function") {
-  //       const jsonProvider = new ethers.JsonRpcProvider(rpcUrl);
-  //       return new ethers.Contract(VC_ADDRESS, VC_ABI, jsonProvider);
-  //     }
-  //   }
-
-  //   if (typeof ethers.getDefaultProvider === "function") {
-  //     const defaultProvider = ethers.getDefaultProvider();
-  //     return new ethers.Contract(VC_ADDRESS, VC_ABI, defaultProvider);
-  //   }
-
-  //   throw new Error("No provider available for readonly operations");
-  // };
 
   // Contract validation helper
   const validateContract = async (contract) => {

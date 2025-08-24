@@ -319,7 +319,7 @@ function Navbar({ currentPage, setCurrentPage }) {
                 </div>
                 <button
                   onClick={() => setShowConnectOptions(true)}
-                  className="text-gray-200 bg-gray-400 dark:bg-gray-700 hover:cursor-pointer dark:text-gray-300 hover:text-gray-700 dark:hover:text-yellow-400 transition-colors p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+                  className="text-gray-200 bg-blue-900 hover:cursor-pointer hover:text-gray-700 dark:hover:text-yellow-400 transition-colors p-2 rounded-2xl hover:bg-gray-100 darkcard border border-blue-200"
                   title="Account Options"
                 >
                   <svg
@@ -335,7 +335,7 @@ function Navbar({ currentPage, setCurrentPage }) {
             ) : !showConnectOptions ? (
               <button
                 onClick={() => setShowConnectOptions(true)}
-                className="bg-blue-950 darkcard dark:shadow-yellow-500 dark-text-yellow text-white px-6 py-2.5 border border-blue-200 rounded-2xl font-semibold transition-all duration-200 dark:shadow-md hover:shadow-md hover:cursor-pointer transform hover:scale-105 flex items-center gap-2"
+                className="bg-blue-950 darkcard dark:shadow-yellow-500 dark-text-yellow text-white px-6 py-2.5 border border-blue-200 rounded-lg font-semibold transition-all duration-200 dark:shadow-md hover:shadow-md hover:cursor-pointer transform hover:scale-105 flex items-center gap-2"
               >
                 <svg
                   width="16"
@@ -355,7 +355,7 @@ function Navbar({ currentPage, setCurrentPage }) {
                   className={
                     `${
                       isDark
-                        ? "bg-[#101c2b]/95 border-blue-900/40 text-gray-100"
+                        ? "bg-[#101c2b]/95 border-blue-200 text-gray-100"
                         : "bg-white/95 border-gray-200/20 text-gray-800"
                     } ` +
                     "backdrop-blur-xl p-6 rounded-2xl shadow-2xl border min-w-[300px] transition-colors duration-300"
@@ -366,7 +366,7 @@ function Navbar({ currentPage, setCurrentPage }) {
                     <div className="flex flex-col gap-3">
                       <span
                         className={`text-lg font-semibold ${
-                          isDark ? "text-gray-100" : "text-gray-800"
+                          isDark ? "text-gray-100" : "text-blue-900"
                         }`}
                       >
                         {isAnyConnected
@@ -428,22 +428,36 @@ function Navbar({ currentPage, setCurrentPage }) {
                     {/* Connected Wallet Info */}
                     {/* Connected Internet Identity Info */}
                     {principal && !isLoggedIn && (
-                      <div className="p-4 rounded-xl bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200/60 shadow-sm">
-                        <div className="flex items-center gap-3 mb-3">
-                          <div className="p-1.5 bg-purple-100 rounded-lg">
+                      <div className="p-4 rounded-2xl border border-blue-200 shadow-sm">
+                        <div className="justify-center flex gap-1 mb-3">
+                          <div className="bg-blue-100 darkcard rounded-lg">
                             <svg
+                              xmlns="http://www.w3.org/2000/svg"
                               width="16"
                               height="16"
                               viewBox="0 0 24 24"
-                              fill="currentColor"
-                              className="text-purple-600"
                             >
-                              <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" />
+                              <path
+                                fill="#154c79"
+                                fill-rule="evenodd"
+                                d="m12 13.386l.023-.027c1.313 1.277 3.208 2.763 4.85 2.763A4.086 4.086 0 0 0 21 12.072c0-2.237-1.845-4.05-4.126-4.05c-1.746 0-3.465 1.296-4.874 2.735zm4.815 1.098c1.404 0 2.543-1.08 2.543-2.413S18.219 9.66 16.81 9.66s-2.781 1.304-3.744 2.411c.639.72 2.34 2.412 3.744 2.412z"
+                                clip-rule="evenodd"
+                              />
+                              <path
+                                fill="#154c79"
+                                fill-rule="evenodd"
+                                d="m12.054 13.44l-.09-.09c-1.273 1.264-3.15 2.772-4.837 2.772A4.087 4.087 0 0 1 3 12.072c0-2.237 1.845-4.05 4.127-4.05c1.773 0 3.42 1.399 4.806 2.893l.121-.126zm-4.869 1.043c-1.408 0-2.547-1.08-2.547-2.412S5.777 9.66 7.185 9.66s2.781 1.304 3.744 2.411c-.639.72-2.34 2.412-3.744 2.412"
+                                clip-rule="evenodd"
+                              />
+                              <path
+                                fill="#154c79"
+                                d="m10.758 11.924l.108.094l1.102 1.404c1.296 1.21 3.186 2.7 4.905 2.7a4.11 4.11 0 0 0 4.05-3.267c-.35.634-1.575 1.629-3.762 1.606q-.169.022-.35.023c-1.41 0-3.106-1.692-3.745-2.412l.014-.018l-1.328-1.598l-1.327-1.26c-1.062-.81-2.16-1.318-3.366-1.318c-2.039 0-3.677 1.62-4.005 3.555c.909-1.647 2.866-2.178 4.585-1.724c1.125.194 2.102 1.09 3.119 2.215"
+                              />
                             </svg>
                           </div>
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
-                              <span className="text-sm font-semibold text-gray-800">
+                              <span className="text-sm font-semibold text-blue-900 dark-text-yellow">
                                 Internet Identity
                               </span>
                               <div className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded-full flex items-center gap-1">
@@ -459,16 +473,16 @@ function Navbar({ currentPage, setCurrentPage }) {
 
                         <div className="space-y-3">
                           {/* Principal ID */}
-                          <div className="bg-white/70 backdrop-blur-sm rounded-lg p-3 border border-purple-100">
+                          <div className="backdrop-blur-sm rounded-lg p-3 border border-blue-200">
                             <div className="flex items-center justify-between mb-2">
-                              <span className="text-xs font-medium text-gray-600 uppercase tracking-wide">
+                              <span className="text-xs font-medium text-gray-700 dark-text-yellow uppercase tracking-wide">
                                 Principal ID
                               </span>
                               <button
                                 onClick={() =>
                                   navigator.clipboard.writeText(principal)
                                 }
-                                className="text-gray-400 hover:text-purple-600 transition-colors p-1 rounded hover:bg-purple-50"
+                                className="text-gray-400 hover:text-gray-700 transition-colors p-1 rounded hover:bg-yellow-50"
                                 title="Copy Principal ID"
                               >
                                 <svg
@@ -481,23 +495,23 @@ function Navbar({ currentPage, setCurrentPage }) {
                                 </svg>
                               </button>
                             </div>
-                            <div className="text-sm text-gray-700 font-mono bg-gray-50 p-2 rounded border break-all">
+                            <div className="text-sm text-gray-700 font-mono bg-gray-50 p-2 rounded border border-blue-200 break-all">
                               {shortenAddress(principal)}
                             </div>
                           </div>
 
                           {/* DID Section */}
                           {did ? (
-                            <div className="bg-white/70 backdrop-blur-sm rounded-lg p-3 border border-purple-100">
+                            <div className="backdrop-blur-sm rounded-lg p-3 border border-blue-200">
                               <div className="flex items-center justify-between mb-2">
-                                <span className="text-xs font-medium text-gray-600 uppercase tracking-wide">
+                                <span className="text-xs font-medium text-gray-700 dark-text-yellow uppercase tracking-wide">
                                   Decentralized ID
                                 </span>
                                 <button
                                   onClick={() =>
                                     navigator.clipboard.writeText(did)
                                   }
-                                  className="text-gray-400 hover:text-purple-600 transition-colors p-1 rounded hover:bg-purple-50"
+                                  className="text-gray-400 hover:text-gray-700 transition-colors p-1 rounded hover:bg-yellow-50"
                                   title="Copy DID"
                                 >
                                   <svg
@@ -510,7 +524,7 @@ function Navbar({ currentPage, setCurrentPage }) {
                                   </svg>
                                 </button>
                               </div>
-                              <div className="text-sm text-gray-700 font-mono bg-gradient-to-r from-blue-50 to-purple-50 p-2 rounded border break-all">
+                              <div className="text-sm text-gray-700 font-mono bg-gradient-to-r from-blue-50 to-purple-50 p-2 rounded border border-blue-200 break-all">
                                 {did}
                               </div>
                             </div>
@@ -545,7 +559,7 @@ function Navbar({ currentPage, setCurrentPage }) {
                               // Refresh DID if needed
                               window.location.reload();
                             }}
-                            className="flex-1 bg-white hover:bg-purple-50 text-purple-600 border border-purple-200 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2"
+                            className="flex-1 hover:bg-purple-50 text-blue-900 dark-text-yellow darkcard border border-blue-200 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2"
                           >
                             <svg
                               width="14"
@@ -559,7 +573,7 @@ function Navbar({ currentPage, setCurrentPage }) {
                           </button>
                           <button
                             onClick={logout}
-                            className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2"
+                            className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 darkcard px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2"
                           >
                             <svg
                               width="14"
@@ -621,7 +635,7 @@ function Navbar({ currentPage, setCurrentPage }) {
                         </div>
                         {/* Web3 Widget */}
                         <div className="justify-center flex items-center gap-3">
-                          {/* <DynamicWidget
+                          <DynamicWidget
                             variant="dropdown"
                             className="w-full bg-blue-950 backdrop-blur-md border border-blue-100 rounded-2xl"
                             innerButtonComponent={
@@ -629,15 +643,15 @@ function Navbar({ currentPage, setCurrentPage }) {
                                 Sign Up or Log In
                               </div>
                             }
-                          /> */}
+                          />
 
-                          <button
+                          {/* <button
                             className="shadow-sm shadow-cyan-950  dark:bg-transparent dark:shadow-sm dark:shadow-yellow-500  rounded-lg p-2  px-5 font-semibold hover:cursor-pointer flex flex-row gap-2"
                             onClick={() => setShowAuthFlow(true)}
                           >
                             <WalletMinimal className="w-5" />
                             Sign Up or Log In
-                          </button>
+                          </button> */}
                         </div>
                       </div>
                     )}
