@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useInternetIdentity } from "../contexts/InternetContext";
 import { useToast } from "./Toast";
 import VCSharer from "./VCSharer";
-import { Delete } from "lucide-react";
+import { ArrowBigDown, ArrowDownCircle, ArrowUp, ArrowUp01Icon, ArrowUpCircle, CalendarArrowDownIcon, CheckCircle2, CheckCircle2Icon, Clipboard, Clock10Icon, Copy, CopyIcon, Delete, DeleteIcon, FileWarningIcon, LoaderIcon, ScanSearchIcon, Share2Icon } from "lucide-react";
 
 const VCManager = () => {
   const {
@@ -245,28 +245,28 @@ const VCManager = () => {
     const getStatusIcon = () => {
       if (vc.revoked) return "🚫";
       if (isVerified?.isValid === false) return "⚠️";
-      if (isVerified?.isValid === true) return "✅";
-      return "📄";
+      if (isVerified?.isValid === true) return "✅", <CheckCircle2Icon className="text-emerald-600"/>;
+      return "📄", <Clipboard className="text-blue-900 dark-text-yellow"/>;
     };
 
     return (
       <div
-        className={`bg-white border-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 ${getStatusColor()}`}
+        className={`bg-white border border-blue-200 rounded-2xl shadow-sm hover:shadow-md transition-all duration-200 ${getStatusColor()}`}
       >
         {/* Compact Header */}
-        <div className="p-4 border-b border-gray-100">
+        <div className="p-4 border border-blue-200 rounded-2xl">
           <div className="flex items-start justify-between">
             <div className="flex-1 min-w-0">
               <div className="flex items-center space-x-2 mb-2">
                 <span className="text-lg">{getStatusIcon()}</span>
-                <h3 className="text-lg font-semibold text-gray-900 truncate">
+                <h3 className="text-lg font-semibold text-blue-900 dark-text-yellow truncate">
                   {primaryType.replace(/([A-Z])/g, " $1").trim()}
                 </h3>
                 <span
                   className={`px-2 py-1 text-xs rounded-full font-medium ${
                     vc.revoked
                       ? "bg-red-100 text-red-700"
-                      : "bg-green-100 text-green-700"
+                      : "bg-green-100 text-emerald-700"
                   }`}
                 >
                   {vc.revoked ? "Revoked" : "Active"}
@@ -296,9 +296,9 @@ const VCManager = () => {
               </div>
 
               {/* Quick Info */}
-              <div className="text-sm text-gray-600">
+              <div className="text-sm text-gray-600 mt-10">
                 <div className="flex items-center justify-between">
-                  <span>📅 {formatDate(vc.issuanceDate)}</span>
+                  <span><CalendarArrowDownIcon /> {formatDate(vc.issuanceDate)}</span>
                   {vc.expirationDate && (
                     <span
                       className={`${
@@ -308,7 +308,7 @@ const VCManager = () => {
                           : "text-gray-600"
                       }`}
                     >
-                      ⏰ {formatDate(vc.expirationDate)}
+                      <Clock10Icon /> {formatDate(vc.expirationDate)}
                     </span>
                   )}
                 </div>
@@ -319,18 +319,18 @@ const VCManager = () => {
             <div className="flex items-center space-x-2 ml-4">
               <button
                 onClick={() => setSharingVC(vc)}
-                className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                className="p-2 text-amber-400 hover:text-amber-500 rounded-lg transition-colors"
                 title="Share credential"
               >
-                📤
+                <Share2Icon />
               </button>
               <button
                 onClick={() => handleVerifyVC(vc.id)}
                 disabled={isVerifyingVC}
-                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
+                className="p-2 text-amber-400 hover:text-amber-500 rounded-lg transition-colors disabled:opacity-50"
                 title="Verify credential"
               >
-                {isVerifyingVC ? "🔄" : "🔍"}
+                {isVerifyingVC ? <LoaderIcon /> : <ScanSearchIcon />}
               </button>
               {isIssued && (
                 <button
@@ -338,15 +338,15 @@ const VCManager = () => {
                   className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                   title="Revoke credential"
                 >
-                  🗑️
+                  <DeleteIcon />
                 </button>
               )}
               <button
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="p-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
+                className="p-2 text-amber-400 hover:text-amber-500 rounded-lg transition-colors"
                 title={isExpanded ? "Collapse" : "Expand"}
               >
-                {isExpanded ? "🔼" : "🔽"}
+                {isExpanded ? <ArrowUpCircle /> : <ArrowDownCircle />}
               </button>
             </div>
           </div>
@@ -357,18 +357,13 @@ const VCManager = () => {
           <div className="p-4 space-y-4">
             {/* Verification Status */}
             {isVerified && (
-              <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+              <div className="border border-blue-200 rounded-2xl overflow-hidden">
                 <button
                   onClick={() => toggleSection("verification")}
-                  className="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 flex items-center justify-between text-left transition-colors"
+                  className="w-full px-4 py-3 darkcard hover:bg-gray-100 flex items-center justify-between text-left transition-colors"
                 >
                   <div className="flex items-center space-x-2">
-                    <span
-                      className={`w-3 h-3 rounded-full ${
-                        isVerified.isValid ? "bg-green-500" : "bg-red-500"
-                      }`}
-                    ></span>
-                    <span className="font-medium text-gray-900">
+                    <span className="font-medium text-gray-900 dark-text-yellow">
                       Verification Status
                     </span>
                     <span
@@ -382,7 +377,7 @@ const VCManager = () => {
                     </span>
                   </div>
                   <span className="text-gray-400">
-                    {expandedSections.verification ? "🔼" : "🔽"}
+                    {expandedSections.verification ? <ArrowUpCircle className="text-amber-400 hover:text-amber-500" /> : <ArrowDownCircle className="text-amber-400 hover:text-amber-500" />}
                   </span>
                 </button>
 
@@ -397,7 +392,7 @@ const VCManager = () => {
                         }`}
                       >
                         <span>
-                          {isVerified?.isExpired !== false ? "⚠️" : "✅"}
+                          {isVerified?.isExpired !== false ? <FileWarningIcon /> : <CheckCircle2 />}
                         </span>
                         <span>
                           {isVerified?.isExpired !== false
@@ -413,7 +408,7 @@ const VCManager = () => {
                         }`}
                       >
                         <span>
-                          {isVerified?.signatureValid === false ? "❌" : "🔐"}
+                          {isVerified?.signatureValid === false ? <X /> : <CheckCircle2 />}
                         </span>
                         <span>
                           {isVerified?.signatureValid === false
@@ -449,17 +444,16 @@ const VCManager = () => {
             )}
 
             {/* Credential Claims */}
-            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <div className="bg-white border border-blue-200 rounded-2xl overflow-hidden">
               <button
                 onClick={() => toggleSection("claims")}
-                className="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 flex items-center justify-between text-left transition-colors"
+                className="w-full px-4 py-3 darkcard hover:bg-gray-100 flex items-center justify-between text-left transition-colors"
               >
                 <div className="flex items-center space-x-2">
-                  <span>📋</span>
-                  <span className="font-medium text-gray-900">
+                  <span className="font-medium text-gray-900 dark-text-yellow">
                     Credential Claims
                   </span>
-                  <span className="text-sm text-gray-500">
+                  <span className="text-sm text-gray-500 dark-text-yellow">
                     (
                     {
                       Object.keys(vc.credentialSubject || {}).filter(
@@ -470,7 +464,7 @@ const VCManager = () => {
                   </span>
                 </div>
                 <span className="text-gray-400">
-                  {expandedSections.claims ? "🔼" : "🔽"}
+                  {expandedSections.claims ? <ArrowUpCircle className="text-amber-400 hover:text-amber-500" /> : <ArrowDownCircle className="text-amber-400 hover:text-amber-500" />}
                 </span>
               </button>
 
@@ -487,13 +481,13 @@ const VCManager = () => {
                         const isLong = stringValue.length > 50;
 
                         return (
-                          <div key={key} className="bg-gray-50 rounded-lg p-3">
+                          <div key={key} className="rounded-lg p-3">
                             <div className="flex items-start justify-between">
                               <div className="flex-1">
-                                <div className="text-sm font-medium text-gray-700 mb-1 capitalize">
+                                <div className="text-sm font-medium text-gray-700 dark-text-yellow mb-1 capitalize">
                                   {key.replace(/([A-Z])/g, " $1").trim()}
                                 </div>
-                                <div className="text-sm text-gray-900">
+                                <div className="text-sm text-gray-900 dark-text-yellow">
                                   {isLong ? (
                                     <div>
                                       <div className="break-words">
@@ -523,10 +517,10 @@ const VCManager = () => {
                                 onClick={() =>
                                   copyToClipboard(stringValue, `${key} value`)
                                 }
-                                className="ml-2 p-1 text-gray-400 hover:text-gray-600 transition-colors"
+                                className="ml-4 p-1 text-gray-400 hover:text-gray-600 transition-colors"
                                 title="Copy value"
                               >
-                                📋
+                                <CopyIcon />
                               </button>
                             </div>
                           </div>
@@ -545,31 +539,30 @@ const VCManager = () => {
             </div>
 
             {/* Technical Details */}
-            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <div className="bg-white border border-blue-200 rounded-2xl overflow-hidden">
               <button
                 onClick={() => toggleSection("details")}
-                className="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 flex items-center justify-between text-left transition-colors"
+                className="w-full px-4 py-3 flex items-center justify-between text-left transition-colors"
               >
                 <div className="flex items-center space-x-2">
-                  <span>🔧</span>
-                  <span className="font-medium text-gray-900">
+                  <span className="font-medium text-gray-900 dark-text-yellow">
                     Technical Details
                   </span>
                 </div>
                 <span className="text-gray-400">
-                  {expandedSections.details ? "🔼" : "🔽"}
+                  {expandedSections.details ? <ArrowUpCircle className="text-amber-400 hover:text-amber-500" /> : <ArrowDownCircle className="text-amber-400 hover:text-amber-500" />}
                 </span>
               </button>
 
               {expandedSections.details && (
                 <div className="p-4 space-y-3">
                   {/* VC ID */}
-                  <div className="bg-gray-50 rounded-lg p-3">
-                    <div className="text-sm font-medium text-gray-700 mb-1">
+                  <div className="rounded-lg p-3">
+                    <div className="text-sm font-medium text-gray-600 mb-1">
                       Credential ID
                     </div>
                     <div className="flex items-center space-x-2">
-                      <code className="text-xs text-gray-600 bg-white px-2 py-1 rounded border flex-1 break-all">
+                      <code className="text-xs text-gray-600 bg-white px-2 py-1 rounded-2xl border border-blue-200 flex-1 break-all">
                         {truncateText(vc.id, 40)}
                       </code>
                       <button
@@ -577,7 +570,7 @@ const VCManager = () => {
                         className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
                         title="Copy full ID"
                       >
-                        📋
+                        <CopyIcon />
                       </button>
                     </div>
                   </div>
@@ -585,12 +578,12 @@ const VCManager = () => {
                   {/* <p>{vc}</p> */}
 
                   {/* Issuer DID */}
-                  <div className="bg-gray-50 rounded-lg p-3">
-                    <div className="text-sm font-medium text-gray-700 mb-1">
-                      👤 Issuer DID
+                  <div className="rounded-lg p-3 mt-8">
+                    <div className="text-sm font-medium text-gray-600 mb-1">
+                      Issuer DID
                     </div>
                     <div className="flex items-center space-x-2">
-                      <code className="text-xs text-gray-600 bg-white px-2 py-1 rounded border flex-1 break-all">
+                      <code className="text-xs text-gray-600 bg-white px-2 py-1 rounded-2xl border border-blue-200 flex-1 break-all">
                         {truncateText(
                           vc.issueDid || vc.document?.issuer.id || "Unknown",
                           40
@@ -606,18 +599,18 @@ const VCManager = () => {
                         className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
                         title="Copy issuer DID"
                       >
-                        📋
+                        <CopyIcon />
                       </button>
                     </div>
                   </div>
 
                   {/* Subject DID */}
-                  <div className="bg-gray-50 rounded-lg p-3">
-                    <div className="text-sm font-medium text-gray-700 mb-1">
-                      🎯 Subject DID
+                  <div className="rounded-lg p-3 mt-8">
+                    <div className="text-sm font-medium text-gray-600 mb-1">
+                      Subject DID
                     </div>
                     <div className="flex items-center space-x-2">
-                      <code className="text-xs text-gray-600 bg-white px-2 py-1 rounded border flex-1 break-all">
+                      <code className="text-xs text-gray-600 bg-white px-2 py-1 rounded-2xl border border-blue-200 flex-1 break-all">
                         {truncateText(
                           vc.subjectDid ||
                             vc.credentialSubject?.id ||
@@ -635,7 +628,7 @@ const VCManager = () => {
                         className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
                         title="Copy subject DID"
                       >
-                        📋
+                        <CopyIcon />
                       </button>
                     </div>
                   </div>
@@ -663,30 +656,29 @@ const VCManager = () => {
             </div>
 
             {/* Raw JSON Display */}
-            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <div className="bg-white border border-blue-200 rounded-2xl overflow-hidden">
               <button
                 onClick={() => toggleSection("rawJson")}
-                className="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 flex items-center justify-between text-left transition-colors"
+                className="w-full px-4 py-3 flex items-center justify-between text-left transition-colors"
               >
                 <div className="flex items-center space-x-2">
-                  <span>📄</span>
-                  <span className="font-medium text-gray-900">
+                  <span className="font-medium text-gray-700 dark-text-yellow">
                     Raw JSON Document
                   </span>
-                  <span className="text-sm text-gray-500">
+                  <span className="text-sm text-gray-500 dark-text-Yellow">
                     (Full credential data)
                   </span>
                 </div>
                 <span className="text-gray-400">
-                  {expandedSections.rawJson ? "🔼" : "🔽"}
+                  {expandedSections.rawJson ? <ArrowUpCircle className="text-amber-400 hover:text-amber-500" /> : <ArrowDownCircle className="text-amber-400 hover:text-amber-500" />}
                 </span>
               </button>
 
               {expandedSections.rawJson && (
                 <div className="p-4">
-                  <div className="bg-gray-200 rounded-lg p-4 overflow-auto">
+                  <div className="bg-blue-100 darkcard rounded-2xl p-4 overflow-auto">
                     <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm text-gray-600">
+                      <span className="text-sm text-blue-900 dark-text-yellow">
                         Complete VC Document (W3C Format)
                       </span>
                       <button
@@ -696,12 +688,12 @@ const VCManager = () => {
                             "Raw JSON"
                           )
                         }
-                        className="px-3 py-1 bg-gray-500 hover:cursor-pointer hover:bg-gray-600 text-white text-xs rounded transition-colors"
+                        className="justify-center flex gap-2 px-3 py-1 bg-gray-500 darkcard hover:cursor-pointer hover:bg-gray-600 text-white text-xs rounded transition-colors"
                       >
-                        📋 Copy JSON
+                        <CopyIcon size={16} /> JSON
                       </button>
                     </div>
-                    <pre className="text-xs text-gray-700 overflow-x-auto whitespace-pre-wrap break-words">
+                    <pre className="text-xs text-gray-700 dark-text-white overflow-x-auto whitespace-pre-wrap break-words mt-8">
                       <code>{stringifyWithBigInt(vc.document || vc)}</code>
                     </pre>
                   </div>
@@ -709,9 +701,9 @@ const VCManager = () => {
                   {/* Metadata Display if available */}
                   {vc.metadata && (
                     <div className="mt-4">
-                      <div className="bg-blue-900 rounded-lg p-4 overflow-auto">
-                        <div className="flex items-center justify-between mb-3">
-                          <span className="text-sm text-blue-200">
+                      <div className="bg-blue-100 rounded-lg p-4 overflow-auto">
+                        <div className="flex items-center justify-between mb-8 mt-8">
+                          <span className="text-sm text-blue-900 dark-text-yellow">
                             On-Chain Metadata
                           </span>
                           <button
@@ -721,19 +713,19 @@ const VCManager = () => {
                                 "Metadata JSON"
                               )
                             }
-                            className="px-3 py-1 bg-blue-700 hover:bg-blue-600 text-white text-xs rounded transition-colors"
+                            className="justify-center flex gap-2 px-3 py-1 bg-gray-500 hover:bg-gray-600 text-white text-xs rounded transition-colors"
                           >
-                            📋 Copy Metadata
+                            <CopyIcon size={16} /> Metadata
                           </button>
                         </div>
-                        <pre className="text-xs text-blue-100 overflow-x-auto whitespace-pre-wrap break-words">
+                        <pre className="text-xs text-gray-700 dark-text-white overflow-x-auto whitespace-pre-wrap break-words">
                           <code>{stringifyWithBigInt(vc.metadata)}</code>
                         </pre>
                       </div>
                     </div>
                   )}
 
-                  <div className="mt-3 text-xs text-gray-500 bg-gray-50 p-3 rounded-lg">
+                  <div className="mt-3 text-xs text-gray-600 dark-text-white p-3 rounded-lg">
                     <p className="mb-1">
                       <strong>Document:</strong> The complete W3C Verifiable
                       Credential stored on IPFS

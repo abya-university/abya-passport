@@ -27,6 +27,10 @@ const VC_ADDRESS =
   import.meta.env.VITE_VC_CONTRACT_ADDRESS_SEPOLIA ||
   "0x4a2528C351533b9a6CDF01007883fcCD73d05863";
 
+const VC_ADDRESS_CELO =
+  import.meta.env.VITE_VC_CONTRACT_ADDRESS_CELO ||
+  "0x7D388A720C7bDC3712c847Eb96028B64e66F668d";
+
 // const VC_ABI = EthrABI.abi;
 const VC_ABI = EthrABI.abi;
 
@@ -314,9 +318,16 @@ Please check the contract address and ABI configuration.`;
         setChainStatus((s) => ({ ...s, [statusKey]: { sending: true } }));
         // const contract = await getContractWithSigner();
 
+        // console.log("primaryWallet:", primaryWallet);
+        // console.log("primaryWallet.connector:", primaryWallet?.connector);
+        // console.log("primaryWallet.address:", primaryWallet?.address);
+        // console.log("Connector methods:", Object.keys(primaryWallet.connector));
+
         if (isZeroDev) {
           // Try to get the wallet's sendTransaction method
           const walletClient = await primaryWallet.connector.getWalletClient();
+
+          console.log("Wallet Connect: ", walletClient);
 
           if (!walletClient) {
             throw new Error("Failed to get wallet client");
@@ -352,13 +363,22 @@ Please check the contract address and ABI configuration.`;
           });
 
           let txOrReceipt;
+
+          const uo1 = {
+            to: VC_ADDRESS,
+            data,
+            value: 0n,
+          };
+
+          const uo2 = {
+            to: VC_ADDRESS_CELO,
+            data,
+            value: 0n,
+          };
+
           try {
             // Send transaction using wallet client
-            const txOrReceipt = await walletClient.sendTransaction({
-              to: VC_ADDRESS,
-              data,
-              value: 0n,
-            });
+            const txOrReceipt = await walletClient.sendTransaction([uo1, uo2]);
             console.log("Transaction result:", txOrReceipt);
           } catch (contractError) {
             console.error("Contract call error:", contractError);

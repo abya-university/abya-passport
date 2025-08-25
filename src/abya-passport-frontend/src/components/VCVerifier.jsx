@@ -240,7 +240,7 @@ const VCVerifier = () => {
             onClick={() => setVerificationMethod("qr")}
             className={`p-4 rounded-lg border-2 transition-colors ${
               verificationMethod === "qr"
-                ? "border-blue-500 bg-blue-950 to-white text-blue-700 dark:text-yellow-300"
+                ? "border-yellow-400 bg-blue-100 to-white text-blue-700 dark:text-yellow-300"
                 : "border-blue-200 500 bg-gradient-to-br to-white from-blue-100 hover:border-gray-300 dark:hover:border-yellow-300 bg-white dark:bg-blue-900 text-blue-900 dark:text-yellow-300"
             }`}
           >
@@ -257,7 +257,7 @@ const VCVerifier = () => {
             onClick={() => setVerificationMethod("url")}
             className={`p-4 rounded-lg border-2 transition-colors ${
               verificationMethod === "url"
-                ? "border-blue-500 bg-blue-950 to-white text-blue-700 dark:text-yellow-300"
+                ? "border-yellow-400 bg-blue-100 to-white text-blue-700 dark:text-yellow-300"
                 : "border-blue-200 500 bg-gradient-to-br to-white from-blue-100 hover:border-gray-300 dark:hover:border-yellow-300 bg-white dark:bg-blue-900 text-blue-900 dark:text-yellow-300"
             }`}
           >
@@ -274,7 +274,7 @@ const VCVerifier = () => {
             onClick={() => setVerificationMethod("manual")}
             className={`p-4 rounded-lg border-2 transition-colors ${
               verificationMethod === "manual"
-                ? "border-blue-500 bg-blue-950 to-white text-blue-700 dark:text-yellow-300"
+                ? "border-yellow-400 bg-blue-100 to-white text-blue-700 dark:text-yellow-300"
                 : "border-blue-200 500 bg-gradient-to-br to-white from-blue-100 hover:border-gray-300 dark:hover:border-yellow-300 bg-white dark:bg-blue-900 text-blue-900 dark:text-yellow-300"
             }`}
           >
