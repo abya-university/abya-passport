@@ -307,7 +307,7 @@ const VCVerifier = () => {
                 : "Paste complete VC JSON document here"
             }
             rows={verificationMethod === "manual" ? 8 : 4}
-            className="w-full px-4 py-3 border border-blue-200  rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none text-blue-900 dark-text-white"
+            className="w-full px-4 py-3 border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 resize-none text-blue-900 dark-text-white"
           />
 
           <div className="flex justify-center space-x-3">
