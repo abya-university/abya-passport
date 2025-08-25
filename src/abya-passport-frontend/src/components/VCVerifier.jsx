@@ -2,7 +2,18 @@ import React, { useState } from "react";
 import { useInternetIdentity } from "../contexts/InternetContext";
 import { useIPFS } from "../contexts/IPFSContext";
 import { useToast } from "./Toast";
-import { AlertTriangle, CheckCircleIcon, Cross, Delete, DeleteIcon, TicketCheckIcon, Verified, VerifiedIcon, X, XCircle } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircleIcon,
+  Cross,
+  Delete,
+  DeleteIcon,
+  TicketCheckIcon,
+  Verified,
+  VerifiedIcon,
+  X,
+  XCircle,
+} from "lucide-react";
 
 const VCVerifier = () => {
   const { identity } = useInternetIdentity();
@@ -245,7 +256,17 @@ const VCVerifier = () => {
             }`}
           >
             <div className="text-2xl mb-2 justify-center flex">
-              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><path fill="#f0ce00" d="M4 4h6v6H4zm16 0v6h-6V4zm-6 11h2v-2h-2v-2h2v2h2v-2h2v2h-2v2h2v3h-2v2h-2v-2h-3v2h-2v-4h3zm2 0v3h2v-3zM4 20v-6h6v6zM6 6v2h2V6zm10 0v2h2V6zM6 16v2h2v-2zm-2-5h2v2H4zm5 0h4v4h-2v-2H9zm2-5h2v4h-2zM2 2v4H0V2a2 2 0 0 1 2-2h4v2zm20-2a2 2 0 0 1 2 2v4h-2V2h-4V0zM2 18v4h4v2H2a2 2 0 0 1-2-2v-4zm20 4v-4h2v4a2 2 0 0 1-2 2h-4v-2z"/></svg>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="48"
+                height="48"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  fill="#f0ce00"
+                  d="M4 4h6v6H4zm16 0v6h-6V4zm-6 11h2v-2h-2v-2h2v2h2v-2h2v2h-2v2h2v3h-2v2h-2v-2h-3v2h-2v-4h3zm2 0v3h2v-3zM4 20v-6h6v6zM6 6v2h2V6zm10 0v2h2V6zM6 16v2h2v-2zm-2-5h2v2H4zm5 0h4v4h-2v-2H9zm2-5h2v4h-2zM2 2v4H0V2a2 2 0 0 1 2-2h4v2zm20-2a2 2 0 0 1 2 2v4h-2V2h-4V0zM2 18v4h4v2H2a2 2 0 0 1-2-2v-4zm20 4v-4h2v4a2 2 0 0 1-2 2h-4v-2z"
+                />
+              </svg>
             </div>
             <div className="font-medium">QR Code</div>
             <div className="text-sm text-gray-600 dark:text-gray-400">
@@ -262,7 +283,29 @@ const VCVerifier = () => {
             }`}
           >
             <div className="text-2xl mb-2 justify-center flex">
-              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><path fill="none" stroke="#f0ce00" stroke-linecap="round" stroke-linejoin="round" d="m23.055 14.212l6.942-6.943c2.679-2.678 7.539-2.162 10.217.517s3.195 7.538.517 10.217L30.448 28.286c-2.679 2.678-7.538 2.162-10.217-.517" stroke-width="1"/><path fill="none" stroke="#f0ce00" stroke-linecap="round" stroke-linejoin="round" d="m24.945 33.789l-6.942 6.942c-2.679 2.678-7.539 2.162-10.217-.517s-3.195-7.538-.517-10.217l10.283-10.283c2.679-2.678 7.539-2.162 10.217.517" stroke-width="1"/></svg>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="48"
+                height="48"
+                viewBox="0 0 48 48"
+              >
+                <path
+                  fill="none"
+                  stroke="#f0ce00"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="m23.055 14.212l6.942-6.943c2.679-2.678 7.539-2.162 10.217.517s3.195 7.538.517 10.217L30.448 28.286c-2.679 2.678-7.538 2.162-10.217-.517"
+                  stroke-width="1"
+                />
+                <path
+                  fill="none"
+                  stroke="#f0ce00"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="m24.945 33.789l-6.942 6.942c-2.679 2.678-7.539 2.162-10.217-.517s-3.195-7.538-.517-10.217l10.283-10.283c2.679-2.678 7.539-2.162 10.217.517"
+                  stroke-width="1"
+                />
+              </svg>
             </div>
             <div className="font-medium">URL/Reference</div>
             <div className="text-sm text-gray-600 dark:text-gray-400">
@@ -279,7 +322,31 @@ const VCVerifier = () => {
             }`}
           >
             <div className="text-2xl mb-2 justify-center flex">
-              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><g fill="none"><path stroke="#f0ce00" stroke-linecap="round" stroke-width="1.5" d="M12 4h-2C6.229 4 4.343 4 3.172 5.172S2 8.229 2 12s0 5.657 1.172 6.828S6.229 20 10 20h2m3-16c3.114.01 4.765.108 5.828 1.172C22 6.343 22 8.229 22 12s0 5.657-1.172 6.828C19.765 19.892 18.114 19.99 15 20"/><path fill="#f0ce00" d="M9 12a1 1 0 1 1-2 0a1 1 0 0 1 2 0m4 0a1 1 0 1 1-2 0a1 1 0 0 1 2 0"/><path stroke="#f0ce00" stroke-linecap="round" stroke-width="1.5" d="M15 2v20"/></g></svg>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="48"
+                height="48"
+                viewBox="0 0 24 24"
+              >
+                <g fill="none">
+                  <path
+                    stroke="#f0ce00"
+                    stroke-linecap="round"
+                    stroke-width="1.5"
+                    d="M12 4h-2C6.229 4 4.343 4 3.172 5.172S2 8.229 2 12s0 5.657 1.172 6.828S6.229 20 10 20h2m3-16c3.114.01 4.765.108 5.828 1.172C22 6.343 22 8.229 22 12s0 5.657-1.172 6.828C19.765 19.892 18.114 19.99 15 20"
+                  />
+                  <path
+                    fill="#f0ce00"
+                    d="M9 12a1 1 0 1 1-2 0a1 1 0 0 1 2 0m4 0a1 1 0 1 1-2 0a1 1 0 0 1 2 0"
+                  />
+                  <path
+                    stroke="#f0ce00"
+                    stroke-linecap="round"
+                    stroke-width="1.5"
+                    d="M15 2v20"
+                  />
+                </g>
+              </svg>
             </div>
             <div className="font-medium">Manual Input</div>
             <div className="text-sm text-gray-600 dark:text-gray-400">
@@ -293,7 +360,8 @@ const VCVerifier = () => {
           <label className="mt-20 block text-sm font-medium text-blue-900 dark-text-yellow">
             {verificationMethod === "qr" && "QR Code Data or VC Reference"}
             {verificationMethod === "url" && "VC URL or IPFS CID"}
-            {verificationMethod === "manual" && "Manual Input - VC JSON Document"}
+            {verificationMethod === "manual" &&
+              "Manual Input - VC JSON Document"}
           </label>
 
           <textarea
@@ -316,14 +384,15 @@ const VCVerifier = () => {
               disabled={isVerifying || !verificationInput.trim()}
               className="justify-center flex gap-2 bg-emerald-700 hover:bg-emerald-600 hover:bg-blue-900 text-white py-3 px-6 rounded-lg border border-blue-200 font-semibold transition-all duration-200 shadow-md hover:shadow-lg"
             >
-              <VerifiedIcon/> {isVerifying ? "Verifying..." : "Verify Credential"}
+              <VerifiedIcon />{" "}
+              {isVerifying ? "Verifying..." : "Verify Credential"}
             </button>
 
             <button
               onClick={clearResults}
               className="justify-center flex gap-2 px-6 py-3 hover:bg-red-700 hover:text-white text-red-700 rounded-lg font-semibold transition-colors"
             >
-              <DeleteIcon/> Clear
+              <DeleteIcon /> Clear
             </button>
           </div>
         </div>
@@ -360,11 +429,13 @@ const VCVerifier = () => {
         <div className="backdrop-blur-md rounded-xl p-6 shadow-lg">
           <h2 className="text-xl font-semibold text-blue-900 dark-text-yellow mb-6 flex items-center">
             <span className="mr-2">
-              {verificationResult.error
-                ? <Delete/>
-                : verificationResult.verification?.isValid
-                ? <Verified/>
-                : <AlertTriangle/>}
+              {verificationResult.error ? (
+                <Delete />
+              ) : verificationResult.verification?.isValid ? (
+                <Verified />
+              ) : (
+                <AlertTriangle />
+              )}
             </span>
             Verification Results
           </h2>
@@ -374,9 +445,7 @@ const VCVerifier = () => {
               <div className="text-red-800 font-medium mb-2">
                 Verification Failed
               </div>
-              <div className="text-red-700">
-                {verificationResult.error}
-              </div>
+              <div className="text-red-700">{verificationResult.error}</div>
             </div>
           ) : (
             <div className="space-y-6">
@@ -409,9 +478,11 @@ const VCVerifier = () => {
                     }`}
                   >
                     <span>
-                      {verificationResult.verification.structureValid
-                        ? <CheckCircleIcon/>
-                        : <XCircle/>}
+                      {verificationResult.verification.structureValid ? (
+                        <CheckCircleIcon />
+                      ) : (
+                        <XCircle />
+                      )}
                     </span>
                     <span>Structure Valid</span>
                   </div>
@@ -424,9 +495,11 @@ const VCVerifier = () => {
                     }`}
                   >
                     <span>
-                      {verificationResult.verification.signatureValid
-                        ? <CheckCircleIcon/>
-                        : "❌"}
+                      {verificationResult.verification.signatureValid ? (
+                        <CheckCircleIcon />
+                      ) : (
+                        "❌"
+                      )}
                     </span>
                     <span>Signature Valid</span>
                   </div>
@@ -439,7 +512,11 @@ const VCVerifier = () => {
                     }`}
                   >
                     <span>
-                      {!verificationResult.verification.isExpired ? <CheckCircleIcon/> : <XCircle/>}
+                      {!verificationResult.verification.isExpired ? (
+                        <CheckCircleIcon />
+                      ) : (
+                        <XCircle />
+                      )}
                     </span>
                     <span>Not Expired</span>
                   </div>
@@ -452,9 +529,11 @@ const VCVerifier = () => {
                     }`}
                   >
                     <span>
-                      {verificationResult.verification.issuerValid
-                        ? <CheckCircleIcon/>
-                        : <XCircle/>}
+                      {verificationResult.verification.issuerValid ? (
+                        <CheckCircleIcon />
+                      ) : (
+                        <XCircle />
+                      )}
                     </span>
                     <span>Issuer Valid</span>
                   </div>
@@ -600,6 +679,9 @@ const VCVerifier = () => {
         <div className="text-sm text-blue-900 dark-text-white space-y-2">
           <p>This verifier checks:</p>
           <ul className="list-disc list-inside text-left space-y-2 ml-70">
+            <li>
+              Certificate authenticity of canister responses (mainnet root key)
+            </li>
             <li>Credential structure and required fields</li>
             <li>Expiration dates and validity periods</li>
             <li>Issuer information and DID resolution</li>
@@ -609,7 +691,8 @@ const VCVerifier = () => {
           <p className="mt-10">
             <strong>Note:</strong> Full cryptographic verification requires
             access to the issuer's public key and signature validation. This
-            implementation provides structural and basic validity checks.
+            implementation provides structural, basic validity, and certificate
+            authenticity checks for canister responses.
           </p>
         </div>
       </div>

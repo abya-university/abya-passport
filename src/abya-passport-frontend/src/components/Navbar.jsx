@@ -68,7 +68,9 @@ function Navbar({ currentPage, setCurrentPage }) {
     localSetWalletDid(ctxDid);
   }, [ctxDid]);
 
-  const canisterId = "uxrrr-q7777-77774-qaaaq-cai";
+  const canisterId =
+    import.meta.env.VITE_APP_BACKEND_CANISTER_ID ||
+    "uxrrr-q7777-77774-qaaaq-cai";
 
   console.log("DID2:", did);
   console.log("Principal:", principal);

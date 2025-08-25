@@ -1,10 +1,29 @@
 // src/abya-passport-frontend/src/components/VCManager.jsx
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useInternetIdentity } from "../contexts/InternetContext";
 import { useToast } from "./Toast";
 import VCSharer from "./VCSharer";
-import { ArrowBigDown, ArrowDownCircle, ArrowUp, ArrowUp01Icon, ArrowUpCircle, CalendarArrowDownIcon, CheckCircle2, CheckCircle2Icon, Clipboard, Clock10Icon, Copy, CopyIcon, Delete, DeleteIcon, FileWarningIcon, LoaderIcon, ScanSearchIcon, Share2Icon } from "lucide-react";
+import {
+  ArrowBigDown,
+  ArrowDownCircle,
+  ArrowUp,
+  ArrowUp01Icon,
+  ArrowUpCircle,
+  CalendarArrowDownIcon,
+  CheckCircle2,
+  CheckCircle2Icon,
+  Clipboard,
+  Clock10Icon,
+  Copy,
+  CopyIcon,
+  Delete,
+  DeleteIcon,
+  FileWarningIcon,
+  LoaderIcon,
+  ScanSearchIcon,
+  Share2Icon,
+} from "lucide-react";
 
 const VCManager = () => {
   const {
@@ -245,8 +264,9 @@ const VCManager = () => {
     const getStatusIcon = () => {
       if (vc.revoked) return "🚫";
       if (isVerified?.isValid === false) return "⚠️";
-      if (isVerified?.isValid === true) return "✅", <CheckCircle2Icon className="text-emerald-600"/>;
-      return "📄", <Clipboard className="text-blue-900 dark-text-yellow"/>;
+      if (isVerified?.isValid === true)
+        return "✅", (<CheckCircle2Icon className="text-emerald-600" />);
+      return "📄", (<Clipboard className="text-blue-900 dark-text-yellow" />);
     };
 
     return (
@@ -298,7 +318,9 @@ const VCManager = () => {
               {/* Quick Info */}
               <div className="text-sm text-gray-600 mt-10">
                 <div className="flex items-center justify-between">
-                  <span><CalendarArrowDownIcon /> {formatDate(vc.issuanceDate)}</span>
+                  <span>
+                    <CalendarArrowDownIcon /> {formatDate(vc.issuanceDate)}
+                  </span>
                   {vc.expirationDate && (
                     <span
                       className={`${
@@ -377,7 +399,11 @@ const VCManager = () => {
                     </span>
                   </div>
                   <span className="text-gray-400">
-                    {expandedSections.verification ? <ArrowUpCircle className="text-amber-400 hover:text-amber-500" /> : <ArrowDownCircle className="text-amber-400 hover:text-amber-500" />}
+                    {expandedSections.verification ? (
+                      <ArrowUpCircle className="text-amber-400 hover:text-amber-500" />
+                    ) : (
+                      <ArrowDownCircle className="text-amber-400 hover:text-amber-500" />
+                    )}
                   </span>
                 </button>
 
@@ -392,7 +418,11 @@ const VCManager = () => {
                         }`}
                       >
                         <span>
-                          {isVerified?.isExpired !== false ? <FileWarningIcon /> : <CheckCircle2 />}
+                          {isVerified?.isExpired !== false ? (
+                            <FileWarningIcon />
+                          ) : (
+                            <CheckCircle2 />
+                          )}
                         </span>
                         <span>
                           {isVerified?.isExpired !== false
@@ -408,7 +438,11 @@ const VCManager = () => {
                         }`}
                       >
                         <span>
-                          {isVerified?.signatureValid === false ? <X /> : <CheckCircle2 />}
+                          {isVerified?.signatureValid === false ? (
+                            <X />
+                          ) : (
+                            <CheckCircle2 />
+                          )}
                         </span>
                         <span>
                           {isVerified?.signatureValid === false
@@ -464,7 +498,11 @@ const VCManager = () => {
                   </span>
                 </div>
                 <span className="text-gray-400">
-                  {expandedSections.claims ? <ArrowUpCircle className="text-amber-400 hover:text-amber-500" /> : <ArrowDownCircle className="text-amber-400 hover:text-amber-500" />}
+                  {expandedSections.claims ? (
+                    <ArrowUpCircle className="text-amber-400 hover:text-amber-500" />
+                  ) : (
+                    <ArrowDownCircle className="text-amber-400 hover:text-amber-500" />
+                  )}
                 </span>
               </button>
 
@@ -550,7 +588,11 @@ const VCManager = () => {
                   </span>
                 </div>
                 <span className="text-gray-400">
-                  {expandedSections.details ? <ArrowUpCircle className="text-amber-400 hover:text-amber-500" /> : <ArrowDownCircle className="text-amber-400 hover:text-amber-500" />}
+                  {expandedSections.details ? (
+                    <ArrowUpCircle className="text-amber-400 hover:text-amber-500" />
+                  ) : (
+                    <ArrowDownCircle className="text-amber-400 hover:text-amber-500" />
+                  )}
                 </span>
               </button>
 
@@ -670,7 +712,11 @@ const VCManager = () => {
                   </span>
                 </div>
                 <span className="text-gray-400">
-                  {expandedSections.rawJson ? <ArrowUpCircle className="text-amber-400 hover:text-amber-500" /> : <ArrowDownCircle className="text-amber-400 hover:text-amber-500" />}
+                  {expandedSections.rawJson ? (
+                    <ArrowUpCircle className="text-amber-400 hover:text-amber-500" />
+                  ) : (
+                    <ArrowDownCircle className="text-amber-400 hover:text-amber-500" />
+                  )}
                 </span>
               </button>
 
