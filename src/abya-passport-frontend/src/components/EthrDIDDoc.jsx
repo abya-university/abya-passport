@@ -181,7 +181,7 @@ export default function EthrDIDDoc() {
             <span className="font-semibold text-blue-900 dark-text-white">
               DID Doc: CID
             </span>
-            <span className="break-all text-blue-900 dark:text-yellow-200">
+            <span className="break-all text-blue-900 dark-text-yellow">
               {ipfsCid || "–"}
             </span>
           </div>
@@ -189,7 +189,7 @@ export default function EthrDIDDoc() {
             <span className="font-semibold text-blue-900 dark-text-white">
               Registry: CID
             </span>
-            <span className="break-all text-blue-900 dark:text-yellow-200">
+            <span className="break-all text-blue-900 dark-text-yellow">
               {registryCid || "–"}
             </span>
           </div>
