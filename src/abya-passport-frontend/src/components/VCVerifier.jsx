@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useInternetIdentity } from "../contexts/InternetContext";
 import { useIPFS } from "../contexts/IPFSContext";
 import { useToast } from "./Toast";
+import { AlertTriangle, CheckCircleIcon, Cross, Delete, DeleteIcon, TicketCheckIcon, Verified, VerifiedIcon, X, XCircle } from "lucide-react";
 
 const VCVerifier = () => {
   const { identity } = useInternetIdentity();
@@ -220,17 +221,17 @@ const VCVerifier = () => {
   return (
     <div className="max-w-4xl mx-auto px-6 py-8">
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent mb-4">
-          VC Verifier
+        <h1 className="text-5xl font-bold bg-blue-900 dark-text-yellow bg-clip-text text-transparent mt-8 mb-4">
+          Credential Verifier
         </h1>
-        <p className="text-gray-600">
+        <p className="text-xl text-gray-600 mb-20 text-center">
           Verify the authenticity and validity of Verifiable Credentials
         </p>
       </div>
 
       {/* Verification Method Selection */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-        <h2 className="text-xl font-semibold text-gray-800 mb-4">
+      <div className="backdrop-blur-md rounded-xl p-6 mb-6">
+        <h2 className="text-xl font-semibold text-blue-900 dark-text-yellow mb-8">
           Verification Method
         </h2>
 
@@ -239,48 +240,60 @@ const VCVerifier = () => {
             onClick={() => setVerificationMethod("qr")}
             className={`p-4 rounded-lg border-2 transition-colors ${
               verificationMethod === "qr"
-                ? "border-blue-500 bg-blue-50 text-blue-700"
-                : "border-gray-200 hover:border-gray-300"
+                ? "border-yellow-400 bg-blue-100 to-white text-blue-700 dark:text-yellow-300"
+                : "border-blue-200 500 bg-gradient-to-br to-white from-blue-100 hover:border-gray-300 dark:hover:border-yellow-300 bg-white dark:bg-blue-900 text-blue-900 dark:text-yellow-300"
             }`}
           >
-            <div className="text-2xl mb-2">📱</div>
+            <div className="text-2xl mb-2 justify-center flex">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><path fill="#f0ce00" d="M4 4h6v6H4zm16 0v6h-6V4zm-6 11h2v-2h-2v-2h2v2h2v-2h2v2h-2v2h2v3h-2v2h-2v-2h-3v2h-2v-4h3zm2 0v3h2v-3zM4 20v-6h6v6zM6 6v2h2V6zm10 0v2h2V6zM6 16v2h2v-2zm-2-5h2v2H4zm5 0h4v4h-2v-2H9zm2-5h2v4h-2zM2 2v4H0V2a2 2 0 0 1 2-2h4v2zm20-2a2 2 0 0 1 2 2v4h-2V2h-4V0zM2 18v4h4v2H2a2 2 0 0 1-2-2v-4zm20 4v-4h2v4a2 2 0 0 1-2 2h-4v-2z"/></svg>
+            </div>
             <div className="font-medium">QR Code</div>
-            <div className="text-sm text-gray-600">Scan or paste QR data</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">
+              Scan or paste QR data
+            </div>
           </button>
 
           <button
             onClick={() => setVerificationMethod("url")}
             className={`p-4 rounded-lg border-2 transition-colors ${
               verificationMethod === "url"
-                ? "border-blue-500 bg-blue-50 text-blue-700"
-                : "border-gray-200 hover:border-gray-300"
+                ? "border-yellow-400 bg-blue-100 to-white text-blue-700 dark:text-yellow-300"
+                : "border-blue-200 500 bg-gradient-to-br to-white from-blue-100 hover:border-gray-300 dark:hover:border-yellow-300 bg-white dark:bg-blue-900 text-blue-900 dark:text-yellow-300"
             }`}
           >
-            <div className="text-2xl mb-2">🔗</div>
+            <div className="text-2xl mb-2 justify-center flex">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><path fill="none" stroke="#f0ce00" stroke-linecap="round" stroke-linejoin="round" d="m23.055 14.212l6.942-6.943c2.679-2.678 7.539-2.162 10.217.517s3.195 7.538.517 10.217L30.448 28.286c-2.679 2.678-7.538 2.162-10.217-.517" stroke-width="1"/><path fill="none" stroke="#f0ce00" stroke-linecap="round" stroke-linejoin="round" d="m24.945 33.789l-6.942 6.942c-2.679 2.678-7.539 2.162-10.217-.517s-3.195-7.538-.517-10.217l10.283-10.283c2.679-2.678 7.539-2.162 10.217.517" stroke-width="1"/></svg>
+            </div>
             <div className="font-medium">URL/Reference</div>
-            <div className="text-sm text-gray-600">VC URL or IPFS CID</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">
+              VC URL or IPFS CID
+            </div>
           </button>
 
           <button
             onClick={() => setVerificationMethod("manual")}
             className={`p-4 rounded-lg border-2 transition-colors ${
               verificationMethod === "manual"
-                ? "border-blue-500 bg-blue-50 text-blue-700"
-                : "border-gray-200 hover:border-gray-300"
+                ? "border-yellow-400 bg-blue-100 to-white text-blue-700 dark:text-yellow-300"
+                : "border-blue-200 500 bg-gradient-to-br to-white from-blue-100 hover:border-gray-300 dark:hover:border-yellow-300 bg-white dark:bg-blue-900 text-blue-900 dark:text-yellow-300"
             }`}
           >
-            <div className="text-2xl mb-2">⌨️</div>
+            <div className="text-2xl mb-2 justify-center flex">
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24"><g fill="none"><path stroke="#f0ce00" stroke-linecap="round" stroke-width="1.5" d="M12 4h-2C6.229 4 4.343 4 3.172 5.172S2 8.229 2 12s0 5.657 1.172 6.828S6.229 20 10 20h2m3-16c3.114.01 4.765.108 5.828 1.172C22 6.343 22 8.229 22 12s0 5.657-1.172 6.828C19.765 19.892 18.114 19.99 15 20"/><path fill="#f0ce00" d="M9 12a1 1 0 1 1-2 0a1 1 0 0 1 2 0m4 0a1 1 0 1 1-2 0a1 1 0 0 1 2 0"/><path stroke="#f0ce00" stroke-linecap="round" stroke-width="1.5" d="M15 2v20"/></g></svg>
+            </div>
             <div className="font-medium">Manual Input</div>
-            <div className="text-sm text-gray-600">Paste JSON directly</div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">
+              Paste JSON directly
+            </div>
           </button>
         </div>
 
         {/* Verification Input */}
         <div className="space-y-4">
-          <label className="block text-sm font-medium text-gray-700">
+          <label className="mt-20 block text-sm font-medium text-blue-900 dark-text-yellow">
             {verificationMethod === "qr" && "QR Code Data or VC Reference"}
             {verificationMethod === "url" && "VC URL or IPFS CID"}
-            {verificationMethod === "manual" && "VC JSON Document"}
+            {verificationMethod === "manual" && "Manual Input - VC JSON Document"}
           </label>
 
           <textarea
@@ -294,31 +307,33 @@ const VCVerifier = () => {
                 : "Paste complete VC JSON document here"
             }
             rows={verificationMethod === "manual" ? 8 : 4}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+            className="w-full px-4 py-3 border border-blue-200  rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none text-blue-900 dark-text-white"
           />
 
-          <div className="flex space-x-3">
+          <div className="flex justify-center space-x-3">
             <button
               onClick={handleVerification}
               disabled={isVerifying || !verificationInput.trim()}
-              className="flex-1 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white py-3 px-6 rounded-lg font-semibold disabled:opacity-50 transition-all duration-200 shadow-md hover:shadow-lg"
+              className="justify-center flex gap-2 bg-emerald-700 hover:bg-emerald-600 hover:bg-blue-900 text-white py-3 px-6 rounded-lg border border-blue-200 font-semibold transition-all duration-200 shadow-md hover:shadow-lg"
             >
-              {isVerifying ? "Verifying..." : "🔍 Verify Credential"}
+              <VerifiedIcon/> {isVerifying ? "Verifying..." : "Verify Credential"}
             </button>
 
             <button
               onClick={clearResults}
-              className="px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-semibold transition-colors"
+              className="justify-center flex gap-2 px-6 py-3 hover:bg-red-700 hover:text-white text-red-700 rounded-lg font-semibold transition-colors"
             >
-              Clear
+              <DeleteIcon/> Clear
             </button>
           </div>
         </div>
 
         {/* Help Section */}
-        <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-          <h3 className="font-medium text-blue-900 mb-2">Supported Formats:</h3>
-          <ul className="text-sm text-blue-800 space-y-1">
+        <div className="mt-6 p-4 rounded-lg">
+          <h3 className="font-medium text-blue-900 dark-text-white mb-2">
+            Supported Formats:
+          </h3>
+          <ul className="text-sm text-blue-900 dark-text-white space-y-1">
             <li>
               • <code>vc://vcId/ipfsCid</code> - Our custom VC reference format
             </li>
@@ -342,24 +357,26 @@ const VCVerifier = () => {
 
       {/* Verification Results */}
       {verificationResult && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-lg">
-          <h2 className="text-xl font-semibold text-gray-800 mb-6 flex items-center">
+        <div className="backdrop-blur-md rounded-xl p-6 shadow-lg">
+          <h2 className="text-xl font-semibold text-blue-900 dark-text-yellow mb-6 flex items-center">
             <span className="mr-2">
               {verificationResult.error
-                ? "❌"
+                ? <Delete/>
                 : verificationResult.verification?.isValid
-                ? "✅"
-                : "⚠️"}
+                ? <Verified/>
+                : <AlertTriangle/>}
             </span>
             Verification Results
           </h2>
 
           {verificationResult.error ? (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="bg-red-100 border-red-200 rounded-lg p-4">
               <div className="text-red-800 font-medium mb-2">
                 Verification Failed
               </div>
-              <div className="text-red-700">{verificationResult.error}</div>
+              <div className="text-red-700">
+                {verificationResult.error}
+              </div>
             </div>
           ) : (
             <div className="space-y-6">
@@ -367,48 +384,48 @@ const VCVerifier = () => {
               <div
                 className={`p-4 rounded-lg border-2 ${
                   verificationResult.verification.isValid
-                    ? "bg-green-50 border-green-200"
-                    : "bg-red-50 border-red-200"
+                    ? "backdrop-blur-md border-green-200 text-emerald-700"
+                    : "bg-red-100 border-red-200 text-red-700"
                 }`}
               >
                 <div className="flex items-center justify-between mb-3">
-                  <span className="font-medium text-lg">
+                  <span className="font-bold text-lg">
                     {verificationResult.verification.isValid
-                      ? "✅ Valid"
-                      : "❌ Invalid"}
+                      ? "Valid"
+                      : "Invalid"}
                   </span>
-                  <span className="text-sm text-gray-600">
+                  <span className="text-sm text-gray-700">
                     Verified: {verificationResult.timestamp.toLocaleString()}
                   </span>
                 </div>
 
                 {/* Verification Details */}
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="grid grid-cols-2 gap-4 p-8 text-sm">
                   <div
-                    className={`flex items-center space-x-2 ${
+                    className={`flex items-center space-x-2 mb-8 ${
                       verificationResult.verification.structureValid
-                        ? "text-green-600"
-                        : "text-red-600"
+                        ? "text-emerald-600 font-semibold"
+                        : "text-red-600 font-semibold"
                     }`}
                   >
                     <span>
                       {verificationResult.verification.structureValid
-                        ? "✅"
-                        : "❌"}
+                        ? <CheckCircleIcon/>
+                        : <XCircle/>}
                     </span>
                     <span>Structure Valid</span>
                   </div>
 
                   <div
-                    className={`flex items-center space-x-2 ${
+                    className={`flex items-center space-x-2 mb-8 ${
                       verificationResult.verification.signatureValid
-                        ? "text-green-600"
-                        : "text-red-600"
+                        ? "text-emerald-600 font-semibold"
+                        : "text-red-600 font-semibold"
                     }`}
                   >
                     <span>
                       {verificationResult.verification.signatureValid
-                        ? "✅"
+                        ? <CheckCircleIcon/>
                         : "❌"}
                     </span>
                     <span>Signature Valid</span>
@@ -417,12 +434,12 @@ const VCVerifier = () => {
                   <div
                     className={`flex items-center space-x-2 ${
                       !verificationResult.verification.isExpired
-                        ? "text-green-600"
-                        : "text-red-600"
+                        ? "text-emerald-600 font-semibold"
+                        : "text-red600 font-semibold"
                     }`}
                   >
                     <span>
-                      {!verificationResult.verification.isExpired ? "✅" : "❌"}
+                      {!verificationResult.verification.isExpired ? <CheckCircleIcon/> : <XCircle/>}
                     </span>
                     <span>Not Expired</span>
                   </div>
@@ -430,14 +447,14 @@ const VCVerifier = () => {
                   <div
                     className={`flex items-center space-x-2 ${
                       verificationResult.verification.issuerValid
-                        ? "text-green-600"
-                        : "text-red-600"
+                        ? "text-emerald-600 font-semibold"
+                        : "text-red-600 font-semibold"
                     }`}
                   >
                     <span>
                       {verificationResult.verification.issuerValid
-                        ? "✅"
-                        : "❌"}
+                        ? <CheckCircleIcon/>
+                        : <XCircle/>}
                     </span>
                     <span>Issuer Valid</span>
                   </div>
@@ -445,7 +462,7 @@ const VCVerifier = () => {
 
                 {/* Errors */}
                 {verificationResult.verification.errors.length > 0 && (
-                  <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="mt-8 p-3 border border-red-200 rounded-lg">
                     <div className="font-medium text-red-800 mb-2">
                       Issues Found:
                     </div>
@@ -470,21 +487,23 @@ const VCVerifier = () => {
               {verificationResult.vc && (
                 <div className="space-y-4">
                   {/* Basic Info */}
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h3 className="font-medium text-gray-900 mb-3">
+                  <div className="backdrop-blur-md rounded-lg p-4 mt-10">
+                    <h3 className="font-medium text-blue-900 dark-text-yellow mb-10">
                       Credential Information
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <span className="font-medium text-gray-700">Type:</span>
-                        <div className="flex flex-wrap gap-1 mt-1">
+                      <div className="items-center">
+                        <span className="font-semibold text-gray-700 dark-text-yellow mb-4">
+                          Type:
+                        </span>
+                        <div className="justify-center flex flex-wrap gap-1 mt-1">
                           {(Array.isArray(verificationResult.vc.type)
                             ? verificationResult.vc.type
                             : [verificationResult.vc.type]
                           ).map((type, index) => (
                             <span
                               key={index}
-                              className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs"
+                              className="px-2 py-1 bg-blue-100 text-blue-700 dark-text-yellow rounded-full text-xs"
                             >
                               {type}
                             </span>
@@ -492,8 +511,8 @@ const VCVerifier = () => {
                         </div>
                       </div>
 
-                      <div>
-                        <span className="font-medium text-gray-700">
+                      <div className="mb-4">
+                        <span className="font-semibold text-gray-700 dark-text-yellow">
                           Issuer:
                         </span>
                         <div className="text-gray-600 break-all">
@@ -504,7 +523,7 @@ const VCVerifier = () => {
                       </div>
 
                       <div>
-                        <span className="font-medium text-gray-700">
+                        <span className="font-semibold text-gray-700 dark-text-yellow">
                           Subject:
                         </span>
                         <div className="text-gray-600 break-all">
@@ -514,7 +533,7 @@ const VCVerifier = () => {
                       </div>
 
                       <div>
-                        <span className="font-medium text-gray-700">
+                        <span className="font-semibold text-gray-700 dark-text-yellow">
                           Issued:
                         </span>
                         <div className="text-gray-600">
@@ -529,8 +548,10 @@ const VCVerifier = () => {
                   </div>
 
                   {/* Claims */}
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h3 className="font-medium text-gray-900 mb-3">Claims</h3>
+                  <div className="bg-gray-100 darkcard rounded-lg p-4 mt-10">
+                    <h3 className="font-medium text-blue-900 dark-text-yellow mb-8">
+                      Credential Claim
+                    </h3>
                     <div className="space-y-2">
                       {Object.entries(
                         verificationResult.vc.credentialSubject || {}
@@ -538,7 +559,7 @@ const VCVerifier = () => {
                         .filter(([key]) => key !== "id")
                         .map(([key, value]) => (
                           <div key={key} className="flex items-start space-x-3">
-                            <span className="font-medium text-gray-700 capitalize min-w-0 flex-shrink-0">
+                            <span className="font-medium text-gray-700 dark-text-yellow capitalize min-w-0 flex-shrink-0">
                               {key.replace(/([A-Z])/g, " $1").trim()}:
                             </span>
                             <span className="text-gray-600 break-words flex-1">
@@ -552,12 +573,12 @@ const VCVerifier = () => {
                   </div>
 
                   {/* Raw JSON */}
-                  <details className="bg-gray-50 rounded-lg">
-                    <summary className="p-4 cursor-pointer font-medium text-gray-900 hover:bg-gray-100 rounded-lg">
+                  <details className="darkcard rounded-lg">
+                    <summary className="p-4 cursor-pointer font-medium text-blue-900 dark-text-yellow hover:text-blue-700 rounded-lg">
                       View Raw JSON
                     </summary>
                     <div className="p-4 pt-0">
-                      <pre className="text-xs text-gray-700 overflow-x-auto bg-white p-3 rounded border">
+                      <pre className="text-xs text-gray-700 dark-text-white overflow-x-auto bg-white p-3 rounded border border-gray-100">
                         <code>
                           {stringifyWithBigInt(verificationResult.vc)}
                         </code>
@@ -572,20 +593,20 @@ const VCVerifier = () => {
       )}
 
       {/* Information Section */}
-      <div className="mt-8 bg-blue-50 rounded-lg p-6">
-        <h3 className="font-medium text-blue-900 mb-3">
+      <div className="mt-20 backdrop-blur-md rounded-lg p-6">
+        <h3 className="text-2xl font-bold text-blue-900 dark-text-yellow mb-10">
           About VC Verification
         </h3>
-        <div className="text-sm text-blue-800 space-y-2">
+        <div className="text-sm text-blue-900 dark-text-white space-y-2">
           <p>This verifier checks:</p>
-          <ul className="list-disc list-inside space-y-1 ml-4">
+          <ul className="list-disc list-inside text-left space-y-2 ml-70">
             <li>Credential structure and required fields</li>
             <li>Expiration dates and validity periods</li>
             <li>Issuer information and DID resolution</li>
             <li>Digital signatures (when available)</li>
             <li>Revocation status (when accessible)</li>
           </ul>
-          <p className="mt-3">
+          <p className="mt-10">
             <strong>Note:</strong> Full cryptographic verification requires
             access to the issuer's public key and signature validation. This
             implementation provides structural and basic validity checks.

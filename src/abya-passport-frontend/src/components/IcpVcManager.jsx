@@ -442,7 +442,7 @@ const VCManager = () => {
                         const isLong = stringValue.length > 50;
 
                         return (
-                          <div key={key} className="bg-gray-50 rounded-lg p-3">
+                          <div key={key} className="bg-gray-100 rounded-lg p-3">
                             <div className="flex items-start justify-between">
                               <div className="flex-1">
                                 <div className="text-sm font-medium text-gray-700 mb-1 capitalize">
@@ -624,7 +624,7 @@ const VCManager = () => {
     return (
       <div className="max-w-4xl mx-auto px-6 py-16">
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-gray-800 mb-4">
+          <h1 className="text-5xl font-bold text-blue-900 dark-text-white mb-4">
             Verifiable Credentials Manager
           </h1>
           <p className="text-gray-600 mb-8">
@@ -639,10 +639,10 @@ const VCManager = () => {
   return (
     <div className="max-w-6xl mx-auto px-6 py-16">
       <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-4">
-          Verifiable Credentials Manager
+        <h1 className="text-5xl bg-clip-text text-yellow-500 mb-4">
+          Verifiable Credentials Managers
         </h1>
-        <p className="text-gray-600">
+        <p className="text-gray-700">
           Issue, manage, and verify decentralized credentials on the Internet
           Computer
         </p>
@@ -656,7 +656,7 @@ const VCManager = () => {
             className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${
               activeTab === "received"
                 ? "bg-white text-blue-600 shadow-sm"
-                : "text-gray-600 hover:text-gray-800"
+                : "text-yellow-600 hover:text-gray-800"
             }`}
           >
             Received VCs ({myReceivedVCs.length})
@@ -689,7 +689,7 @@ const VCManager = () => {
       {/* Issue VC Form */}
       {showIssueForm && (
         <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-lg mb-8">
-          <h2 className="text-xl font-semibold text-gray-800 mb-6">
+          <h2 className="text-xl font-semibold dark:text-gray-400 text-gray-900 mb-6">
             Issue New Verifiable Credential
           </h2>
           <form onSubmit={handleIssueVC} className="space-y-6">
