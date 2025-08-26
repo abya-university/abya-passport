@@ -2,9 +2,10 @@
 
 import { createContext, useContext, useState, useEffect, useRef } from "react";
 import { AuthClient } from "@dfinity/auth-client";
-import { HttpAgent } from "@dfinity/agent";
+import { HttpAgent, Actor } from "@dfinity/agent";
 import { Ed25519KeyIdentity } from "@dfinity/identity";
-import { createActor } from "../../../declarations/abya-passport-backend";
+// import { createActor } from "../../../declarations/abya-passport-backend";
+import { idlFactory } from "../../../declarations/abya-passport-backend/abya-passport-backend.did.js";
 import { useIPFS } from "./IPFSContext";
 
 const InternetIdentityContext = createContext();
@@ -45,26 +46,42 @@ export const InternetIdentityProvider = ({ children }) => {
   // const canisterId = "uxrrr-q7777-77774-qaaaq-cai";
   const canisterId =
     import.meta.env.VITE_APP_BACKEND_CANISTER_ID ||
-    "uxrrr-q7777-77774-qaaaq-cai";
+    "rhq4l-raaaa-aaaam-qd3sa-cai";
 
   // Agent cache (to avoid re-creating agents)
   const agentCache = useRef({});
 
+  // Helper to create an actor with the current identity
+  const createBackendActor = async (identity = null) => {
+    const agent = await getAgent(identity);
+    return Actor.createActor(idlFactory, {
+      agent,
+      canisterId,
+    });
+  };
+
   // Helper to get a configured agent (optionally with identity)
   const getAgent = async (identity = null) => {
-    const key = identity ? identity.getPrincipal().toString() : "anonymous";
-    if (agentCache.current[key]) {
-      return agentCache.current[key];
+    if (identity && typeof identity.getPrincipal === "function") {
+      const key = identity ? identity.getPrincipal().toString() : "anonymous";
+      console.log("Getting agent for key:", key);
+
+      if (agentCache.current[key]) {
+        return agentCache.current[key];
+      }
+
+      const agent = new HttpAgent({
+        host: IC_HOST,
+        ...(identity ? { identity } : {}),
+      });
+      if (isLocal) {
+        await agent.fetchRootKey();
+      }
+      agentCache.current[key] = agent;
+      return agent;
+    } else {
+      console.log("Identity not ready for getAgent");
     }
-    const agent = new HttpAgent({
-      host: IC_HOST,
-      ...(identity ? { identity } : {}),
-    });
-    if (isLocal) {
-      await agent.fetchRootKey();
-    }
-    agentCache.current[key] = agent;
-    return agent;
   };
 
   // Initialize auth client
@@ -129,6 +146,8 @@ export const InternetIdentityProvider = ({ children }) => {
     }
   };
 
+  console.log("identity:", identity);
+
   const handleLoginSuccess = async (client) => {
     const identity = client.getIdentity();
     setIdentity(identity);
@@ -148,7 +167,10 @@ export const InternetIdentityProvider = ({ children }) => {
       const did = "did:icp:" + principalText;
 
       const agent = await getAgent(identity);
-      const actor = createActor(canisterId, { agent });
+      console.log("✅ Agent created successfully");
+
+      const actor = await createBackendActor(canisterId, { agent });
+      console.log("✅ Actor created successfully");
 
       const hasExistingDID = await actor.hasMyDID();
 
@@ -187,6 +209,44 @@ export const InternetIdentityProvider = ({ children }) => {
     }
   };
 
+  const verifyBackendConnection = async () => {
+    try {
+      console.log("Verifying backend connection...");
+      console.log("Canister ID:", canisterId);
+      console.log("Network:", isLocal ? "local" : "mainnet");
+      console.log("Host:", IC_HOST);
+
+      const agent = await getAgent();
+      const actor = await createBackendActor(null);
+
+      // Check available methods
+      const methods = Object.keys(actor);
+      console.log("Available methods on canister:", methods);
+
+      // Try a simple method to test connection
+      if (typeof actor.getDIDMetadata === "function") {
+        const testResult = await actor.getDIDMetadata("did:example:test");
+        console.log("Connection test successful", testResult);
+        return true;
+      } else if (methods.length > 0) {
+        console.log("Connection successful but getDIDMetadata not available");
+        return true;
+      } else {
+        console.error(
+          "No methods available on canister - possible wrong canister ID"
+        );
+        return false;
+      }
+    } catch (error) {
+      console.error("Backend connection failed:", error);
+      return false;
+    }
+  };
+
+  useEffect(() => {
+    verifyBackendConnection();
+  }, [canisterId, IC_HOST]);
+
   const logout = async () => {
     if (authClient && loginMethod === "internet-identity") {
       await authClient.logout();
@@ -205,6 +265,31 @@ export const InternetIdentityProvider = ({ children }) => {
     setMyReceivedVCs([]);
   };
 
+  const resolveDidFallback = async (didToResolve = null) => {
+    const targetDid = didToResolve || did;
+    if (!targetDid) return null;
+
+    try {
+      // Try to get DID metadata directly
+      const agent = await getAgent();
+      const actor = await createBackendActor(null);
+
+      if (typeof actor.getDIDMetadata === "function") {
+        const didMetadata = await actor.getDIDMetadata(targetDid);
+        if (didMetadata && didMetadata.ipfsCid) {
+          const didDoc = await retrieveDIDDocument(didMetadata.ipfsCid);
+          setDidDocument(didDoc);
+          return didDoc;
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.error("Fallback DID resolution failed:", error);
+      return null;
+    }
+  };
+
   const resolveDid = async (didToResolve = null) => {
     const targetDid = didToResolve || did;
     if (!targetDid) {
@@ -214,12 +299,17 @@ export const InternetIdentityProvider = ({ children }) => {
     setIsResolvingDid(true);
     try {
       const agent = await getAgent(); // anonymous
-      const actor = createActor(canisterId, { agent });
-      const document = await actor.resolveDid(targetDid);
-      console.log("Resolved DID Document:", document);
-      const parsedDocument = JSON.parse(document);
-      setDidDocument(parsedDocument);
-      return parsedDocument;
+      const actor = await createBackendActor(canisterId, { agent });
+      if (typeof actor.resolveDid === "function") {
+        const document = await actor.resolveDid(targetDid);
+        console.log("Resolved DID Document:", document);
+        const parsedDocument = JSON.parse(document);
+        setDidDocument(parsedDocument);
+        return parsedDocument;
+      } else {
+        // Fallback if resolveDid is not available
+        return await resolveDidFallback(targetDid);
+      }
     } catch (error) {
       console.error("Error resolving DID:", error);
       setDidDocument(null);
@@ -245,7 +335,7 @@ export const InternetIdentityProvider = ({ children }) => {
       console.log("Claims:", claims);
 
       const agent = await getAgent(identity);
-      const actor = createActor(canisterId, { agent });
+      const actor = await createBackendActor(canisterId, { agent });
 
       const vcData = {
         issuerPrincipal: identity.getPrincipal().toString(),
@@ -304,7 +394,7 @@ export const InternetIdentityProvider = ({ children }) => {
     try {
       console.log("📋 Loading issued VCs from IPFS...");
       const agent = await getAgent(identity);
-      const actor = createActor(canisterId, { agent });
+      const actor = await createBackendActor(canisterId, { agent });
       const vcMetadataArray = await actor.getMyIssuedVCsMetadata();
       const vcsWithDocuments = await Promise.all(
         vcMetadataArray.map(async (metadata) => {
@@ -352,7 +442,7 @@ export const InternetIdentityProvider = ({ children }) => {
     try {
       console.log("📥 Loading received VCs from IPFS...");
       const agent = await getAgent(); // anonymous
-      const actor = createActor(canisterId, { agent });
+      const actor = await createBackendActor(canisterId, { agent });
       const vcMetadataArray = await actor.getVCsForDidMetadata(did);
       const vcsWithDocuments = await Promise.all(
         vcMetadataArray.map(async (metadata) => {
@@ -398,7 +488,7 @@ export const InternetIdentityProvider = ({ children }) => {
     try {
       console.log("🔍 Verifying VC:", vcId);
       const agent = await getAgent(); // anonymous
-      const actor = createActor(canisterId, { agent });
+      const actor = await createBackendActor(canisterId, { agent });
       const result = await actor.verifyVCStatus(vcId);
       if (result.ok) {
         console.log("✅ VC verification successful");
@@ -424,7 +514,7 @@ export const InternetIdentityProvider = ({ children }) => {
     try {
       console.log("🚫 Revoking VC:", vcId);
       const agent = await getAgent(identity);
-      const actor = createActor(canisterId, { agent });
+      const actor = await createBackendActor(canisterId, { agent });
       const result = await actor.revokeVCWithIPFS(vcId);
       if (result.ok) {
         console.log("✅ VC revoked successfully");
@@ -443,7 +533,7 @@ export const InternetIdentityProvider = ({ children }) => {
     try {
       console.log("📄 Retrieving VC:", vcId);
       const agent = await getAgent(); // anonymous
-      const actor = createActor(canisterId, { agent });
+      const actor = await createBackendActor(canisterId, { agent });
       const metadata = await actor.getVCMetadata(vcId);
       if (metadata) {
         const document = await retrieveVCDocument(metadata.ipfsCid);

@@ -1,35 +1,61 @@
 {
-  "canisters": {
-    "internet_identity": {
-      "type": "pull",
-      "id": "rdmx6-jaaaa-aaaaa-aaadq-cai"
+    "canisters": 
+    {
+        "internet_identity": 
+        {
+            "type": "pull",
+            "id": "rdmx6-jaaaa-aaaaa-aaadq-cai"
+        },
+        "abya-passport-backend": 
+        {
+            "main": "src/abya-passport-backend/main.mo",
+            "type": "motoko"
+        },
+        "abya-passport-frontend": 
+        {
+            "dependencies": 
+            [
+                "abya-passport-backend"
+            ],
+            "frontend": 
+            {
+                "entrypoint": "src/abya-passport-frontend/dist/index.html"
+            },
+            "source": 
+            [
+                "src/abya-passport-frontend/dist"
+            ],
+            "type": "assets"
+        }
     },
-    "abya-passport-backend": {
-      "main": "src/abya-passport-backend/main.mo",
-      "type": "motoko"
+    "defaults": 
+    {
+        "build": 
+        {
+            "args": "",
+            "packtool": ""
+        }
     },
-    "abya-passport-frontend": {
-      "dependencies": ["abya-passport-backend"],
-      "frontend": {
-        "entrypoint": "src/abya-passport-frontend/dist/index.html"
-      },
-      "source": ["src/abya-passport-frontend/dist"],
-      "type": "assets"
-    }
-  },
-  "defaults": {
-    "build": {
-      "args": "",
-      "packtool": ""
-    }
-  },
-  "networks": {
-    "local": {
-      "bind": "127.0.0.1:4943",
-      "type": "ephemeral"
-    }
-  },
-  "output_env_file": ".env",
-  "outputs": ["src/declarations"],
-  "version": 1
+    "networks": 
+    {
+        "local": 
+        {
+            "bind": "127.0.0.1:4943",
+            "type": "ephemeral"
+        },
+        "ic": 
+        {
+            "providers": 
+            [
+                "https://ic0.app/"
+            ],
+            "type": "ephemeral"
+        }
+    },
+    "output_env_file": ".env",
+    "outputs": 
+    [
+        "src/declarations"
+    ],
+    "version": 1
 }

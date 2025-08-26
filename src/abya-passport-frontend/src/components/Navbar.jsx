@@ -59,7 +59,7 @@ function Navbar({ currentPage, setCurrentPage }) {
   const [walletDid, localSetWalletDid] = useState(ctxDid);
   const [didLoading, setDidLoading] = useState(false);
   const dropdownRef = useRef(null);
-  const { did, principal, isAuthenticating, login, developerLogin, logout } =
+  const { did, principal, isAuthenticating, login, logout } =
     useInternetIdentity();
 
   const [isCopied, setIsCopied] = useState(false);
@@ -70,7 +70,7 @@ function Navbar({ currentPage, setCurrentPage }) {
 
   const canisterId =
     import.meta.env.VITE_APP_BACKEND_CANISTER_ID ||
-    "uxrrr-q7777-77774-qaaaq-cai";
+    "rhq4l-raaaa-aaaam-qd3sa-cai";
 
   console.log("DID2:", did);
   console.log("Principal:", principal);
@@ -719,7 +719,7 @@ function Navbar({ currentPage, setCurrentPage }) {
                         </div>
 
                         {/* Developer Login (for testing) */}
-                        <div className="p-3 rounded-2xl bg-orange-50/50 border border-orange-200/50">
+                        {/* <div className="p-3 rounded-2xl bg-orange-50/50 border border-orange-200/50">
                           <div className="flex items-center gap-2 mb-3">
                             <svg
                               width="16"
@@ -749,7 +749,7 @@ function Navbar({ currentPage, setCurrentPage }) {
                             </svg>
                             Dev Login (Testing)
                           </button>
-                        </div>
+                        </div> */}
                       </>
                     )}
                   </div>

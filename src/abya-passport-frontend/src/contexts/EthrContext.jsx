@@ -3,7 +3,8 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { useDynamicContext, useIsLoggedIn } from "@dynamic-labs/sdk-react-core";
 
 const API_URL =
-  import.meta.env.VITE_APP_VERAMO_API_URL || "http://localhost:3000";
+  import.meta.env.VITE_APP_VERAMO_API_URL ||
+  "https://veramo-backend-service.onrender.com";
 
 const EthrContext = createContext({
   walletAddress: null,

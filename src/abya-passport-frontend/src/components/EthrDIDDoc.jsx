@@ -4,7 +4,8 @@ import { useEthr } from "../contexts/EthrContext";
 import { storeDidDocument, registerDidOnIpfs } from "../services/ipfsService";
 
 const API_URL =
-  import.meta.env.VITE_APP_VERAMO_API_URL || "http://localhost:3000";
+  import.meta.env.VITE_APP_VERAMO_API_URL ||
+  "https://veramo-backend-service.onrender.com";
 
 export default function EthrDIDDoc() {
   const [didInput, setDidInput] = useState("");

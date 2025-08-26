@@ -22,7 +22,9 @@ import { CopyIcon, QrCodeIcon, DownloadIcon, VerifiedIcon } from "lucide-react";
 import { encodeFunctionData } from "viem";
 import { Interface } from "ethers";
 
-const API_BASE = "http://localhost:3000";
+const API_BASE =
+  import.meta.env.VITE_APP_VERAMO_API_URL ||
+  "https://veramo-backend-service.onrender.com";
 const VC_ADDRESS =
   import.meta.env.VITE_VC_CONTRACT_ADDRESS_SEPOLIA ||
   "0x4a2528C351533b9a6CDF01007883fcCD73d05863";
