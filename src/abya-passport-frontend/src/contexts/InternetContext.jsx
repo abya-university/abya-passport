@@ -35,18 +35,22 @@ export const InternetIdentityProvider = ({ children }) => {
     rollbackIPFS,
   } = useIPFS();
 
+  const network = import.meta.env.VITE_APP_DFX_NETWORK || "local";
+
   // Network detection
   const isLocal =
     typeof window !== "undefined" &&
-    (import.meta.env.VITE_APP_DFX_NETWORK === "local" ||
+    (network === "local" ||
       window.location.hostname === "localhost" ||
       window.location.hostname === "127.0.0.1");
+
+  console.log("VITE_APP_DFX_NETWORK:", network);
 
   const IC_HOST = isLocal ? "http://127.0.0.1:4943" : "https://ic0.app";
   // const canisterId = "uxrrr-q7777-77774-qaaaq-cai";
   const canisterId =
     import.meta.env.VITE_APP_BACKEND_CANISTER_ID ||
-    "rhq4l-raaaa-aaaam-qd3sa-cai";
+    "uxrrr-q7777-77774-qaaaq-cai";
 
   // Agent cache (to avoid re-creating agents)
   const agentCache = useRef({});
@@ -335,7 +339,8 @@ export const InternetIdentityProvider = ({ children }) => {
       console.log("Claims:", claims);
 
       const agent = await getAgent(identity);
-      const actor = await createBackendActor(canisterId, { agent });
+      // const actor = await createBackendActor(canisterId, { agent });
+      const actor = await createBackendActor(identity);
 
       const vcData = {
         issuerPrincipal: identity.getPrincipal().toString(),
@@ -411,6 +416,10 @@ export const InternetIdentityProvider = ({ children }) => {
               type: document.type,
             };
           } catch (error) {
+            console.error(
+              `❌ Failed to retrieve VC document for VC ID ${metadata.id}:`,
+              error
+            );
             return {
               metadata,
               document: null,
@@ -459,6 +468,7 @@ export const InternetIdentityProvider = ({ children }) => {
               type: document.type,
             };
           } catch (error) {
+            console.log("❌ Failed to retrieve VC document:", error);
             return {
               metadata,
               document: null,
@@ -514,7 +524,7 @@ export const InternetIdentityProvider = ({ children }) => {
     try {
       console.log("🚫 Revoking VC:", vcId);
       const agent = await getAgent(identity);
-      const actor = await createBackendActor(canisterId, { agent });
+      const actor = await createBackendActor(identity);
       const result = await actor.revokeVCWithIPFS(vcId);
       if (result.ok) {
         console.log("✅ VC revoked successfully");
