@@ -11,7 +11,7 @@ import {
   getPinataInitError,
 } from "../services/ipfsService";
 import { useEthr } from "../contexts/EthrContext";
-import EthrABI from "../artifacts/contracts/did_contract.json";
+import EthrABI from "../artifacts/contracts/UniversityVCV2.json";
 import { useEthersSigner } from "./useClientSigner";
 import EthrPresentation from "./VcPresentationManager";
 
@@ -334,13 +334,18 @@ const EthrVcManager = () => {
     throw new Error("No provider available for readonly operations");
   };
 
-  // Contract validation helper
+  // Contract validation helper — update required functions for UniversityVCV2
   const validateContract = async (contract) => {
     const requiredFunctions = [
-      "issueCredential",
-      "getCredentialsForStudent",
       "credentialCount",
       "credentials",
+      // new lookup
+      "getCredentialsForDID",
+      // new issuance
+      "issueCredential",
+      "issueCredentialWithDID",
+      // helpful view
+      "getCredentialSummary"
     ];
 
     const missingFunctions = [];
@@ -351,20 +356,22 @@ const EthrVcManager = () => {
     }
 
     if (missingFunctions.length > 0) {
-      const error = `Contract validation failed: Missing required functions: ${missingFunctions.join(
+      const error = `Contract validation failed: Missing expected functions: ${missingFunctions.join(
         ", "
-      )}. 
-Current contract at ${VC_ADDRESS} appears to be an ERC1056 DID Registry instead of a Verifiable Credential contract.
-Please check the contract address and ABI configuration.`;
+      )}. Current contract at ${VC_ADDRESS} may not be the UniversityVCV2 compiled ABI. Please check the contract address and ABI.`;
       console.error(error);
       throw new Error(error);
     }
   };
+
+
+
   const extractHexAddressFromDid = (did) => {
     if (!did || typeof did !== "string") return null;
     const m = did.match(/0x[0-9a-fA-F]{40}/);
     return m ? m[0] : null;
   };
+
 
   const normalizeDidVariants = (did) => {
     const out = [];
@@ -467,9 +474,7 @@ Please check the contract address and ABI configuration.`;
       const hexMatch = extractHexAddressFromDid(subjectDidRaw);
       if (!subjectDidRaw?.startsWith("did:") && hexMatch) {
         try {
-          subjectToStore = ethers.utils
-            ? ethers.utils.getAddress(hexMatch)
-            : hexMatch;
+          subjectToStore = ethers.utils ? ethers.utils.getAddress(hexMatch) : hexMatch;
         } catch (e) {
           subjectToStore = hexMatch.toLowerCase();
         }
@@ -492,9 +497,7 @@ Please check the contract address and ABI configuration.`;
       // Ensure the issuer DID matches the connected wallet
       const issuerAddress = walletAddress;
       if (!issuerAddress) {
-        throw new Error(
-          "No wallet connected. Please connect your wallet first."
-        );
+        throw new Error("No wallet connected. Please connect your wallet first.");
       }
 
       // send tx and capture txHash robustly
@@ -502,10 +505,10 @@ Please check the contract address and ABI configuration.`;
         setChainStatus((s) => ({ ...s, [statusKey]: { sending: true } }));
         const contract = await getContractWithSigner();
 
-        // Check if the contract has the expected function
-        if (!contract.issueCredential) {
+        // ensure contract has at least one of the expected functions
+        if (!contract.issueCredential && !contract.issueCredentialWithDID) {
           throw new Error(
-            "Contract does not have issueCredential function. Please check the contract ABI."
+            "Contract does not have expected issuance functions (issueCredential or issueCredentialWithDID). Please check the contract ABI."
           );
         }
 
@@ -524,16 +527,68 @@ Please check the contract address and ABI configuration.`;
           issuerAddress,
         });
 
+        // Normalize credentialJWT to bytes32 expected by contract
+        const credentialJWT =
+          credentialHash && typeof credentialHash === "string" && credentialHash.length > 0
+            ? credentialHash
+            : (ethers && ethers.constants && ethers.constants.HashZero) ||
+              "0x0000000000000000000000000000000000000000000000000000000000000000";
+
+        // compute expiresAt (unix seconds) from credential JSON if present
+        let expiresAt = 0;
+        try {
+          const iso =
+            cred?.expirationDate || cred?.expiration || cred?.expires || cred?.expiry || null;
+          if (iso) {
+            const t = Date.parse(iso);
+            if (!Number.isNaN(t)) expiresAt = Math.floor(t / 1000);
+          }
+        } catch (e) {
+          expiresAt = 0;
+        }
+
         let txOrReceipt;
         try {
-          txOrReceipt = await contract.issueCredential(
-            subjectToStore,
-            credentialType,
-            metadata,
-            credentialHash,
-            signature,
-            cid
-          );
+          // Decide which issuance function to call:
+          // - Prefer issueCredentialWithDID when subject looks like a DID or an address string
+          // - Otherwise compute a salted/simple holderHash and call issueCredential(holderHash,...)
+          const isDidLike =
+            typeof subjectToStore === "string" &&
+            (subjectToStore.startsWith("did:") || subjectToStore.startsWith("0x"));
+
+          if (isDidLike && contract.issueCredentialWithDID) {
+            // subjectToStore is passed as plaintext DID/address
+            txOrReceipt = await contract.issueCredentialWithDID(
+              subjectToStore,
+              cid,
+              credentialJWT,
+              expiresAt
+            );
+          } else if (contract.issueCredentialWithDID && typeof subjectToStore === "string" && !isDidLike) {
+            // If issuer provided a plain string (but contract supports DID call, still pass it)
+            txOrReceipt = await contract.issueCredentialWithDID(
+              subjectToStore,
+              cid,
+              credentialJWT,
+              expiresAt
+            );
+          } else {
+            // Fallback: compute holderHash (bytes32) from subjectToStore (utf8)
+            let holderHash;
+            try {
+              holderHash = ethers.utils
+                ? ethers.utils.keccak256(ethers.utils.toUtf8Bytes(subjectToStore || ""))
+                : credentialJWT;
+            } catch (hErr) {
+              console.warn("holderHash computation failed, using credentialJWT as fallback", hErr);
+              holderHash =
+                (ethers && ethers.constants && ethers.constants.HashZero) ||
+                "0x0000000000000000000000000000000000000000000000000000000000000000";
+            }
+
+            txOrReceipt = await contract.issueCredential(holderHash, cid, credentialJWT, expiresAt);
+          }
+
           console.log("Transaction result:", txOrReceipt);
         } catch (contractError) {
           console.error("Contract call error:", contractError);
@@ -543,10 +598,8 @@ Please check the contract address and ABI configuration.`;
         let txHash = null;
         try {
           if (txOrReceipt?.hash) txHash = txOrReceipt.hash;
-          if (!txHash && txOrReceipt?.transactionHash)
-            txHash = txOrReceipt.transactionHash;
-          if (!txHash && txOrReceipt?.request?.hash)
-            txHash = txOrReceipt.request.hash;
+          if (!txHash && txOrReceipt?.transactionHash) txHash = txOrReceipt.transactionHash;
+          if (!txHash && txOrReceipt?.request?.hash) txHash = txOrReceipt.request.hash;
           if (!txHash && txOrReceipt?.receipt?.transactionHash)
             txHash = txOrReceipt.receipt.transactionHash;
 
@@ -567,8 +620,7 @@ Please check the contract address and ABI configuration.`;
             const receipt = await txOrReceipt.wait();
             console.log("Transaction receipt:", receipt);
 
-            if (!txHash && receipt?.transactionHash)
-              txHash = receipt.transactionHash;
+            if (!txHash && receipt?.transactionHash) txHash = receipt.transactionHash;
             setChainStatus((s) => ({
               ...s,
               [statusKey]: { success: true, txHash },
@@ -600,19 +652,13 @@ Please check the contract address and ABI configuration.`;
           errorMessage = `Access denied: Only the contract owner can issue credentials. Your wallet (${walletAddress}) may not be authorized. Please contact the system administrator.`;
         } else if (errorMessage.includes("execution reverted")) {
           errorMessage = `Transaction failed: ${
-            errorMessage.split("execution reverted: ")[1] ||
-            "Unknown smart contract error"
+            errorMessage.split("execution reverted: ")[1] || "Unknown smart contract error"
           }`;
-        } else if (
-          errorMessage.includes("Contract does not have issueCredential")
-        ) {
+        } else if (errorMessage.includes("Contract does not have issueCredential")) {
           errorMessage = `Contract configuration error: The contract at ${VC_ADDRESS} does not have the expected issueCredential function. Please check that the correct contract ABI is being used.`;
         } else if (errorMessage.includes("formatJson")) {
           errorMessage = `Ethers.js formatting error: There was an issue formatting the transaction data. This might be due to incompatible contract ABI or ethers version.`;
-        } else if (
-          errorMessage.includes("bad_key") ||
-          errorMessage.includes("Invalid private key")
-        ) {
+        } else if (errorMessage.includes("bad_key") || errorMessage.includes("Invalid private key")) {
           errorMessage = `Wallet connection error: Invalid or missing private key. Please ensure your wallet is properly connected and unlocked. Try disconnecting and reconnecting your wallet.`;
         } else if (errorMessage.includes("Wallet not connected")) {
           errorMessage = `Please connect your wallet first before attempting to issue credentials.`;
@@ -621,10 +667,7 @@ Please check the contract address and ABI configuration.`;
         }
 
         const possibleHash =
-          chainErr?.transactionHash ||
-          chainErr?.txHash ||
-          chainErr?.receipt?.transactionHash ||
-          null;
+          chainErr?.transactionHash || chainErr?.txHash || chainErr?.receipt?.transactionHash || null;
         setChainStatus((s) => ({
           ...s,
           [statusKey]: {
@@ -688,16 +731,15 @@ Please check the contract address and ABI configuration.`;
     return "0x" + (h >>> 0).toString(16);
   };
 
+
   // ---------------- on-chain fetch helpers (unchanged) ----------------
   const getIdsForDid = async (did) => {
     try {
       const readContract = await getContractReadonly();
 
-      // Check if the contract has the expected function
-      if (!readContract.getCredentialsForStudent) {
-        console.warn(
-          "Contract does not have getCredentialsForStudent function"
-        );
+      // prefer new getCredentialsForDID
+      if (!readContract.getCredentialsForDID) {
+        console.warn("Contract does not have getCredentialsForDID function");
         setLastOnchainIds([]);
         return [];
       }
@@ -708,10 +750,8 @@ Please check the contract address and ABI configuration.`;
 
       for (const v of variants) {
         try {
-          const res = await readContract.getCredentialsForStudent(v);
-          const idStrings = Array.isArray(res)
-            ? res.map((x) => safeToString(x))
-            : [];
+          const res = await readContract.getCredentialsForDID(v);
+          const idStrings = Array.isArray(res) ? res.map((x) => safeToString(x)) : [];
           if (idStrings && idStrings.length > 0) {
             ids = idStrings;
             usedVariant = v;
@@ -720,14 +760,11 @@ Please check the contract address and ABI configuration.`;
         } catch (inner) {}
       }
 
+      // last fallback: try plain walletAddress as variant (if available)
       if ((!ids || ids.length === 0) && walletAddress) {
         try {
-          const res2 = await readContract.getCredentialsForStudent(
-            walletAddress
-          );
-          const idStrings2 = Array.isArray(res2)
-            ? res2.map((x) => safeToString(x))
-            : [];
+          const res2 = await readContract.getCredentialsForDID(walletAddress);
+          const idStrings2 = Array.isArray(res2) ? res2.map((x) => safeToString(x)) : [];
           if (idStrings2 && idStrings2.length > 0) {
             ids = idStrings2;
             usedVariant = walletAddress;
@@ -736,12 +773,7 @@ Please check the contract address and ABI configuration.`;
       }
 
       setLastOnchainIds(ids);
-      console.log(
-        "getCredentialsForStudent tried variant:",
-        usedVariant,
-        "->",
-        ids
-      );
+      console.log("getCredentialsForDID tried variant:", usedVariant, "->", ids);
       return ids;
     } catch (err) {
       console.error("getIdsForDid error", err);
@@ -750,9 +782,16 @@ Please check the contract address and ABI configuration.`;
     }
   };
 
+
   const fetchOnChainCredentialsForDid = async (did) => {
     try {
       const readContract = await getContractReadonly();
+
+      if (!readContract.getCredentialsForDID) {
+        console.warn("Contract missing getCredentialsForDID; aborting fetch.");
+        setLastOnchainRowsDebug([]);
+        return [];
+      }
 
       const variants = normalizeDidVariants(did);
       let idsRaw = [];
@@ -760,10 +799,8 @@ Please check the contract address and ABI configuration.`;
 
       for (const v of variants) {
         try {
-          const res = await readContract.getCredentialsForStudent(v);
-          const idList = Array.isArray(res)
-            ? res.map((x) => safeToString(x))
-            : [];
+          const res = await readContract.getCredentialsForDID(v);
+          const idList = Array.isArray(res) ? res.map((x) => safeToString(x)) : [];
           if (idList && idList.length > 0) {
             idsRaw = idList;
             usedVariant = v;
@@ -774,12 +811,8 @@ Please check the contract address and ABI configuration.`;
 
       if ((!idsRaw || idsRaw.length === 0) && walletAddress) {
         try {
-          const res2 = await readContract.getCredentialsForStudent(
-            walletAddress
-          );
-          const idList2 = Array.isArray(res2)
-            ? res2.map((x) => safeToString(x))
-            : [];
+          const res2 = await readContract.getCredentialsForDID(walletAddress);
+          const idList2 = Array.isArray(res2) ? res2.map((x) => safeToString(x)) : [];
           if (idList2 && idList2.length > 0) {
             idsRaw = idList2;
             usedVariant = walletAddress;
@@ -795,28 +828,49 @@ Please check the contract address and ABI configuration.`;
 
       for (const idStr of idList) {
         try {
-          const row = await readContract.credentials(idStr);
-          rowsDebug.push({ idStr, row });
-          const mappingCID = row?.[8] ? safeToString(row[8]) : "";
-          const issuerDID = row?.[2] ? safeToString(row[2]) : "";
-          const issueDateRaw = row?.[4];
+          // Prefer the summary view which returns latestCID directly
+          let summary;
+          if (readContract.getCredentialSummary) {
+            summary = await readContract.getCredentialSummary(idStr);
+            // summary layout:
+            // [0]=id, [1]=holderHash, [2]=latestCID, [3]=credentialJWT, [4]=issuedAt, [5]=expiresAt, [6]=valid, [7]=revokedAt, [8]=revocationReason
+          } else {
+            // fallback to raw credentials mapping (older ABI)
+            summary = await readContract.credentials(idStr);
+          }
+
+          rowsDebug.push({ idStr, summary });
+
+          const mappingCID = summary?.[2] ? safeToString(summary[2]) : "";
+          const holderHash = summary?.[1] ? safeToString(summary[1]) : "";
+          const credentialJWT = summary?.[3] ? safeToString(summary[3]) : "";
+          const issueDateRaw = summary?.[4];
+          const expiresAtRaw = summary?.[5];
+
           const issueDate =
             issueDateRaw && typeof issueDateRaw?.toString === "function"
               ? issueDateRaw.toNumber
                 ? new Date(issueDateRaw.toNumber() * 1000).toISOString()
                 : new Date(Number(issueDateRaw) * 1000).toISOString()
               : undefined;
-          const valid = !!row?.[9];
 
+          const expiresAt =
+            expiresAtRaw && typeof expiresAtRaw?.toString === "function"
+              ? expiresAtRaw.toNumber
+                ? Number(expiresAtRaw.toNumber())
+                : Number(expiresAtRaw)
+              : 0;
+
+          const valid = !!summary?.[6];
+
+          // fetch IPFS json if mappingCID present
           let ipfsJson = null;
           if (mappingCID) {
             try {
               ipfsJson = await fetchDidDocument(mappingCID);
             } catch (fetchErr) {
-              console.warn(
-                "fetchDidDocument failed, will fallback to public gateway",
-                fetchErr
-              );
+              // fallback to public gateways
+              console.warn("fetchDidDocument failed, falling back to public gateways", fetchErr);
               const gateways = [
                 `https://dweb.link/ipfs/${mappingCID}`,
                 `https://ipfs.io/ipfs/${mappingCID}`,
@@ -841,39 +895,33 @@ Please check the contract address and ABI configuration.`;
             displayed = {
               ...ipfsJson,
               issuanceDate: ipfsJson.issuanceDate || issueDate,
-              issuer: ipfsJson.issuer || { id: issuerDID },
+              issuer: ipfsJson.issuer || { id: null },
             };
           } else {
-            let metadata = row?.[5] ?? "";
-            try {
-              metadata =
-                typeof metadata === "string" ? JSON.parse(metadata) : metadata;
-            } catch (e) {
-              // leave as string
-            }
+            // fallback: create minimal displayed metadata from on-chain pieces
             displayed = {
-              credentialSubject:
-                metadata &&
-                typeof metadata === "object" &&
-                Object.keys(metadata).length > 0
-                  ? metadata
-                  : { id: row?.[1] ?? did },
-              issuer: { id: issuerDID },
+              credentialSubject: { id: holderHash || idStr },
+              issuer: { id: null }, // the contract does not store issuer address in the struct
               issuanceDate: issueDate,
+              expirationDate: expiresAt ? new Date(expiresAt * 1000).toISOString() : undefined,
+              credentialJWT: credentialJWT || undefined
             };
           }
 
           const credObj = {
             ...displayed,
             onchain: {
-              id: safeToString(row?.[0] ?? idStr),
+              id: safeToString(summary?.[0] ?? idStr),
+              holderHash,
               mappingCID,
-              issuerDID,
+              credentialJWT,
               issueDate,
+              expiresAt,
               valid,
               usedVariant,
             },
           };
+
           results.push(credObj);
         } catch (inner) {
           console.warn("failed to load onchain id", idStr, inner);
@@ -889,19 +937,22 @@ Please check the contract address and ABI configuration.`;
     }
   };
 
+
   const fetchAllOnChainCredentials = async () => {
     try {
       const readContract = await getContractReadonly();
       const count = await readContract.credentialCount();
-      const n =
-        count && typeof count?.toString === "function"
-          ? Number(safeToString(count))
-          : Number(count || 0);
+      const n = count && typeof count?.toString === "function" ? Number(safeToString(count)) : Number(count || 0);
       const out = [];
       for (let i = 1; i <= n; i++) {
         try {
-          const row = await readContract.credentials(i);
-          const mappingCID = row?.[8] ? safeToString(row[8]) : "";
+          let summary;
+          if (readContract.getCredentialSummary) {
+            summary = await readContract.getCredentialSummary(i);
+          } else {
+            summary = await readContract.credentials(i);
+          }
+          const mappingCID = summary?.[2] ? safeToString(summary[2]) : "";
           let ipfsJson = null;
           if (mappingCID) {
             try {
@@ -913,8 +964,7 @@ Please check the contract address and ABI configuration.`;
               } catch (e) {}
             }
           }
-          const issuerDID = row?.[2] ? safeToString(row[2]) : "";
-          const issueDateRaw = row?.[4];
+          const issueDateRaw = summary?.[4];
           const issueDate = issueDateRaw
             ? issueDateRaw.toNumber
               ? new Date(issueDateRaw.toNumber() * 1000).toISOString()
@@ -924,10 +974,10 @@ Please check the contract address and ABI configuration.`;
             ...(ipfsJson || {}),
             issuanceDate: issueDate,
             onchain: {
-              id: safeToString(row?.[0] ?? i),
+              id: safeToString(summary?.[0] ?? i),
+              holderHash: summary?.[1] ? safeToString(summary[1]) : "",
               mappingCID,
-              issuerDID,
-              valid: !!row?.[9],
+              valid: !!summary?.[6],
             },
           };
           out.push(credObj);
@@ -939,6 +989,7 @@ Please check the contract address and ABI configuration.`;
       return [];
     }
   };
+
 
   const fetchCredentials = async () => {
     setListLoading(true);
