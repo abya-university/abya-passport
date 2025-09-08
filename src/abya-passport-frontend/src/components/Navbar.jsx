@@ -5,7 +5,12 @@ import { useInternetIdentity } from "../contexts/InternetContext";
 import { useEthr } from "../contexts/EthrContext";
 import AbyaLogo from "../assets/abya.png";
 import { Copy, CopyCheckIcon, CopyIcon, WalletMinimal } from "lucide-react";
-import { ConnectButton, darkTheme, useActiveAccount } from "thirdweb/react";
+import {
+  ConnectButton,
+  darkTheme,
+  lightTheme,
+  useActiveAccount,
+} from "thirdweb/react";
 import { client } from "../client.jsx";
 import { sepolia } from "thirdweb/chains";
 import { inAppWallet, createWallet } from "thirdweb/wallets";
@@ -213,17 +218,38 @@ function Navbar({ currentPage, setCurrentPage }) {
   ];
 
   // Custom theme for ThirdWeb
-  const customTheme = darkTheme({
-    colors: {
-      separatorLine: "hsl(41, 80%, 49%)",
-      accentText: "hsl(41, 62%, 51%)",
-      modalBg: isDark ? "hsl(240, 6%, 10%)" : "hsl(0, 0%, 100%)",
-      borderColor: "hsl(58, 5%, 13%)",
-      selectedTextColor: "hsl(230, 7%, 22%)",
-      primaryText: isDark ? "hsl(0, 0%, 100%)" : "hsl(0, 0%, 0%)",
-      secondaryText: isDark ? "hsl(0, 0%, 70%)" : "hsl(0, 0%, 30%)",
-    },
-  });
+  const customTheme = isDark
+    ? darkTheme({
+        colors: {
+          separatorLine: "hsl(41, 80%, 49%)",
+          accentText: "hsl(41, 62%, 51%)",
+          modalBg: "hsl(240, 6%, 10%)",
+          borderColor: "hsl(58, 5%, 13%)",
+          selectedTextColor: "hsl(230, 7%, 22%)",
+          primaryText: "hsl(0, 0%, 100%)",
+          secondaryText: "hsl(0, 0%, 70%)",
+          accentButtonBg: "hsl(41, 80%, 49%)",
+          accentButtonText: "hsl(0, 0%, 100%)",
+        },
+      })
+    : lightTheme({
+        colors: {
+          separatorLine: "hsl(41, 80%, 49%)",
+          accentText: "hsl(41, 62%, 51%)",
+          modalBg: "hsl(0, 0%, 100%)",
+          borderColor: "hsl(0, 0%, 85%)",
+          selectedTextColor: "hsl(100, 100%, 100%)",
+          primaryText: "hsl(0, 0%, 0%)",
+          secondaryText: "hsl(0, 0%, 30%)",
+          accentButtonBg: "hsl(41, 80%, 49%)",
+          accentButtonText: "hsl(0, 0%, 100%)",
+          // Add these to fix hover states
+          connectedButtonBg: "hsl(41, 80%, 49%)",
+          connectedButtonBgHover: "hsl(41, 70%, 45%)",
+          // Wallet item hover
+          walletSelectorButtonHoverBg: "hsl(41, 80%, 49%)",
+        },
+      });
 
   return (
     <nav
@@ -682,7 +708,7 @@ function Navbar({ currentPage, setCurrentPage }) {
                           <button
                             onClick={handleInternetIdentityLogin}
                             disabled={isAuthenticating}
-                            className="w-full bg-blue-950 hover:bg-yellow-600 disabled:from-gray-400 disabled:to-gray-500 text-white px-4 py-3 rounded-xl font-semibold transition-all duration-200 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-[1.02] disabled:transform-none disabled:cursor-not-allowed"
+                            className="w-full bg-yellow-500 hover:cursor-pointer dark:bg-blue-950 hover:bg-yellow-500 disabled:from-gray-400 disabled:to-gray-500 text-white px-4 py-3 rounded-xl font-semibold transition-all duration-200 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-[1.02] disabled:transform-none disabled:cursor-not-allowed"
                           >
                             {isAuthenticating ? (
                               <>
@@ -758,7 +784,7 @@ function Navbar({ currentPage, setCurrentPage }) {
                             label: "Connect Wallet",
                             style: {
                               background: isDark ? "#18181b" : "#1e3a8a",
-                              color: "white",
+                              color: isDark ? "white" : "#ede7d1",
                               border: isDark ? "none" : "none",
                               boxShadow: isDark
                                 ? "0 0 0 2px #e4a80f, 0 0 8px 2px #e4a80f55"
