@@ -32,6 +32,7 @@ function Navbar({ currentPage, setCurrentPage }) {
   const smartWallet = account?.address;
 
   console.log("Smart Wallet:", smartWallet);
+  console.log("Principal: ", useInternetIdentity().principal);
 
   useEffect(() => {
     const observer = new MutationObserver(() => {

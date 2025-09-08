@@ -4,7 +4,6 @@ import { createContext, useContext, useState, useEffect, useRef } from "react";
 import { AuthClient } from "@dfinity/auth-client";
 import { HttpAgent, Actor } from "@dfinity/agent";
 import { Ed25519KeyIdentity } from "@dfinity/identity";
-// import { createActor } from "../../../declarations/abya-passport-backend";
 import { idlFactory } from "../../../declarations/abya-passport-backend/abya-passport-backend.did.js";
 import { useIPFS } from "./IPFSContext";
 
@@ -35,70 +34,94 @@ export const InternetIdentityProvider = ({ children }) => {
     rollbackIPFS,
   } = useIPFS();
 
+  // Network configuration - FIXED
   const network = import.meta.env.VITE_APP_DFX_NETWORK || "local";
+  const isLocal = network === "local";
 
-  // Network detection
-  const isLocal =
-    typeof window !== "undefined" &&
-    (network === "local" ||
-      window.location.hostname === "localhost" ||
-      window.location.hostname === "127.0.0.1");
+  console.log("VITE_APP_DFX_NETWORK:", import.meta.env.VITE_APP_DFX_NETWORK);
 
-  console.log("VITE_APP_DFX_NETWORK:", network);
+  console.log("Is local development:", isLocal);
 
+  // Host configuration - FIXED
   const IC_HOST = isLocal ? "http://127.0.0.1:4943" : "https://ic0.app";
-  // const canisterId = "uxrrr-q7777-77774-qaaaq-cai";
-  const canisterId =
-    import.meta.env.VITE_APP_BACKEND_CANISTER_ID ||
-    "uxrrr-q7777-77774-qaaaq-cai";
 
-  // Agent cache (to avoid re-creating agents)
+  // Canister ID - FIXED (use local canister ID for local development)
+  const canisterId = isLocal
+    ? import.meta.env.VITE_APP_LOCAL_BACKEND_CANISTER_ID
+    : import.meta.env.VITE_APP_MAINNET_BACKEND_CANISTER_ID;
+
+  console.log("Host:", IC_HOST);
+  console.log("Canister ID:", canisterId);
+
+  // Agent cache
   const agentCache = useRef({});
 
-  // Helper to create an actor with the current identity
+  // Helper to create an actor with the current identity - FIXED
   const createBackendActor = async (identity = null) => {
-    const agent = await getAgent(identity);
-    return Actor.createActor(idlFactory, {
-      agent,
-      canisterId,
-    });
+    try {
+      const agent = await getAgent(identity);
+      return Actor.createActor(idlFactory, {
+        agent,
+        canisterId,
+      });
+    } catch (error) {
+      console.error("Error creating backend actor:", error);
+      throw error;
+    }
   };
 
-  // Helper to get a configured agent (optionally with identity)
+  // Helper to get a configured agent - FIXED
   const getAgent = async (identity = null) => {
-    if (identity && typeof identity.getPrincipal === "function") {
+    try {
       const key = identity ? identity.getPrincipal().toString() : "anonymous";
-      console.log("Getting agent for key:", key);
 
       if (agentCache.current[key]) {
         return agentCache.current[key];
       }
 
-      const agent = new HttpAgent({
+      const agentOptions = {
         host: IC_HOST,
-        ...(identity ? { identity } : {}),
-      });
+      };
+
+      if (identity) {
+        agentOptions.identity = identity;
+      }
+
+      const agent = new HttpAgent(agentOptions);
+
+      // Only fetch root key for local development
       if (isLocal) {
         await agent.fetchRootKey();
+        console.log("Fetched root key for local development");
       }
+
       agentCache.current[key] = agent;
       return agent;
-    } else {
-      console.log("Identity not ready for getAgent");
+    } catch (error) {
+      console.error("Error creating agent:", error);
+      throw error;
     }
   };
 
-  // Initialize auth client
+  // Initialize auth client - FIXED
   useEffect(() => {
-    AuthClient.create().then(async (client) => {
-      setAuthClient(client);
-      if (await client.isAuthenticated()) {
-        handleLoginSuccess(client);
+    const initAuthClient = async () => {
+      try {
+        const client = await AuthClient.create();
+        setAuthClient(client);
+
+        if (await client.isAuthenticated()) {
+          await handleLoginSuccess(client);
+        }
+      } catch (error) {
+        console.error("Error initializing auth client:", error);
       }
-    });
+    };
+
+    initAuthClient();
   }, []);
 
-  // Developer login with IPFS DID creation
+  // Developer login - FIXED
   const developerLogin = async () => {
     try {
       console.log("🔧 Starting developer login...");
@@ -119,26 +142,31 @@ export const InternetIdentityProvider = ({ children }) => {
     }
   };
 
+  // Login function - FIXED (proper local/mainnet separation)
   const login = async () => {
     setIsAuthenticating(true);
 
     try {
-      // Always use local Internet Identity for local development
+      // Use correct identity provider based on environment
       const identityProvider = isLocal
-        ? "http://rdmx6-jaaaa-aaaaa-aaadq-cai.localhost:4943"
+        ? `http://${
+            import.meta.env.VITE_CANISTER_ID_INTERNET_IDENTITY
+          }.localhost:4943`
         : "https://identity.ic0.app";
 
       console.log("Using identity provider:", identityProvider);
 
-      // Clear any cached Internet Identity data to avoid mainnet/local conflicts
+      // Clear cached data
       localStorage.removeItem("ic-identity");
       localStorage.removeItem("ic-delegation");
       sessionStorage.clear();
 
       authClient.login({
         identityProvider: identityProvider,
-        maxTimeToLive: BigInt(7 * 24 * 60 * 60 * 1000 * 1000 * 1000), // 7 days
-        onSuccess: () => handleLoginSuccess(authClient),
+        maxTimeToLive: BigInt(7 * 24 * 60 * 60 * 1000 * 1000 * 1000),
+        onSuccess: async () => {
+          await handleLoginSuccess(authClient);
+        },
         onError: (err) => {
           console.error("II Login failed:", err);
           setIsAuthenticating(false);
@@ -150,31 +178,37 @@ export const InternetIdentityProvider = ({ children }) => {
     }
   };
 
-  console.log("identity:", identity);
-
+  // Handle login success - FIXED
   const handleLoginSuccess = async (client) => {
-    const identity = client.getIdentity();
-    setIdentity(identity);
-    setPrincipal(identity.getPrincipal().toString());
-    setIsAuthenticated(true);
-    setLoginMethod("internet-identity");
+    try {
+      const identity = client.getIdentity();
+      setIdentity(identity);
+      setPrincipal(identity.getPrincipal().toString());
+      setIsAuthenticated(true);
+      setLoginMethod("internet-identity");
 
-    await createOrRetrieveDID(identity);
-
-    setIsAuthenticating(false);
+      await createOrRetrieveDID(identity);
+    } catch (error) {
+      console.error("Error in login success handler:", error);
+    } finally {
+      setIsAuthenticating(false);
+    }
   };
 
-  // Create DID with IPFS storage or retrieve existing one
+  // Create or retrieve DID - FIXED
   const createOrRetrieveDID = async (identity) => {
     try {
       const principalText = identity.getPrincipal().toString();
       const did = "did:icp:" + principalText;
 
-      const agent = await getAgent(identity);
-      console.log("✅ Agent created successfully");
+      // Test backend connection first
+      const isConnected = await verifyBackendConnection();
+      if (!isConnected) {
+        throw new Error("Backend connection failed");
+      }
 
-      const actor = await createBackendActor(canisterId, { agent });
-      console.log("✅ Actor created successfully");
+      const agent = await getAgent(identity);
+      const actor = await createBackendActor(identity);
 
       const hasExistingDID = await actor.hasMyDID();
 
@@ -205,6 +239,10 @@ export const InternetIdentityProvider = ({ children }) => {
           throw new Error(result.err);
         }
       }
+
+      // Load VCs after DID is set
+      await loadMyIssuedVCs();
+      await loadMyReceivedVCs();
     } catch (error) {
       console.error("❌ Error with DID creation/retrieval:", error);
       const did = "did:icp:" + identity.getPrincipal().toString();
@@ -213,6 +251,7 @@ export const InternetIdentityProvider = ({ children }) => {
     }
   };
 
+  // Verify backend connection - FIXED
   const verifyBackendConnection = async () => {
     try {
       console.log("Verifying backend connection...");
@@ -221,25 +260,18 @@ export const InternetIdentityProvider = ({ children }) => {
       console.log("Host:", IC_HOST);
 
       const agent = await getAgent();
-      const actor = await createBackendActor(null);
+      const actor = await createBackendActor();
 
-      // Check available methods
-      const methods = Object.keys(actor);
-      console.log("Available methods on canister:", methods);
-
-      // Try a simple method to test connection
-      if (typeof actor.getDIDMetadata === "function") {
+      // Try a simple method
+      try {
         const testResult = await actor.getDIDMetadata("did:example:test");
         console.log("Connection test successful", testResult);
         return true;
-      } else if (methods.length > 0) {
-        console.log("Connection successful but getDIDMetadata not available");
-        return true;
-      } else {
-        console.error(
-          "No methods available on canister - possible wrong canister ID"
-        );
-        return false;
+      } catch (methodError) {
+        // If getDIDMetadata fails, try any method to check connectivity
+        const methods = Object.keys(actor);
+        console.log("Available methods:", methods);
+        return methods.length > 0;
       }
     } catch (error) {
       console.error("Backend connection failed:", error);
@@ -250,6 +282,8 @@ export const InternetIdentityProvider = ({ children }) => {
   useEffect(() => {
     verifyBackendConnection();
   }, [canisterId, IC_HOST]);
+
+  // ... rest of the functions remain similar but use the fixed createBackendActor and getAgent
 
   const logout = async () => {
     if (authClient && loginMethod === "internet-identity") {
@@ -303,7 +337,7 @@ export const InternetIdentityProvider = ({ children }) => {
     setIsResolvingDid(true);
     try {
       const agent = await getAgent(); // anonymous
-      const actor = await createBackendActor(canisterId, { agent });
+      const actor = await createBackendActor(identity);
       if (typeof actor.resolveDid === "function") {
         const document = await actor.resolveDid(targetDid);
         console.log("Resolved DID Document:", document);
@@ -445,14 +479,16 @@ export const InternetIdentityProvider = ({ children }) => {
     }
   };
 
+  // Load VCs functions - FIXED
   const loadMyReceivedVCs = async () => {
     if (!did) return;
     setIsLoadingVCs(true);
     try {
       console.log("📥 Loading received VCs from IPFS...");
-      const agent = await getAgent(); // anonymous
-      const actor = await createBackendActor(canisterId, { agent });
+      const agent = await getAgent(identity); // Use authenticated identity
+      const actor = await createBackendActor(identity);
       const vcMetadataArray = await actor.getVCsForDidMetadata(did);
+
       const vcsWithDocuments = await Promise.all(
         vcMetadataArray.map(async (metadata) => {
           try {
@@ -469,22 +505,13 @@ export const InternetIdentityProvider = ({ children }) => {
             };
           } catch (error) {
             console.log("❌ Failed to retrieve VC document:", error);
-            return {
-              metadata,
-              document: null,
-              id: metadata.id,
-              issuer: metadata.issuer,
-              credentialSubject: { id: did },
-              issuanceDate: new Date(
-                Number(metadata.issuedAt / 1000000n)
-              ).toISOString(),
-              expirationDate: null,
-              type: ["VerifiableCredential"],
-            };
+            return null; // Skip failed retrievals
           }
         })
       );
-      setMyReceivedVCs(vcsWithDocuments);
+
+      // Filter out null values
+      setMyReceivedVCs(vcsWithDocuments.filter((vc) => vc !== null));
       console.log("✅ Loaded received VCs:", vcsWithDocuments.length);
     } catch (error) {
       console.error("❌ Error loading received VCs:", error);
@@ -597,6 +624,8 @@ export const InternetIdentityProvider = ({ children }) => {
         verifyVC,
         revokeVC,
         getVC,
+        isLocal, // Expose isLocal for components to use
+        canisterId, // Expose canisterId for debugging
       }}
     >
       {children}
