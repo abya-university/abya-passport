@@ -246,7 +246,7 @@ function Navbar({ currentPage, setCurrentPage }) {
               { name: "Home", page: "home" },
               { name: "DID Documents", page: "did" },
               { name: "ICP Credentials", page: "vc" },
-              { name: "Ethereum VCs", page: "ethr-vc" },
+              { name: "Ether Credentials", page: "ethr-vc" },
               { name: "Verify", page: "verify" },
             ].map((item) => (
               <button

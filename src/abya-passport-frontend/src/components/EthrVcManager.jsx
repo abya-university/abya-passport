@@ -14,20 +14,10 @@ import { useEthr } from "../contexts/EthrContext";
 import EthrABI from "../artifacts/contracts/UniversityVCV2.json";
 import { useEthersSigner } from "./useClientSigner";
 import EthrPresentation from "./VcPresentationManager";
+import VCVerifierEthr from "./VCVerifierEthr";
 
 // Small icons to make the UI compact and scannable
 import {
-  RefreshCw,
-  PlusSquare,
-  FileText,
-  Download,
-  QrCode,
-  Copy,
-  UploadCloud,
-  Link2,
-  CheckCircle,
-  AlertCircle,
-  Database,
   CopyIcon,
   QrCodeIcon,
   DownloadIcon,
@@ -297,14 +287,14 @@ const EthrVcManager = () => {
         const provider = new ethers.BrowserProvider(window.ethereum);
         try {
           await provider.send?.("eth_requestAccounts", []);
-        } catch (_) {}
+        } catch (_) { }
         return new ethers.Contract(VC_ADDRESS, VC_ABI, provider);
       }
       if (ethers?.providers?.Web3Provider) {
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         try {
           await provider.send?.("eth_requestAccounts", []);
-        } catch (_) {}
+        } catch (_) { }
         return new ethers.Contract(VC_ADDRESS, VC_ABI, provider);
       }
     }
@@ -386,10 +376,10 @@ const EthrVcManager = () => {
         const checksum = ethers.utils
           ? ethers.utils.getAddress(hex)
           : ethers.getAddress
-          ? ethers.getAddress(hex)
-          : null;
+            ? ethers.getAddress(hex)
+            : null;
         if (checksum) out.push(checksum);
-      } catch (e) {}
+      } catch (e) { }
     }
 
     if (did.startsWith("did:ethr:")) {
@@ -438,8 +428,8 @@ const EthrVcManager = () => {
       console.error("create error:", err);
       setError(
         err?.response?.data?.error ||
-          err?.message ||
-          "Failed to create credential"
+        err?.message ||
+        "Failed to create credential"
       );
     } finally {
       setLoading(false);
@@ -532,7 +522,7 @@ const EthrVcManager = () => {
           credentialHash && typeof credentialHash === "string" && credentialHash.length > 0
             ? credentialHash
             : (ethers && ethers.constants && ethers.constants.HashZero) ||
-              "0x0000000000000000000000000000000000000000000000000000000000000000";
+            "0x0000000000000000000000000000000000000000000000000000000000000000";
 
         // compute expiresAt (unix seconds) from credential JSON if present
         let expiresAt = 0;
@@ -651,9 +641,8 @@ const EthrVcManager = () => {
         if (errorMessage.includes("Only issuer can perform this action")) {
           errorMessage = `Access denied: Only the contract owner can issue credentials. Your wallet (${walletAddress}) may not be authorized. Please contact the system administrator.`;
         } else if (errorMessage.includes("execution reverted")) {
-          errorMessage = `Transaction failed: ${
-            errorMessage.split("execution reverted: ")[1] || "Unknown smart contract error"
-          }`;
+          errorMessage = `Transaction failed: ${errorMessage.split("execution reverted: ")[1] || "Unknown smart contract error"
+            }`;
         } else if (errorMessage.includes("Contract does not have issueCredential")) {
           errorMessage = `Contract configuration error: The contract at ${VC_ADDRESS} does not have the expected issueCredential function. Please check that the correct contract ABI is being used.`;
         } else if (errorMessage.includes("formatJson")) {
@@ -757,7 +746,7 @@ const EthrVcManager = () => {
             usedVariant = v;
             break;
           }
-        } catch (inner) {}
+        } catch (inner) { }
       }
 
       // last fallback: try plain walletAddress as variant (if available)
@@ -769,7 +758,7 @@ const EthrVcManager = () => {
             ids = idStrings2;
             usedVariant = walletAddress;
           }
-        } catch (_) {}
+        } catch (_) { }
       }
 
       setLastOnchainIds(ids);
@@ -806,7 +795,7 @@ const EthrVcManager = () => {
             usedVariant = v;
             break;
           }
-        } catch (inner) {}
+        } catch (inner) { }
       }
 
       if ((!idsRaw || idsRaw.length === 0) && walletAddress) {
@@ -817,7 +806,7 @@ const EthrVcManager = () => {
             idsRaw = idList2;
             usedVariant = walletAddress;
           }
-        } catch (_) {}
+        } catch (_) { }
       }
 
       const idList = idsRaw;
@@ -961,7 +950,7 @@ const EthrVcManager = () => {
               try {
                 const res = await fetch(`https://dweb.link/ipfs/${mappingCID}`);
                 if (res.ok) ipfsJson = await res.json();
-              } catch (e) {}
+              } catch (e) { }
             }
           }
           const issueDateRaw = summary?.[4];
@@ -981,7 +970,7 @@ const EthrVcManager = () => {
             },
           };
           out.push(credObj);
-        } catch (inner) {}
+        } catch (inner) { }
       }
       return out;
     } catch (err) {
@@ -1036,8 +1025,8 @@ const EthrVcManager = () => {
       console.error("fetchCredentials error:", err);
       setError(
         err?.response?.data?.error ||
-          err?.message ||
-          "Failed to fetch credentials"
+        err?.message ||
+        "Failed to fetch credentials"
       );
     } finally {
       setListLoading(false);
@@ -1071,8 +1060,8 @@ const EthrVcManager = () => {
     } else {
       alert(
         "Failed to fetch IPFS JSON for " +
-          mappingCID +
-          " — see console for details"
+        mappingCID +
+        " — see console for details"
       );
     }
   };
@@ -1191,16 +1180,20 @@ const EthrVcManager = () => {
     const cls = status.error
       ? "bg-red-500"
       : status.success
-      ? "bg-emerald-500"
-      : status.sending || status.uploading
-      ? "bg-yellow-400"
-      : "bg-slate-300";
+        ? "bg-emerald-500"
+        : status.sending || status.uploading
+          ? "bg-yellow-400"
+          : "bg-slate-300";
     return <span className={`inline-block w-2 h-2 rounded-full ${cls} mr-2`} />;
   };
 
   // ---------------- Navigation: render EthrPresentation when requested ----------------
   if (currentPage === "ethrpresent") {
     return <EthrPresentation onBack={() => setCurrentPage("home")} />;
+  }
+
+  if (currentPage === "vcverifier") {
+    return <VCVerifierEthr onBack={() => setCurrentPage("home")} />;
   }
 
   // ---------------- Render (only UI changed) ----------------
@@ -1224,11 +1217,10 @@ const EthrVcManager = () => {
               Connection Status
             </h3>
             <div
-              className={`px-3 py-1 rounded-full text-sm font-medium ${
-                walletAddress
+              className={`px-3 py-1 rounded-full text-sm font-medium ${walletAddress
                   ? "bg-emerald-100 text-green-800"
                   : "bg-red-100 text-red-800"
-              }`}
+                }`}
             >
               {walletAddress ? "✓ Connected" : "✗ Disconnected"}
             </div>
@@ -1254,9 +1246,8 @@ const EthrVcManager = () => {
                 Wallet Address
               </label>
               <div
-                className={`font-mono text-sm break-all mb-20 ${
-                  walletAddress ? "text-emerald-700" : "text-gray-400"
-                }`}
+                className={`font-mono text-sm break-all mb-20 ${walletAddress ? "text-emerald-700" : "text-gray-400"
+                  }`}
               >
                 {walletAddress || "Not connected"}
               </div>
@@ -1307,9 +1298,8 @@ const EthrVcManager = () => {
                 Wallet DID
               </label>
               <div
-                className={`font-mono text-sm break-all ${
-                  walletDid ? "text-emerald-700" : "text-orange-600"
-                }`}
+                className={`font-mono text-sm break-all ${walletDid ? "text-emerald-700" : "text-orange-600"
+                  }`}
               >
                 {didLoading ? (
                   <span className="flex items-center">
@@ -1375,14 +1365,12 @@ const EthrVcManager = () => {
           {/* IPFS Status */}
           <div className="rounded-lg p-4">
             <div
-              className={`flex items-center ${
-                isPinataAvailable() ? "text-emerald-700" : "text-orange-600"
-              }`}
+              className={`flex items-center ${isPinataAvailable() ? "text-emerald-700" : "text-orange-600"
+                }`}
             >
               <svg
-                className={`w-4 h-4 mr-2 ${
-                  isPinataAvailable() ? "text-emerald-500" : "text-orange-500"
-                }`}
+                className={`w-4 h-4 mr-2 ${isPinataAvailable() ? "text-emerald-500" : "text-orange-500"
+                  }`}
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -1744,9 +1732,9 @@ const EthrVcManager = () => {
                             field === "expirationDate"
                               ? "Optional expiration date"
                               : `Enter ${field
-                                  .replace(/([A-Z])/g, " $1")
-                                  .trim()
-                                  .toLowerCase()}`
+                                .replace(/([A-Z])/g, " $1")
+                                .trim()
+                                .toLowerCase()}`
                           }
                         />
                       </div>
@@ -1821,6 +1809,30 @@ const EthrVcManager = () => {
                     ) : (
                       "Refresh List"
                     )}
+                  </button>
+
+                  {/* New button -> open verifier */}
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage("vcverifier")}
+                    className="bg-emerald-600 text-white px-6 py-3 rounded-lg hover:bg-emerald-700 transition-colors duration-200 font-medium"
+                  >
+                    <span className="flex items-center">
+                      <svg
+                        className="w-5 h-5 mr-2"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      Credential Verifier
+                    </span>
                   </button>
                 </div>
 
@@ -1955,8 +1967,8 @@ const EthrVcManager = () => {
                     {ipfsStatus["latest"]?.uploading
                       ? "Uploading..."
                       : chainStatus["latest"]?.sending
-                      ? "Storing on-chain..."
-                      : "Publish to IPFS & Blockchain"}
+                        ? "Storing on-chain..."
+                        : "Publish to IPFS & Blockchain"}
                   </button>
                 </div>
 
@@ -2292,8 +2304,8 @@ const EthrVcManager = () => {
                                 <p className="text-sm text-gray-800 dark-text-white">
                                   {cred?.issuanceDate
                                     ? new Date(
-                                        cred.issuanceDate
-                                      ).toLocaleDateString()
+                                      cred.issuanceDate
+                                    ).toLocaleDateString()
                                     : "N/A"}
                                 </p>
                               </div>
@@ -2424,8 +2436,8 @@ const EthrVcManager = () => {
                                 {ipfsStatus[i]?.uploading
                                   ? "Uploading..."
                                   : chainStatus[i]?.sending
-                                  ? "Storing..."
-                                  : "Publish & Store"}
+                                    ? "Storing..."
+                                    : "Publish & Store"}
                               </button>
 
                               {cred?.onchain?.mappingCID && (
@@ -2607,11 +2619,10 @@ const EthrVcManager = () => {
                 {verificationResult && (
                   <div className="mt-6">
                     <div
-                      className={`p-4 rounded-lg border-l-4 ${
-                        verificationResult.verified
+                      className={`p-4 rounded-lg border-l-4 ${verificationResult.verified
                           ? "bg-green-50 darkcard border-green-500"
                           : "bg-red-50 border-red-500"
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center mb-3">
                         {verificationResult.verified ? (
@@ -2683,8 +2694,8 @@ const EthrVcManager = () => {
                             <p className="text-sm text-emerald-800">
                               {verificationResult.payload?.exp
                                 ? new Date(
-                                    verificationResult.payload.exp * 1000
-                                  ).toLocaleDateString()
+                                  verificationResult.payload.exp * 1000
+                                ).toLocaleDateString()
                                 : "N/A"}
                             </p>
                           </div>
