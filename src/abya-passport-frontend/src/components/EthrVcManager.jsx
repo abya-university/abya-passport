@@ -15,8 +15,7 @@ import EthrABI from "../artifacts/contracts/UniversityVCV2.json";
 import { useEthersSigner } from "./useClientSigner";
 import EthrPresentation from "./VcPresentationManager";
 import VCVerifierEthr from "./VCVerifierEthr";
-
-// Small icons to make the UI compact and scannable
+import { keccak256, toUtf8Bytes } from "ethers";
 import {
   CopyIcon,
   QrCodeIcon,
@@ -68,6 +67,7 @@ const EthrVcManager = () => {
   const [chainStatus, setChainStatus] = useState({});
   const [lastOnchainIds, setLastOnchainIds] = useState([]);
   const [lastOnchainRowsDebug, setLastOnchainRowsDebug] = useState([]);
+  const [stampStatus, setStampStatus] = useState(null);
 
   useEffect(() => {
     if (didLoading) return;
@@ -720,6 +720,260 @@ const EthrVcManager = () => {
     return "0x" + (h >>> 0).toString(16);
   };
 
+  // ---------------- Safe ethers helpers ----------------
+  // Put these right after computeCredentialHash and BEFORE stampCredential/verifyStampLocal
+
+  const safeHashMessage = (msg) => {
+    // prefer ethers.hashMessage (v6) or ethers.utils.hashMessage (v5), else fallback to keccak256 of utf8 bytes
+    try {
+      if (typeof ethers.hashMessage === "function") return ethers.hashMessage(msg);
+      if (ethers.utils && typeof ethers.utils.hashMessage === "function")
+        return ethers.utils.hashMessage(msg);
+    } catch (e) { /* ignore */ }
+
+    // fallback: keccak256(utf8)
+    try {
+      if (typeof keccak256 === "function" && typeof toUtf8Bytes === "function")
+        return keccak256(toUtf8Bytes(msg));
+      if (typeof ethers.keccak256 === "function" && typeof ethers.toUtf8Bytes === "function")
+        return ethers.keccak256(ethers.toUtf8Bytes(msg));
+      if (ethers.utils && typeof ethers.utils.keccak256 === "function" && typeof ethers.utils.toUtf8Bytes === "function")
+        return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(msg));
+    } catch (e) { /* ignore */ }
+
+    throw new Error("No hash function available (safeHashMessage)");
+  };
+
+  const safeRecoverAddress = (msgOrDigest, signature) => {
+    // If msgOrDigest looks like a message (string), try verifyMessage first
+    try {
+      if (typeof ethers.verifyMessage === "function") return ethers.verifyMessage(msgOrDigest, signature);
+      if (ethers.utils && typeof ethers.utils.verifyMessage === "function")
+        return ethers.utils.verifyMessage(msgOrDigest, signature);
+    } catch (_) { /* ignore and try digest path */ }
+
+    // treat msgOrDigest as digest; try recoverAddress from digest
+    try {
+      const digest = typeof msgOrDigest === "string" && msgOrDigest.startsWith("0x")
+        ? msgOrDigest
+        : safeHashMessage(msgOrDigest);
+      if (typeof ethers.recoverAddress === "function") return ethers.recoverAddress(digest, signature);
+      if (ethers.utils && typeof ethers.utils.recoverAddress === "function")
+        return ethers.utils.recoverAddress(digest, signature);
+    } catch (e) {
+      // ignore, return null below
+    }
+
+    return null;
+  };
+
+  const safeRecoverPublicKey = (msgOrDigest, signature) => {
+    try {
+      const digest = typeof msgOrDigest === "string" && msgOrDigest.startsWith("0x")
+        ? msgOrDigest
+        : safeHashMessage(msgOrDigest);
+
+      if (ethers.utils && typeof ethers.utils.recoverPublicKey === "function") {
+        return ethers.utils.recoverPublicKey(digest, signature);
+      }
+      if (typeof ethers.recoverPublicKey === "function") {
+        return ethers.recoverPublicKey(digest, signature);
+      }
+    } catch (e) {
+      // ignore
+    }
+    return null;
+  };
+
+
+
+  // ---------------- Issuer signature stamping & local verification (robust fallback) ----------------
+
+  /**
+   * stampCredential
+   * - robustly builds signer (your existing logic) and signs canonical JSON,
+   * - uses safe helpers for hashing / recovery to avoid accessing ethers.utils when undefined.
+   */
+  const stampCredential = async () => {
+    try {
+      if (!credential) return alert("No credential to stamp. Create or load a credential first.");
+      if (!walletAddress) return alert("No connected wallet address. Please connect your wallet.");
+
+      // 1) Try existing signerPromise (preferred)
+      let signer = null;
+      try {
+        signer = await signerPromise;
+      } catch (e) {
+        signer = null;
+      }
+
+      // 2) Fallback: build provider signer from window.ethereum if available (keeps your existing fallback)
+      if (!signer && typeof window !== "undefined" && window.ethereum) {
+        try {
+          if (ethers?.BrowserProvider) {
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            try {
+              await provider.send("eth_requestAccounts", []);
+            } catch (_) { /* ignore request failure here; signer.getAddress will throw if not allowed */ }
+            try {
+              signer = provider.getSigner ? provider.getSigner() : null;
+              const addr = signer?.getAddress ? await signer.getAddress() : null;
+              if (addr && addr.toLowerCase() !== walletAddress.toLowerCase()) {
+                signer = provider.getSigner ? provider.getSigner() : signer;
+              }
+            } catch (_) {
+              signer = null;
+            }
+          } else if (ethers?.providers?.Web3Provider) {
+            const provider = new ethers.providers.Web3Provider(window.ethereum);
+            try {
+              await provider.send("eth_requestAccounts", []);
+            } catch (_) { }
+            signer = provider.getSigner ? provider.getSigner() : null;
+          }
+        } catch (e) {
+          signer = null;
+        }
+      }
+
+      // Build the canonical (unsigned) JSON
+      const unsigned = JSON.parse(JSON.stringify(credential));
+      if (unsigned.proof && unsigned.proof.stamp) delete unsigned.proof.stamp;
+      const jsonToSign = JSON.stringify(unsigned, Object.keys(unsigned).sort());
+
+      // Sign: prefer signer.signMessage, fallback to personal_sign
+      let signature = null;
+      let usedMethod = null;
+      if (signer && typeof signer.signMessage === "function") {
+        try {
+          signature = await signer.signMessage(jsonToSign);
+          usedMethod = "signMessage";
+        } catch (e) {
+          signature = null;
+        }
+      }
+
+      if (!signature && typeof window !== "undefined" && window.ethereum) {
+        try {
+          // personal_sign expects hex or string; some wallets take (msg, address) or (address, msg)
+          const msgHex = (typeof ethers.hexlify === "function" && typeof ethers.toUtf8Bytes === "function")
+            ? ethers.hexlify(ethers.toUtf8Bytes(jsonToSign))
+            : (typeof toUtf8Bytes === "function" ? keccak256(toUtf8Bytes(jsonToSign)) : null);
+
+          let sig = null;
+          try {
+            sig = await window.ethereum.request({
+              method: "personal_sign",
+              params: [msgHex || jsonToSign, walletAddress],
+            });
+          } catch (err) {
+            sig = await window.ethereum.request({
+              method: "personal_sign",
+              params: [walletAddress, msgHex || jsonToSign],
+            });
+          }
+          if (sig) {
+            signature = sig;
+            usedMethod = "personal_sign";
+          }
+        } catch (psErr) {
+          console.warn("personal_sign failed", psErr);
+        }
+      }
+
+      if (!signature) {
+        return alert(
+          "Failed to obtain a signature. Make sure your wallet is connected/unlocked and you approved the request."
+        );
+      }
+
+      // Safe recovery / public key extraction
+      let recoveredAddress = null;
+      try {
+        recoveredAddress = safeRecoverAddress(jsonToSign, signature);
+      } catch (e) {
+        recoveredAddress = null;
+      }
+
+      let publicKey = null;
+      try {
+        publicKey = safeRecoverPublicKey(jsonToSign, signature);
+      } catch (e) {
+        publicKey = null;
+      }
+
+      const stamp = {
+        signature,
+        publicKey,
+        signerAddress: recoveredAddress,
+        stampedAt: Date.now(),
+        method: usedMethod || "unknown",
+      };
+
+      // Persist to local credential object
+      setCredential((prev) => {
+        if (!prev) return prev;
+        const updated = { ...prev };
+        if (!updated.proof) updated.proof = {};
+        updated.proof.stamp = stamp;
+        return updated;
+      });
+
+      setStampStatus({ ok: true, signerAddress: recoveredAddress, publicKey, method: stamp.method });
+      alert("Credential stamped successfully (signature attached).");
+      return stamp;
+    } catch (err) {
+      console.error("stampCredential error:", err);
+      setStampStatus({ ok: false, error: err?.message || String(err) });
+      alert("Stamping failed: " + (err?.message || String(err)));
+      return null;
+    }
+  };
+
+
+  /**
+   * verifyStampLocal
+   * - Rebuild unsigned credential and verify signature using safe wrappers.
+   */
+  const verifyStampLocal = (cred) => {
+    try {
+      if (!cred) return { ok: false, error: "No credential provided" };
+      const stamp = cred?.proof?.stamp;
+      if (!stamp || !stamp.signature) return { ok: false, error: "No local stamp found" };
+
+      const unsigned = JSON.parse(JSON.stringify(cred));
+      if (unsigned.proof && unsigned.proof.stamp) delete unsigned.proof.stamp;
+      const jsonToVerify = JSON.stringify(unsigned, Object.keys(unsigned).sort());
+
+      // Try verifyMessage-first path (most providers)
+      let recovered = null;
+      try {
+        recovered = safeRecoverAddress(jsonToVerify, stamp.signature);
+      } catch (e) {
+        recovered = null;
+      }
+
+      // Try recover public key (optional)
+      let recoveredPublicKey = null;
+      try {
+        recoveredPublicKey = safeRecoverPublicKey(jsonToVerify, stamp.signature);
+      } catch (e) {
+        recoveredPublicKey = null;
+      }
+
+      const ok = !!(recovered && stamp.signerAddress && recovered.toLowerCase() === stamp.signerAddress?.toLowerCase());
+      return {
+        ok,
+        recoveredAddress: recovered,
+        publicKey: recoveredPublicKey || stamp.publicKey || null,
+      };
+    } catch (err) {
+      return { ok: false, error: err?.message || String(err) };
+    }
+  };
+
+
+
 
   // ---------------- on-chain fetch helpers (unchanged) ----------------
   const getIdsForDid = async (did) => {
@@ -1153,6 +1407,8 @@ const EthrVcManager = () => {
   const handleJwtVerification = async () => {
     setVerificationResult(null);
     setError("");
+    setStampStatus(null);
+
     if (!jwtToVerify) {
       setVerificationResult({ verified: false, error: "No JWT provided" });
       return;
@@ -1164,15 +1420,49 @@ const EthrVcManager = () => {
       });
       const ver = response.data?.verification ?? response.data;
       setVerificationResult(ver);
+
+      // If we have the loaded credential object with a local stamp, verify it client-side too
+      if (credential?.proof?.stamp) {
+        const stampVer = verifyStampLocal(credential);
+        setStampStatus(stampVer);
+      } else {
+        // If credential not in UI or no stamp found, but the JWT payload includes 'proof.stamp', try to parse it
+        try {
+          // Attempt to decode JWT payload quickly and look for embedded stamp
+          const parts = jwtToVerify.split(".");
+          if (parts.length === 3) {
+            const payloadJson = JSON.parse(
+              decodeURIComponent(
+                atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"))
+                  .split("")
+                  .map(function (c) {
+                    return "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2);
+                  })
+                  .join("")
+              )
+            );
+            const embeddedStamp = payloadJson?.vc?.proof?.stamp || payloadJson?.proof?.stamp;
+            if (embeddedStamp) {
+              const tempCred = { ...(payloadJson.vc || payloadJson) };
+              tempCred.proof = tempCred.proof || {};
+              tempCred.proof.stamp = embeddedStamp;
+              const stampVer = verifyStampLocal(tempCred);
+              setStampStatus(stampVer);
+            }
+          }
+        } catch (e) {
+          // ignore decode issues
+        }
+      }
     } catch (err) {
       console.error(err);
       setVerificationResult({
         verified: false,
-        error:
-          err?.response?.data?.error || err?.message || "Verification failed",
+        error: err?.response?.data?.error || err?.message || "Verification failed",
       });
     }
   };
+
 
   // ---------- Small visual helper: status dot ----------
   const StatusDot = ({ status }) => {
@@ -1218,8 +1508,8 @@ const EthrVcManager = () => {
             </h3>
             <div
               className={`px-3 py-1 rounded-full text-sm font-medium ${walletAddress
-                  ? "bg-emerald-100 text-green-800"
-                  : "bg-red-100 text-red-800"
+                ? "bg-emerald-100 text-green-800"
+                : "bg-red-100 text-red-800"
                 }`}
             >
               {walletAddress ? "✓ Connected" : "✗ Disconnected"}
@@ -1956,6 +2246,14 @@ const EthrVcManager = () => {
                   </button>
 
                   <button
+                    onClick={stampCredential}
+                    className="bg-yellow-500 text-white px-4 py-2 rounded-lg hover:bg-yellow-600 transition-all duration-200 font-medium shadow-sm"
+                    title="Sign (stamp) this credential with your connected wallet"
+                  >
+                    {stampStatus?.ok ? "Stamped ✓" : "Stamp Credential"}
+                  </button>
+
+                  <button
                     onClick={() =>
                       publishCredentialToIpfsAndStoreOnChain(
                         credential,
@@ -2620,8 +2918,8 @@ const EthrVcManager = () => {
                   <div className="mt-6">
                     <div
                       className={`p-4 rounded-lg border-l-4 ${verificationResult.verified
-                          ? "bg-green-50 darkcard border-green-500"
-                          : "bg-red-50 border-red-500"
+                        ? "bg-green-50 darkcard border-green-500"
+                        : "bg-red-50 border-red-500"
                         }`}
                     >
                       <div className="flex items-center mb-3">
@@ -2715,6 +3013,34 @@ const EthrVcManager = () => {
                     </div>
                   </div>
                 )}
+                {/* Stamp verification indicator */}
+                {stampStatus && (
+                  <div className={`mt-3 p-3 rounded-lg ${stampStatus.ok ? "bg-green-50 border-l-4 border-green-500" : "bg-red-50 border-l-4 border-red-500"}`}>
+                    <div className="flex items-center mb-1">
+                      <svg className={`w-5 h-5 mr-2 ${stampStatus.ok ? "text-green-600" : "text-red-600"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={stampStatus.ok ? "M9 12l2 2 4-4" : "M6 18L18 6M6 6l12 12"} />
+                      </svg>
+                      <div className="text-sm font-medium">{stampStatus.ok ? "Stamp verified" : "Stamp verification failed"}</div>
+                    </div>
+                    <div className="text-xs text-gray-700">
+                      {stampStatus.ok ? (
+                        <>
+                          Signer: <code className="font-mono">{stampStatus.recoveredAddress}</code>
+                          {stampStatus.publicKey && (
+                            <>
+                              <br />Public key: <code className="font-mono break-all">{stampStatus.publicKey}</code>
+                            </>
+                          )}
+                        </>
+                      ) : (
+                        <div>
+                          {stampStatus.error || "No valid stamp found or recovery failed."}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
               </div>
             </div>
           </div>
