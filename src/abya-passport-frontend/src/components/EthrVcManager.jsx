@@ -22,6 +22,8 @@ import {
   DownloadIcon,
   VerifiedIcon,
 } from "lucide-react";
+import * as secp from "@noble/secp256k1";
+
 
 const API_BASE = "http://localhost:3000";
 const VC_ADDRESS =
@@ -68,6 +70,8 @@ const EthrVcManager = () => {
   const [lastOnchainIds, setLastOnchainIds] = useState([]);
   const [lastOnchainRowsDebug, setLastOnchainRowsDebug] = useState([]);
   const [stampStatus, setStampStatus] = useState(null);
+  const [jwtVerifying, setJwtVerifying] = useState(false);
+
 
   useEffect(() => {
     if (didLoading) return;
@@ -720,11 +724,9 @@ const EthrVcManager = () => {
     return "0x" + (h >>> 0).toString(16);
   };
 
-  // ---------------- Safe ethers helpers ----------------
-  // Put these right after computeCredentialHash and BEFORE stampCredential/verifyStampLocal
-
+  // ---------------- Safe ethers helpers ---------------
   const safeHashMessage = (msg) => {
-    // prefer ethers.hashMessage (v6) or ethers.utils.hashMessage (v5), else fallback to keccak256 of utf8 bytes
+
     try {
       if (typeof ethers.hashMessage === "function") return ethers.hashMessage(msg);
       if (ethers.utils && typeof ethers.utils.hashMessage === "function")
@@ -745,14 +747,12 @@ const EthrVcManager = () => {
   };
 
   const safeRecoverAddress = (msgOrDigest, signature) => {
-    // If msgOrDigest looks like a message (string), try verifyMessage first
     try {
       if (typeof ethers.verifyMessage === "function") return ethers.verifyMessage(msgOrDigest, signature);
       if (ethers.utils && typeof ethers.utils.verifyMessage === "function")
         return ethers.utils.verifyMessage(msgOrDigest, signature);
     } catch (_) { /* ignore and try digest path */ }
 
-    // treat msgOrDigest as digest; try recoverAddress from digest
     try {
       const digest = typeof msgOrDigest === "string" && msgOrDigest.startsWith("0x")
         ? msgOrDigest
@@ -761,39 +761,264 @@ const EthrVcManager = () => {
       if (ethers.utils && typeof ethers.utils.recoverAddress === "function")
         return ethers.utils.recoverAddress(digest, signature);
     } catch (e) {
-      // ignore, return null below
     }
 
     return null;
   };
 
+
+  // ---------------- exhaustive safeRecoverPublicKey (replace any prior versions) ----------------
   const safeRecoverPublicKey = (msgOrDigest, signature) => {
     try {
-      const digest = typeof msgOrDigest === "string" && msgOrDigest.startsWith("0x")
-        ? msgOrDigest
-        : safeHashMessage(msgOrDigest);
+      const isHexLike = (s) => typeof s === "string" && s.startsWith("0x");
+      let digest;
+      if (isHexLike(msgOrDigest)) {
+        digest = msgOrDigest;
+      } else {
+        try {
+          if (typeof ethers.hashMessage === "function") {
+            digest = ethers.hashMessage(msgOrDigest);
+          } else if (ethers.utils && typeof ethers.utils.hashMessage === "function") {
+            digest = ethers.utils.hashMessage(msgOrDigest);
+          }
+        } catch (e) {
+          digest = null;
+        }
 
-      if (ethers.utils && typeof ethers.utils.recoverPublicKey === "function") {
-        return ethers.utils.recoverPublicKey(digest, signature);
+        // fallback: compute keccak256 of prefixed message manually (Ethereum Signed Message)
+        if (!digest) {
+          try {
+            const prefix = `\x19Ethereum Signed Message:\n${String(msgOrDigest).length}`;
+            const prefixed = prefix + String(msgOrDigest);
+            if (ethers.utils && typeof ethers.utils.keccak256 === "function" && typeof ethers.utils.toUtf8Bytes === "function") {
+              digest = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(prefixed));
+            } else if (typeof ethers.keccak256 === "function" && typeof ethers.toUtf8Bytes === "function") {
+              digest = ethers.keccak256(ethers.toUtf8Bytes(prefixed));
+            }
+          } catch (e) {
+            digest = null;
+          }
+        }
+
+        // last fallback: keccak256(utf8(msg))
+        if (!digest) {
+          try {
+            if (ethers.utils && typeof ethers.utils.keccak256 === "function" && typeof ethers.utils.toUtf8Bytes === "function") {
+              digest = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(String(msgOrDigest)));
+            } else if (typeof ethers.keccak256 === "function" && typeof ethers.toUtf8Bytes === "function") {
+              digest = ethers.keccak256(ethers.toUtf8Bytes(String(msgOrDigest)));
+            }
+          } catch (e) {
+            digest = null;
+          }
+        }
       }
-      if (typeof ethers.recoverPublicKey === "function") {
-        return ethers.recoverPublicKey(digest, signature);
+
+      // 2) split signature robustly (ethers.utils.splitSignature or manual)
+      let split = null;
+      try {
+        if (ethers && ethers.utils && typeof ethers.utils.splitSignature === "function") {
+          split = ethers.utils.splitSignature(signature);
+        } else if (typeof ethers.Signature === "function" && typeof ethers.Signature.from === "function") {
+          split = ethers.Signature.from(signature);
+        }
+      } catch (e) {
+        split = null;
       }
-    } catch (e) {
-      // ignore
+
+      // 3) manual parsing for common 65-byte sigs
+      if (!split && typeof signature === "string" && signature.startsWith("0x")) {
+        try {
+          const sigHex = signature.slice(2);
+          if (sigHex.length >= 130) {
+            const r = "0x" + sigHex.slice(0, 64);
+            const s = "0x" + sigHex.slice(64, 128);
+            let vHex = sigHex.slice(128, 130) || "1b";
+            let vDec = parseInt(vHex, 16);
+            if (vDec === 0 || vDec === 1) vDec = vDec + 27;
+            split = { r, s, v: vDec, recoveryParam: vDec - 27 };
+          } else if (sigHex.length === 128) {
+            // no v byte included — try defaulting v to 27
+            const r = "0x" + sigHex.slice(0, 64);
+            const s = "0x" + sigHex.slice(64, 128);
+            split = { r, s, v: 27, recoveryParam: 0 };
+          }
+        } catch (e) {
+          split = null;
+        }
+      }
+
+      // normalize v if needed
+      if (split && (split.v === 0 || split.v === 1)) {
+        split.v = split.v + 27;
+        split.recoveryParam = split.v - 27;
+      }
+
+      // 4) try recoverPublicKey using split object (preferred)
+      if (digest && split) {
+        try {
+          if (ethers && ethers.utils && typeof ethers.utils.recoverPublicKey === "function") {
+            return ethers.utils.recoverPublicKey(digest, split);
+          }
+          if (typeof ethers.recoverPublicKey === "function") {
+            return ethers.recoverPublicKey(digest, split);
+          }
+        } catch (e) {
+          console.warn("recoverPublicKey(split) failed:", e);
+        }
+      }
+
+      // 5) build canonical signature hex and retry
+      try {
+        let sigHex = null;
+        if (split && split.r && split.s && typeof split.v !== "undefined") {
+          const rStr = split.r.startsWith("0x") ? split.r.slice(2) : split.r;
+          const sStr = split.s.startsWith("0x") ? split.s.slice(2) : split.s;
+          const vNum = Number(split.v) || 27;
+          let vByte = (vNum & 0xff).toString(16);
+          if (vByte.length === 1) vByte = "0" + vByte;
+          sigHex = "0x" + rStr + sStr + vByte;
+        } else if (typeof signature === "string" && signature.startsWith("0x")) {
+          sigHex = signature;
+        }
+
+        if (digest && sigHex) {
+          try {
+            if (ethers && ethers.utils && typeof ethers.utils.recoverPublicKey === "function") {
+              return ethers.utils.recoverPublicKey(digest, sigHex);
+            }
+            if (typeof ethers.recoverPublicKey === "function") {
+              return ethers.recoverPublicKey(digest, sigHex);
+            }
+          } catch (e) {
+            console.warn("recoverPublicKey(sigHex) failed:", e);
+          }
+        }
+      } catch (e) {
+        console.warn("canonical sig attempt failed:", e);
+      }
+
+      // 6) If we still have no public key, try an alternate digest strategies (no prefix vs with prefix)
+      try {
+        // a) try verifyMessage -> get address; then if address recovered, return null for public key (address-only)
+        let maybeAddr = null;
+        try {
+          if (typeof ethers.verifyMessage === "function") maybeAddr = ethers.verifyMessage(msgOrDigest, signature);
+          else if (ethers.utils && typeof ethers.utils.verifyMessage === "function") maybeAddr = ethers.utils.verifyMessage(msgOrDigest, signature);
+        } catch (_) { maybeAddr = null; }
+
+        // b) if we can compute digest with/without prefix, repeat recoverPublicKey attempts
+        const altDigests = [];
+        try {
+          // raw keccak256(utf8)
+          if (ethers.utils && typeof ethers.utils.keccak256 === "function" && typeof ethers.utils.toUtf8Bytes === "function") {
+            altDigests.push(ethers.utils.keccak256(ethers.utils.toUtf8Bytes(String(msgOrDigest))));
+          } else if (typeof ethers.keccak256 === "function" && typeof ethers.toUtf8Bytes === "function") {
+            altDigests.push(ethers.keccak256(ethers.toUtf8Bytes(String(msgOrDigest))));
+          }
+          // prefixed manually
+          const prefix = `\x19Ethereum Signed Message:\n${String(msgOrDigest).length}`;
+          const pref = prefix + String(msgOrDigest);
+          if (ethers.utils && typeof ethers.utils.keccak256 === "function" && typeof ethers.utils.toUtf8Bytes === "function") {
+            altDigests.push(ethers.utils.keccak256(ethers.utils.toUtf8Bytes(pref)));
+          } else if (typeof ethers.keccak256 === "function" && typeof ethers.toUtf8Bytes === "function") {
+            altDigests.push(ethers.keccak256(ethers.toUtf8Bytes(pref)));
+          }
+        } catch (e) {
+          // ignore
+        }
+
+        for (const d of altDigests) {
+          try {
+            if (split) {
+              if (ethers && ethers.utils && typeof ethers.utils.recoverPublicKey === "function") {
+                const rc = ethers.utils.recoverPublicKey(d, split);
+                if (rc) return rc;
+              }
+              if (typeof ethers.recoverPublicKey === "function") {
+                const rc = ethers.recoverPublicKey(d, split);
+                if (rc) return rc;
+              }
+            }
+            if (typeof signature === "string" && signature.startsWith("0x")) {
+              if (ethers && ethers.utils && typeof ethers.utils.recoverPublicKey === "function") {
+                const rc = ethers.utils.recoverPublicKey(d, signature);
+                if (rc) return rc;
+              }
+              if (typeof ethers.recoverPublicKey === "function") {
+                const rc = ethers.recoverPublicKey(d, signature);
+                if (rc) return rc;
+              }
+            }
+          } catch (e) { /* ignore */ }
+        }
+
+        // nothing recovered; return null (address may still be recoverable)
+        if (maybeAddr) {
+          console.warn("public key not recoverable but address recovered:", maybeAddr);
+        }
+      } catch (err) {
+        // swallow
+      }
+
+      return null;
+    } catch (err) {
+      console.warn("safeRecoverPublicKey top-level error:", err);
+      return null;
     }
-    return null;
   };
+
+
+  // ---------------- verifyStampAndFillPublicKey ----------------
+  const verifyStampAndFillPublicKey = async (cred) => {
+    try {
+      if (!cred) throw new Error("No credential provided");
+      const stamp = cred?.proof?.stamp;
+      if (!stamp || !stamp.signature) throw new Error("No stamp.signature found");
+
+      const unsigned = JSON.parse(JSON.stringify(cred));
+      if (unsigned.proof && unsigned.proof.stamp) delete unsigned.proof.stamp;
+      const jsonToVerify = JSON.stringify(unsigned, Object.keys(unsigned).sort());
+
+      // Recover address (best-effort)
+      const recoveredAddress = safeRecoverAddress(jsonToVerify, stamp.signature);
+
+      // Try recover public key now (if missing)
+      let publicKey = stamp.publicKey || null;
+      if (!publicKey) {
+        publicKey = safeRecoverPublicKey(jsonToVerify, stamp.signature);
+        if (publicKey) {
+          // persist into component state
+          setCredential((prev) => {
+            if (!prev) return prev;
+            const updated = { ...prev };
+            if (!updated.proof) updated.proof = {};
+            updated.proof.stamp = { ...(updated.proof.stamp || {}), publicKey };
+            return updated;
+          });
+        }
+      }
+
+      const ok = !!(
+        recoveredAddress &&
+        stamp.signerAddress &&
+        recoveredAddress.toLowerCase() === stamp.signerAddress.toLowerCase()
+      );
+
+      // Update UI state
+      setStampStatus({ ok, recoveredAddress, publicKey });
+
+      return { ok, recoveredAddress, publicKey };
+    } catch (err) {
+      console.error("verifyStampAndFillPublicKey error:", err);
+      return { ok: false, error: err?.message || String(err) };
+    }
+  };
+
 
 
 
   // ---------------- Issuer signature stamping & local verification (robust fallback) ----------------
-
-  /**
-   * stampCredential
-   * - robustly builds signer (your existing logic) and signs canonical JSON,
-   * - uses safe helpers for hashing / recovery to avoid accessing ethers.utils when undefined.
-   */
   const stampCredential = async () => {
     try {
       if (!credential) return alert("No credential to stamp. Create or load a credential first.");
@@ -807,14 +1032,14 @@ const EthrVcManager = () => {
         signer = null;
       }
 
-      // 2) Fallback: build provider signer from window.ethereum if available (keeps your existing fallback)
+      // 2) Fallback: build provider signer from window.ethereum if available
       if (!signer && typeof window !== "undefined" && window.ethereum) {
         try {
           if (ethers?.BrowserProvider) {
             const provider = new ethers.BrowserProvider(window.ethereum);
             try {
               await provider.send("eth_requestAccounts", []);
-            } catch (_) { /* ignore request failure here; signer.getAddress will throw if not allowed */ }
+            } catch (_) { }
             try {
               signer = provider.getSigner ? provider.getSigner() : null;
               const addr = signer?.getAddress ? await signer.getAddress() : null;
@@ -836,7 +1061,7 @@ const EthrVcManager = () => {
         }
       }
 
-      // Build the canonical (unsigned) JSON
+      // Build canonical unsigned JSON
       const unsigned = JSON.parse(JSON.stringify(credential));
       if (unsigned.proof && unsigned.proof.stamp) delete unsigned.proof.stamp;
       const jsonToSign = JSON.stringify(unsigned, Object.keys(unsigned).sort());
@@ -855,11 +1080,10 @@ const EthrVcManager = () => {
 
       if (!signature && typeof window !== "undefined" && window.ethereum) {
         try {
-          // personal_sign expects hex or string; some wallets take (msg, address) or (address, msg)
-          const msgHex = (typeof ethers.hexlify === "function" && typeof ethers.toUtf8Bytes === "function")
-            ? ethers.hexlify(ethers.toUtf8Bytes(jsonToSign))
-            : (typeof toUtf8Bytes === "function" ? keccak256(toUtf8Bytes(jsonToSign)) : null);
-
+          const msgHex =
+            typeof ethers.hexlify === "function" && typeof ethers.toUtf8Bytes === "function"
+              ? ethers.hexlify(ethers.toUtf8Bytes(jsonToSign))
+              : jsonToSign;
           let sig = null;
           try {
             sig = await window.ethereum.request({
@@ -882,44 +1106,34 @@ const EthrVcManager = () => {
       }
 
       if (!signature) {
-        return alert(
-          "Failed to obtain a signature. Make sure your wallet is connected/unlocked and you approved the request."
-        );
+        return alert("Failed to obtain a signature. Make sure your wallet is connected/unlocked and you approved the request.");
       }
 
-      // Safe recovery / public key extraction
-      let recoveredAddress = null;
-      try {
-        recoveredAddress = safeRecoverAddress(jsonToSign, signature);
-      } catch (e) {
-        recoveredAddress = null;
-      }
-
-      let publicKey = null;
-      try {
-        publicKey = safeRecoverPublicKey(jsonToSign, signature);
-      } catch (e) {
-        publicKey = null;
-      }
+      // Best-effort recover address and public key
+      const recoveredAddress = safeRecoverAddress(jsonToSign, signature);
+      const recoveredPublicKey = safeRecoverPublicKey(jsonToSign, signature);
 
       const stamp = {
         signature,
-        publicKey,
+        publicKey: recoveredPublicKey,
         signerAddress: recoveredAddress,
         stampedAt: Date.now(),
         method: usedMethod || "unknown",
       };
 
-      // Persist to local credential object
-      setCredential((prev) => {
-        if (!prev) return prev;
-        const updated = { ...prev };
-        if (!updated.proof) updated.proof = {};
-        updated.proof.stamp = stamp;
-        return updated;
-      });
+      const updatedCredential = { ...(credential || {}) };
+      updatedCredential.proof = { ...(updatedCredential.proof || {}), stamp };
 
-      setStampStatus({ ok: true, signerAddress: recoveredAddress, publicKey, method: stamp.method });
+      setCredential(updatedCredential);
+      setStampStatus({ ok: true, signerAddress: recoveredAddress, publicKey: recoveredPublicKey, method: stamp.method });
+
+      try {
+        await verifyStampAndFillPublicKey(updatedCredential);
+      } catch (e) {
+        // non-fatal
+        console.warn("verifyStampAndFillPublicKey after stamp failed:", e);
+      }
+
       alert("Credential stamped successfully (signature attached).");
       return stamp;
     } catch (err) {
@@ -931,9 +1145,9 @@ const EthrVcManager = () => {
   };
 
 
+
   /**
-   * verifyStampLocal
-   * - Rebuild unsigned credential and verify signature using safe wrappers.
+   * verifyStampLocal - Rebuild unsigned credential and verify signature using safe wrappers.
    */
   const verifyStampLocal = (cred) => {
     try {
@@ -945,7 +1159,6 @@ const EthrVcManager = () => {
       if (unsigned.proof && unsigned.proof.stamp) delete unsigned.proof.stamp;
       const jsonToVerify = JSON.stringify(unsigned, Object.keys(unsigned).sort());
 
-      // Try verifyMessage-first path (most providers)
       let recovered = null;
       try {
         recovered = safeRecoverAddress(jsonToVerify, stamp.signature);
@@ -953,7 +1166,6 @@ const EthrVcManager = () => {
         recovered = null;
       }
 
-      // Try recover public key (optional)
       let recoveredPublicKey = null;
       try {
         recoveredPublicKey = safeRecoverPublicKey(jsonToVerify, stamp.signature);
@@ -980,7 +1192,6 @@ const EthrVcManager = () => {
     try {
       const readContract = await getContractReadonly();
 
-      // prefer new getCredentialsForDID
       if (!readContract.getCredentialsForDID) {
         console.warn("Contract does not have getCredentialsForDID function");
         setLastOnchainIds([]);
@@ -1075,8 +1286,6 @@ const EthrVcManager = () => {
           let summary;
           if (readContract.getCredentialSummary) {
             summary = await readContract.getCredentialSummary(idStr);
-            // summary layout:
-            // [0]=id, [1]=holderHash, [2]=latestCID, [3]=credentialJWT, [4]=issuedAt, [5]=expiresAt, [6]=valid, [7]=revokedAt, [8]=revocationReason
           } else {
             // fallback to raw credentials mapping (older ABI)
             summary = await readContract.credentials(idStr);
@@ -1141,10 +1350,9 @@ const EthrVcManager = () => {
               issuer: ipfsJson.issuer || { id: null },
             };
           } else {
-            // fallback: create minimal displayed metadata from on-chain pieces
             displayed = {
               credentialSubject: { id: holderHash || idStr },
-              issuer: { id: null }, // the contract does not store issuer address in the struct
+              issuer: { id: null },
               issuanceDate: issueDate,
               expirationDate: expiresAt ? new Date(expiresAt * 1000).toISOString() : undefined,
               credentialJWT: credentialJWT || undefined
@@ -1306,7 +1514,6 @@ const EthrVcManager = () => {
       ...s,
       ["retry-" + index]: { fetching: false, json: ipfsJson, mappingCID },
     }));
-    // update credentials array to include fetched JSON if found
     if (ipfsJson) {
       setCredentials((prev) =>
         prev.map((c, i) => (i === index ? { ...c, ...ipfsJson } : c))
@@ -1414,6 +1621,9 @@ const EthrVcManager = () => {
       return;
     }
 
+    // start spinner / disable UI
+    setJwtVerifying(true);
+
     try {
       const response = await axios.post(`${API_BASE}/credential/verify`, {
         credential: jwtToVerify,
@@ -1460,6 +1670,9 @@ const EthrVcManager = () => {
         verified: false,
         error: err?.response?.data?.error || err?.message || "Verification failed",
       });
+    } finally {
+      // always clear spinner state
+      setJwtVerifying(false);
     }
   };
 
@@ -2867,25 +3080,48 @@ const EthrVcManager = () => {
                 <div className="flex gap-3">
                   <button
                     onClick={handleJwtVerification}
-                    className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-3 rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-200 font-medium shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                    disabled={jwtVerifying}
+                    className={`bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-3 rounded-lg transition-all duration-200 font-medium shadow-md hover:shadow-lg transform ${jwtVerifying ? "opacity-70 cursor-wait hover:shadow-none" : "hover:from-green-700 hover:to-emerald-700 hover:-translate-y-0.5"}`}
                   >
                     <span className="flex items-center">
-                      <svg
-                        className="w-5 h-5 mr-2"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
-                      Verify JWT
+                      {jwtVerifying ? (
+                        // spinner icon while verifying
+                        <svg
+                          className="animate-spin w-5 h-5 mr-2"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          />
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                          />
+                        </svg>
+                      ) : (
+                        // static check icon when idle
+                        <svg
+                          className="w-5 h-5 mr-2"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      )}
+
+                      <span>{jwtVerifying ? "Verifying..." : "Verify JWT"}</span>
                     </span>
                   </button>
+
 
                   <button
                     onClick={() => {
@@ -3001,7 +3237,7 @@ const EthrVcManager = () => {
                       )}
 
                       <details className="mt-3">
-                        <summary className="cursor-pointer text-sm font-medium text-gray-100 hover:text-gray-900">
+                        <summary className="cursor-pointer text-sm font-medium text-blue-900 dark-text-yellow hover:text-gray-900">
                           View full verification details
                         </summary>
                         <div className="mt-2 bg-white rounded-lg p-3 max-h-64 overflow-y-auto">
@@ -3040,7 +3276,16 @@ const EthrVcManager = () => {
                     </div>
                   </div>
                 )}
-
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage("vcverifier")}
+                  className="bg-emerald-600 text-white px-6 py-3 rounded-lg hover:bg-emerald-700 transition-colors duration-200 font-medium"
+                >
+                  <span className="flex items-center gap-4">
+                    Credential Verifier
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24"><path fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 12H4m10 0l-4 4m4-4l-4-4m10-4v16"/></svg>
+                  </span>
+                </button>
               </div>
             </div>
           </div>
