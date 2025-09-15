@@ -4,7 +4,7 @@ import axios from "axios";
 import * as ethers from "ethers";
 import { useEthr } from "../contexts/EthrContext";
 import { useEthersSigner } from "./useClientSigner";
-import { StepBackIcon } from "lucide-react";
+import { CreditCard, CreditCardIcon, IdCardIcon, StepBackIcon, VerifiedIcon, Wallet2Icon, WalletCards } from "lucide-react";
 import { fetchDidDocument } from "../services/ipfsService";
 
 const API_BASE = "http://localhost:3000";
@@ -859,7 +859,7 @@ export default function VCVerifierEthr({ onBack = () => { } }) {
     const isExpanded = expandedRows.has(id);
 
     return (
-      <div className="p-3 border-b last:border-b-0 border-blue-200 flex items-start gap-3 ">
+      <div className="p-3 border-b last:border-b-0 border-blue-200 flex items-start gap-3 mt-4">
         <input type="checkbox" checked={selectedIds.has(id)} onChange={() => toggleSelect(id)} className="mt-1 m-8" />
         <div className="flex-1 min-w-0 mb-8">
           <div className="flex items-center justify-between">
@@ -899,7 +899,7 @@ export default function VCVerifierEthr({ onBack = () => { } }) {
           </div>
 
           <div className="text-xs text-gray-500 mt-8 mb-8">
-            <div className="text-sm font-semibold text-blue-900 dark-text-yellow">{title}</div>
+            <div className="justify-center flex items-center gap-2 mb-2 text-sm font-semibold text-blue-900 dark-text-yellow"><CreditCardIcon/>{title}</div>
             <div className="text-xs text-gray-600 truncate">Issuer: {issuer}</div>
             <div className="text-xs text-gray-600 truncate">Subject: {subject}</div>
             
@@ -926,8 +926,8 @@ export default function VCVerifierEthr({ onBack = () => { } }) {
 
           {/* details section */}
           {isExpanded ? (
-            <div className="mt-2 bg-gray-50 p-2 rounded text-xs text-gray-700">
-              <div className="font-medium mb-1">Verification details</div>
+            <div className="mt-2 bg-gray-200 darkcard p-2 rounded text-xs text-gray-700 dark-text-yellow border border-blue-200 rounded-2xl">
+              <div className="justify-center flex items-center gap-2 font-bold mb-8 mt-4"><CreditCard/>Verification details</div>
               <div className="mb-2">
                 <strong>Structure:</strong> {s?.structure?.ok ? "ok" : `missing: ${s?.structure?.missing?.join?.(", ") || "n/a"}`}
               </div>
@@ -939,7 +939,7 @@ export default function VCVerifierEthr({ onBack = () => { } }) {
               </div>
               <div className="mb-2">
                 <strong>Signature:</strong> {s?.signature?.checked ? (s.signature.ok ? "ok" : "failed") : "not checked"}
-                <pre className="mt-1 max-h-44 overflow-auto bg-white p-2 rounded text-xs">{JSON.stringify(s?.signature?.details || s?.signature || {}, null, 2)}</pre>
+                <pre className="mt-1 max-h-44 overflow-auto bg-gray-200 p-2 rounded text-xs">{JSON.stringify(s?.signature?.details || s?.signature || {}, null, 2)}</pre>
               </div>
               <div className="mb-2">
                 <strong>Expiry:</strong> {s?.expiry?.ok && !s?.expiry?.expired ? "valid" : s?.expiry?.expired ? "expired" : JSON.stringify(s?.expiry?.details || {})}
@@ -949,7 +949,7 @@ export default function VCVerifierEthr({ onBack = () => { } }) {
               </div>
               <div>
                 <strong>Credential JSON (snippet):</strong>
-                <pre className="mt-1 max-h-44 overflow-auto bg-white p-2 rounded text-xs">{JSON.stringify(resolved, null, 2)}</pre>
+                <pre className="mt-1 max-h-44 overflow-auto p-2 rounded-2xl text-xs">{JSON.stringify(resolved, null, 2)}</pre>
               </div>
             </div>
           ) : null}
@@ -1054,7 +1054,7 @@ export default function VCVerifierEthr({ onBack = () => { } }) {
   return (
     <div className="backdrop-blur-md rounded-2xl max-w-7xl mx-auto p-6 py-12">
       <div className="flex items-center justify-between mb-8">
-        <h2 className="text-5xl font-bold text-blue-900 dark-text-yellow mb-4 text-center">Ethereum Credential Verifier</h2>
+        <h2 className="justify-center flex items-center gap-4 text-4xl font-bold text-blue-900 dark-text-yellow mb-4 text-center"><VerifiedIcon size={70} /> Ethereum Credential Verifier</h2>
         <div className="flex gap-2">
           <button onClick={() => onBack()} className="px-3 py-1 dark-card border border-200-blue rounded-full text-blue-900 dark-text-yellow">
             <StepBackIcon size={16} />
@@ -1062,10 +1062,14 @@ export default function VCVerifierEthr({ onBack = () => { } }) {
         </div>
       </div>
 
-      <div className="mb-30 text-xs text-emerald-700">
-        <div className="mb-4 font-bold text-xs text-blue-900 dark-text-yellow">Wallet Details:</div>
-        Wallet: <code className="font-mono">{walletAddress || "n/a"}</code>
-        {walletDid && <span className="ml-3">DID: {walletDid}</span>}
+      <div className="mb-20 text-xs text-emerald-700 mt-20">
+        <div className="justify-center flex items-center gap-4 mb-4 font-bold text-md text-blue-900 dark-text-yellow">Wallet Details:</div>
+        <div className="justify-center flex items-center gap-2 mb-4">
+          <Wallet2Icon/><code className="font-mono">{walletAddress || "n/a"}</code>
+        </div>
+        <div className="justify-center flex items-center gap-2 mb-4">
+          <IdCardIcon/>{walletDid && <span className="ml-3">{walletDid}</span>}
+        </div>
       </div>
 
       <div className="grid md:grid-cols-3 gap-6">
@@ -1077,7 +1081,7 @@ export default function VCVerifierEthr({ onBack = () => { } }) {
               rows={10}
               value={jsonText}
               onChange={(e) => setJsonText(e.target.value)}
-              className="w-full border border-blue-200 rounded-2xl p-2 font-mono text-sm text-gray-600"
+              className="w-full border border-blue-200 rounded-2xl p-2 font-mono text-sm text-gray-600 dark-text-yellow"
               placeholder="Paste a Verifiable Credential JSON here"
             />
             <div className="flex gap-2 mt-2">
