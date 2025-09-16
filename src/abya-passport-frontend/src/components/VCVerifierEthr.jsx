@@ -1053,16 +1053,20 @@ export default function VCVerifierEthr({ onBack = () => { } }) {
 
   return (
     <div className="backdrop-blur-md rounded-2xl max-w-7xl mx-auto p-6 py-12">
-      <div className="flex items-center justify-between mb-8">
-        <h2 className="justify-center flex items-center gap-4 text-4xl font-bold text-blue-900 dark-text-yellow mb-4 text-center"><VerifiedIcon size={70} /> Ethereum Credential Verifier</h2>
-        <div className="flex gap-2">
+      <div className="flex items-center justify-center mb-10">
+        <div className="p-8">
+          <h2 className="justify-center flex items-center gap-4 text-4xl font-bold text-blue-900 dark-text-yellow mb-4 text-center"><VerifiedIcon size={70} /> Ethereum Credential Verifier</h2>
+          <p className="text-xl text-slate-500 mt-8">Create, verify and manage verifiable presentations derived from your credentials (fetches IPFS itself).</p>
+        </div>
+
+        <div className="flex items-end">
           <button onClick={() => onBack()} className="px-3 py-1 dark-card border border-200-blue rounded-full text-blue-900 dark-text-yellow">
             <StepBackIcon size={16} />
           </button>
         </div>
       </div>
 
-      <div className="mb-20 text-xs text-emerald-700 mt-20">
+      <div className="mb-20 text-xs text-emerald-700 mt-20 bg-emerald-100 border border-emerald-200 rounded-2xl p-4">
         <div className="justify-center flex items-center gap-4 mb-4 font-bold text-md text-blue-900 dark-text-yellow">Wallet Details:</div>
         <div className="justify-center flex items-center gap-2 mb-4">
           <Wallet2Icon/><code className="font-mono">{walletAddress || "n/a"}</code>
