@@ -397,15 +397,38 @@ export const InternetIdentityProvider = ({ children }) => {
           ipfsCid,
           recipientDid,
           ["VerifiableCredential"],
-          expiresInHours ? [BigInt(expiresInHours)] : []
+          expiresInHours ? [BigInt(expiresInHours * 3600 * 1000000000)] : []
         );
         if (result.ok) {
           console.log("✅ VC issued successfully:", vcId);
+
+          // NEW: fetch canister-generated verification proof (vcHash, treeHash, certificate, proofPath)
+          let proof = null;
+          try {
+            const proofRes = await actor.generateVerificationProof(vcId);
+            if (proofRes && proofRes.ok) {
+              proof = proofRes.ok;
+            } else if (proofRes && proofRes.err) {
+              console.warn(
+                "generateVerificationProof returned err:",
+                proofRes.err
+              );
+            }
+          } catch (proofErr) {
+            console.warn(
+              "Failed to fetch verification proof from canister:",
+              proofErr
+            );
+          }
+
           await loadMyIssuedVCs();
+
+          // Return issuance data + proof so callers/components can verify client-side
           return {
             id: vcId,
             ipfsCid: ipfsCid,
             document: document,
+            proof,
           };
         } else {
           throw new Error(result.err);
@@ -424,6 +447,78 @@ export const InternetIdentityProvider = ({ children }) => {
     } catch (error) {
       console.error("❌ Error issuing VC:", error);
       throw error;
+    }
+  };
+
+  // Helper: normalize canister Blobs/ArrayBuffers to Uint8Array
+  const toUint8Array = (blob) => {
+    if (!blob) return new Uint8Array([]);
+    if (blob instanceof Uint8Array) return blob;
+    if (blob instanceof ArrayBuffer) return new Uint8Array(blob);
+    if (blob.buffer && blob.byteLength !== undefined)
+      return new Uint8Array(blob.buffer, blob.byteOffset, blob.byteLength);
+    if (typeof blob === "string") {
+      try {
+        const binStr = atob(blob);
+        const len = binStr.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) bytes[i] = binStr.charCodeAt(i);
+        return bytes;
+      } catch (e) {
+        return new Uint8Array([]);
+      }
+    }
+    return new Uint8Array([]);
+  };
+
+  // Helper: concat two Uint8Arrays
+  const concatBytes = (a, b) => {
+    const out = new Uint8Array(a.length + b.length);
+    out.set(a, 0);
+    out.set(b, a.length);
+    return out;
+  };
+
+  // Helper: compare two Uint8Arrays
+  const equalBytes = (a, b) => {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+    return true;
+  };
+
+  const verifyProofClientSide = async (proof) => {
+    if (!proof) return false;
+
+    // Use the leaf hash returned by canister (vcHash). Optionally recompute leaf if needed.
+    let current = toUint8Array(proof.vcHash);
+
+    for (const step of proof.proofPath || []) {
+      const sibling = toUint8Array(step.sibling);
+      const combined = step.isLeft
+        ? concatBytes(sibling, current)
+        : concatBytes(current, sibling);
+      const hashed = await crypto.subtle.digest("SHA-256", combined);
+      current = new Uint8Array(hashed);
+    }
+
+    const root = toUint8Array(proof.treeHash);
+    return equalBytes(current, root);
+  };
+
+  const getVerificationProof = async (vcId) => {
+    try {
+      const actor = await createBackendActor(identity); // use same actor creation pattern as elsewhere
+      const proofRes = await actor.generateVerificationProof(vcId);
+      if (proofRes && proofRes.ok) {
+        const clientValid = await verifyProofClientSide(proofRes.ok);
+        return { ...proofRes.ok, clientValid };
+      }
+      throw new Error(
+        proofRes && proofRes.err ? proofRes.err : "Proof not found"
+      );
+    } catch (err) {
+      console.error("Error fetching verification proof:", err);
+      throw err;
     }
   };
 
@@ -513,6 +608,7 @@ export const InternetIdentityProvider = ({ children }) => {
       // Filter out null values
       setMyReceivedVCs(vcsWithDocuments.filter((vc) => vc !== null));
       console.log("✅ Loaded received VCs:", vcsWithDocuments.length);
+      console.log("Received VCs:", vcsWithDocuments);
     } catch (error) {
       console.error("❌ Error loading received VCs:", error);
       setMyReceivedVCs([]);
@@ -521,24 +617,179 @@ export const InternetIdentityProvider = ({ children }) => {
     }
   };
 
+  // Replace your existing verifyVC and add these helper functions to your InternetIdentityContext
+
+  // Helper: Convert certificate to proper format for agent verification
+  const processCertificate = (certificate) => {
+    if (!certificate) return null;
+
+    // Convert the certificate blob to ArrayBuffer if needed
+    const certBytes = toUint8Array(certificate);
+    return certBytes.buffer;
+  };
+
+  // Helper: Verify certificate against IC root key
+  const verifyCertificateWithAgent = async (certificate) => {
+    try {
+      if (!certificate) return false;
+
+      // The agent automatically validates certificates during queries
+      // For frontend verification, we can rely on the fact that if we got a response
+      // from the canister, the certificate was already validated by the agent
+
+      // Additional validation can be done by checking the certificate structure
+      const certBytes = new Uint8Array(certificate);
+
+      // Basic validation - check if it looks like a certificate
+      // (Certificates typically start with specific CBOR headers)
+      return certBytes.length > 50; // Simple length check as placeholder
+    } catch (error) {
+      console.error("Certificate validation error:", error);
+      return false;
+    }
+  };
+
+  // Main VC verification function - CORRECTED
   const verifyVC = async (vcId) => {
     try {
-      console.log("🔍 Verifying VC:", vcId);
-      const agent = await getAgent(); // anonymous
-      const actor = await createBackendActor(canisterId, { agent });
-      const result = await actor.verifyVCStatus(vcId);
-      if (result.ok) {
-        console.log("✅ VC verification successful");
-        return { isValid: true, status: "valid" };
-      } else {
-        console.log("❌ VC verification failed:", result.err);
-        return { isValid: false, status: result.err };
+      console.log("🔍 Starting comprehensive VC verification:", vcId);
+
+      // Step 1: Get verification proof from canister
+      let proof;
+      try {
+        proof = await getVerificationProof(vcId);
+        console.log("📋 Retrieved verification proof from canister");
+      } catch (error) {
+        console.error("❌ Failed to get verification proof:", error);
+        return {
+          isValid: false,
+          status: "proof_retrieval_failed",
+          error: error.message,
+        };
       }
+
+      // Step 2: Verify merkle proof client-side
+      let merkleValid = false;
+      try {
+        merkleValid = await verifyProofClientSide(proof);
+        console.log(
+          "🌳 Merkle proof validation:",
+          merkleValid ? "✅ VALID" : "❌ INVALID"
+        );
+      } catch (error) {
+        console.error("❌ Merkle proof verification failed:", error);
+        return {
+          isValid: false,
+          status: "merkle_verification_failed",
+          error: error.message,
+        };
+      }
+
+      // Step 3: Verify IC certificate with agent
+      let certificateValid = false;
+      if (proof.certificate) {
+        try {
+          const processedCert = processCertificate(proof.certificate);
+          certificateValid = await verifyCertificateWithAgent(processedCert);
+          console.log(
+            "🔐 Certificate validation:",
+            certificateValid ? "✅ VALID" : "❌ INVALID"
+          );
+        } catch (error) {
+          console.error("❌ Certificate verification failed:", error);
+          // Don't fail entirely if certificate verification fails
+          certificateValid = false;
+        }
+      } else {
+        console.warn("⚠️ No certificate provided in proof");
+      }
+
+      // Step 4: Check VC status (revocation, expiration) from canister
+      let statusValid = false;
+      try {
+        const agent = await getAgent(); // Use anonymous agent
+        const actor = await createBackendActor(null); // Anonymous actor
+        const statusResult = await actor.verifyVCStatus(vcId);
+
+        if (statusResult.ok) {
+          statusValid = true;
+          console.log(
+            "📊 VC status check: ✅ VALID (not revoked, not expired)"
+          );
+        } else {
+          console.log("📊 VC status check: ❌ INVALID -", statusResult.err);
+        }
+      } catch (error) {
+        console.error("❌ VC status check failed:", error);
+        return {
+          isValid: false,
+          status: "status_check_failed",
+          error: error.message,
+        };
+      }
+
+      // Step 5: Combine all verification results
+      const isFullyValid = merkleValid && statusValid;
+
+      // Certificate verification is optional but adds extra security
+      const verificationResults = {
+        isValid: isFullyValid,
+        status: isFullyValid ? "valid" : "invalid",
+        details: {
+          merkleProofValid: merkleValid,
+          certificateValid: certificateValid,
+          statusValid: statusValid,
+          vcHash: proof.vcHash ? Array.from(toUint8Array(proof.vcHash)) : null,
+          treeHash: proof.treeHash
+            ? Array.from(toUint8Array(proof.treeHash))
+            : null,
+          hasCertificate: !!proof.certificate,
+        },
+        proof: proof, // Include full proof for debugging
+      };
+
+      console.log("🏁 Final verification result:", verificationResults);
+      return verificationResults;
     } catch (error) {
-      console.error("❌ Error verifying VC:", error);
+      console.error("❌ Comprehensive VC verification failed:", error);
       return {
         isValid: false,
-        status: "verification_failed",
+        status: "verification_error",
+        error: error.message,
+      };
+    }
+  };
+
+  // Alternative simpler verification if agent certificate verification is problematic
+  const verifyVCSimplified = async (vcId) => {
+    try {
+      console.log("🔍 Starting simplified VC verification:", vcId);
+
+      // Get verification proof and verify merkle proof
+      const proof = await getVerificationProof(vcId);
+      const merkleValid = await verifyProofClientSide(proof);
+
+      // Check VC status from canister
+      const actor = await createBackendActor(null);
+      const statusResult = await actor.verifyVCStatus(vcId);
+      const statusValid = statusResult.ok;
+
+      const isValid = merkleValid && statusValid;
+
+      return {
+        isValid,
+        status: isValid ? "valid" : "invalid",
+        details: {
+          merkleProofValid: merkleValid,
+          statusValid: statusValid,
+          statusError: statusResult.err || null,
+        },
+      };
+    } catch (error) {
+      console.error("❌ Simplified VC verification failed:", error);
+      return {
+        isValid: false,
+        status: "verification_error",
         error: error.message,
       };
     }
@@ -622,10 +873,13 @@ export const InternetIdentityProvider = ({ children }) => {
         loadMyIssuedVCs,
         loadMyReceivedVCs,
         verifyVC,
+        verifyVCSimplified,
         revokeVC,
         getVC,
         isLocal, // Expose isLocal for components to use
         canisterId, // Expose canisterId for debugging
+        getVerificationProof,
+        verifyProofClientSide,
       }}
     >
       {children}

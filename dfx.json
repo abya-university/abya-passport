@@ -33,7 +33,7 @@
         "build": 
         {
             "args": "",
-            "packtool": ""
+            "packtool": "mops sources"
         }
     },
     "networks": 
