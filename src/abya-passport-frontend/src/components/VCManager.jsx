@@ -1,10 +1,29 @@
 // src/abya-passport-frontend/src/components/VCManager.jsx
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useInternetIdentity } from "../contexts/InternetContext";
 import { useToast } from "./Toast";
 import VCSharer from "./VCSharer";
-import { ArrowBigDown, ArrowDownCircle, ArrowUp, ArrowUp01Icon, ArrowUpCircle, CalendarArrowDownIcon, CheckCircle2, CheckCircle2Icon, Clipboard, Clock10Icon, Copy, CopyIcon, Delete, DeleteIcon, FileWarningIcon, LoaderIcon, ScanSearchIcon, Share2Icon } from "lucide-react";
+import {
+  ArrowBigDown,
+  ArrowDownCircle,
+  ArrowUp,
+  ArrowUp01Icon,
+  ArrowUpCircle,
+  CalendarArrowDownIcon,
+  CheckCircle2,
+  CheckCircle2Icon,
+  Clipboard,
+  Clock10Icon,
+  Copy,
+  CopyIcon,
+  Delete,
+  DeleteIcon,
+  FileWarningIcon,
+  LoaderIcon,
+  ScanSearchIcon,
+  Share2Icon,
+} from "lucide-react";
 
 const VCManager = () => {
   const {
@@ -245,8 +264,9 @@ const VCManager = () => {
     const getStatusIcon = () => {
       if (vc.revoked) return "🚫";
       if (isVerified?.isValid === false) return "⚠️";
-      if (isVerified?.isValid === true) return "✅", <CheckCircle2Icon className="text-emerald-600"/>;
-      return "📄", <Clipboard className="text-blue-900 dark-text-yellow"/>;
+      if (isVerified?.isValid === true)
+        return "✅", (<CheckCircle2Icon className="text-emerald-600" />);
+      return "📄", (<Clipboard className="text-blue-900 dark-text-yellow" />);
     };
 
     return (
@@ -298,7 +318,9 @@ const VCManager = () => {
               {/* Quick Info */}
               <div className="text-sm text-gray-600 mt-10">
                 <div className="flex items-center justify-between">
-                  <span><CalendarArrowDownIcon /> {formatDate(vc.issuanceDate)}</span>
+                  <span>
+                    <CalendarArrowDownIcon /> {formatDate(vc.issuanceDate)}
+                  </span>
                   {vc.expirationDate && (
                     <span
                       className={`${
@@ -377,7 +399,11 @@ const VCManager = () => {
                     </span>
                   </div>
                   <span className="text-gray-400">
-                    {expandedSections.verification ? <ArrowUpCircle className="text-amber-400 hover:text-amber-500" /> : <ArrowDownCircle className="text-amber-400 hover:text-amber-500" />}
+                    {expandedSections.verification ? (
+                      <ArrowUpCircle className="text-amber-400 hover:text-amber-500" />
+                    ) : (
+                      <ArrowDownCircle className="text-amber-400 hover:text-amber-500" />
+                    )}
                   </span>
                 </button>
 
@@ -392,7 +418,11 @@ const VCManager = () => {
                         }`}
                       >
                         <span>
-                          {isVerified?.isExpired !== false ? <FileWarningIcon /> : <CheckCircle2 />}
+                          {isVerified?.isExpired !== false ? (
+                            <FileWarningIcon />
+                          ) : (
+                            <CheckCircle2 />
+                          )}
                         </span>
                         <span>
                           {isVerified?.isExpired !== false
@@ -408,7 +438,11 @@ const VCManager = () => {
                         }`}
                       >
                         <span>
-                          {isVerified?.signatureValid === false ? <X /> : <CheckCircle2 />}
+                          {isVerified?.signatureValid === false ? (
+                            <X />
+                          ) : (
+                            <CheckCircle2 />
+                          )}
                         </span>
                         <span>
                           {isVerified?.signatureValid === false
@@ -464,7 +498,11 @@ const VCManager = () => {
                   </span>
                 </div>
                 <span className="text-gray-400">
-                  {expandedSections.claims ? <ArrowUpCircle className="text-amber-400 hover:text-amber-500" /> : <ArrowDownCircle className="text-amber-400 hover:text-amber-500" />}
+                  {expandedSections.claims ? (
+                    <ArrowUpCircle className="text-amber-400 hover:text-amber-500" />
+                  ) : (
+                    <ArrowDownCircle className="text-amber-400 hover:text-amber-500" />
+                  )}
                 </span>
               </button>
 
@@ -550,7 +588,11 @@ const VCManager = () => {
                   </span>
                 </div>
                 <span className="text-gray-400">
-                  {expandedSections.details ? <ArrowUpCircle className="text-amber-400 hover:text-amber-500" /> : <ArrowDownCircle className="text-amber-400 hover:text-amber-500" />}
+                  {expandedSections.details ? (
+                    <ArrowUpCircle className="text-amber-400 hover:text-amber-500" />
+                  ) : (
+                    <ArrowDownCircle className="text-amber-400 hover:text-amber-500" />
+                  )}
                 </span>
               </button>
 
@@ -670,7 +712,11 @@ const VCManager = () => {
                   </span>
                 </div>
                 <span className="text-gray-400">
-                  {expandedSections.rawJson ? <ArrowUpCircle className="text-amber-400 hover:text-amber-500" /> : <ArrowDownCircle className="text-amber-400 hover:text-amber-500" />}
+                  {expandedSections.rawJson ? (
+                    <ArrowUpCircle className="text-amber-400 hover:text-amber-500" />
+                  ) : (
+                    <ArrowDownCircle className="text-amber-400 hover:text-amber-500" />
+                  )}
                 </span>
               </button>
 
@@ -765,7 +811,7 @@ const VCManager = () => {
   return (
     <div className="max-w-6xl mx-auto px-6 py-16">
       <div className="text-center mb-8">
-        <h1 className="text-5xl font-bold text-blue-900 dark-text-yellow mb-4 text-center">
+        <h1 className="text-3xl font-bold 0 bg-clip-text text-yellow-500 mb-4">
           Verifiable Credentials Manager
         </h1>
         <p className="text-xl text-gray-600 mt-8 mb-8 animate-fadein delay-500">
@@ -781,7 +827,7 @@ const VCManager = () => {
             onClick={() => setActiveTab("received")}
             className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${
               activeTab === "received"
-                ? "bg-white text-blue-600 dark-text-yellow border border-blue-200 shadow-sm"
+                ? "bg-white text-cyan-950 shadow-sm"
                 : "text-gray-600 hover:text-gray-800"
             }`}
           >
@@ -791,7 +837,7 @@ const VCManager = () => {
             onClick={() => setActiveTab("issued")}
             className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${
               activeTab === "issued"
-                ? "bg-white text-blue-600 dark-text-yellow border border-blue-200 shadow-sm"
+                ? "bg-white text-cyan-950 shadow-sm"
                 : "text-gray-600 hover:text-gray-800"
             }`}
           >
@@ -1023,7 +1069,8 @@ const VCManager = () => {
                 onClick={() => setShowIssueForm(false)}
                 className="justify-center gap-2 flex hover:bg-gray-300 text-gray-700 dark-text-yellow py-3 px-6 rounded-lg font-semibold transition-colors"
               >
-                <Delete/>Cancel
+                <Delete />
+                Cancel
               </button>
             </div>
           </form>

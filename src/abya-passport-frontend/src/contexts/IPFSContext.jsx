@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import {
   uploadMetadataToIPFS,
-  getFromIPFS,
+  getFromIPFSWithRetry,
   unpinFromIPFS,
 } from "../components/pinata";
 
@@ -42,7 +42,7 @@ export const IPFSProvider = ({ children }) => {
       console.log("📥 Retrieving from IPFS:", ipfsHash);
 
       // Use Pinata's gateway to retrieve data
-      const content = await getFromIPFS(ipfsHash);
+      const content = await getFromIPFSWithRetry(ipfsHash);
 
       console.log("✅ IPFS retrieval successful");
       return content;
@@ -181,6 +181,9 @@ export const IPFSProvider = ({ children }) => {
 
   // Retrieve and validate VC document from IPFS
   const retrieveVCDocument = async (ipfsCid) => {
+    if (!ipfsCid || ipfsCid === "undefined" || ipfsCid === "") {
+      throw new Error("Missing or invalid IPFS CID");
+    }
     try {
       const document = await retrieveFromIPFS(ipfsCid);
 

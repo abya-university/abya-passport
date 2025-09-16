@@ -4,13 +4,16 @@ import React, { useState, useEffect, useRef } from "react";
 import { useInternetIdentity } from "../contexts/InternetContext";
 import { useEthr } from "../contexts/EthrContext";
 import AbyaLogo from "../assets/abya.png";
+import { Copy, CopyCheckIcon, CopyIcon, WalletMinimal } from "lucide-react";
 import {
-  DynamicWidget,
-  useDynamicContext,
-  useIsLoggedIn,
-} from "@dynamic-labs/sdk-react-core";
-import { useAccount } from "wagmi";
-import { Copy, CopyCheckIcon, CopyIcon } from "lucide-react";
+  ConnectButton,
+  darkTheme,
+  lightTheme,
+  useActiveAccount,
+} from "thirdweb/react";
+import { client } from "../client.jsx";
+import { sepolia } from "thirdweb/chains";
+import { inAppWallet, createWallet } from "thirdweb/wallets";
 
 const API_URL =
   import.meta.env.VITE_APP_VERAMO_API_URL || "http://localhost:3000";
@@ -23,24 +26,13 @@ function Navbar({ currentPage, setCurrentPage }) {
       : false
   );
 
-  const { user, primaryWallet } = useDynamicContext();
-  const isLoggedIn = useIsLoggedIn();
-
-  const { isConnected, address } = useAccount();
-
-  console.log("Connected:", isConnected);
-  console.log("Address:", address);
-
-  const smartWallet = user?.verifiedCredentials?.find(
-    (cred) => cred.walletName === "zerodev" || primaryWallet?.address
-  );
+  const account = useActiveAccount();
+  const isConnected = !!account;
+  const address = account?.address;
+  const smartWallet = account?.address;
 
   console.log("Smart Wallet:", smartWallet);
-  console.log("Smart Wallet Address:", smartWallet?.address);
-  console.log("Primary Wallet:", primaryWallet);
-  console.log("Primary Wallet Address:", primaryWallet?.address);
-
-  console.log("isLoggedIn:", isLoggedIn);
+  console.log("Principal: ", useInternetIdentity().principal);
 
   useEffect(() => {
     const observer = new MutationObserver(() => {
@@ -52,23 +44,24 @@ function Navbar({ currentPage, setCurrentPage }) {
     });
     return () => observer.disconnect();
   }, []);
+
   const [showConnectOptions, setShowConnectOptions] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
-  //const [walletDid, setWalletDid] = useState(null);
   const { setWalletAddress, setWalletDid, walletDid: ctxDid } = useEthr();
   const [walletDid, localSetWalletDid] = useState(ctxDid);
   const [didLoading, setDidLoading] = useState(false);
   const dropdownRef = useRef(null);
-  const { did, principal, isAuthenticating, login, developerLogin, logout } =
+  const { did, principal, isAuthenticating, login, logout } =
     useInternetIdentity();
-
   const [isCopied, setIsCopied] = useState(false);
 
   useEffect(() => {
     localSetWalletDid(ctxDid);
   }, [ctxDid]);
 
-  const canisterId = "uxrrr-q7777-77774-qaaaq-cai";
+  const canisterId =
+    import.meta.env.VITE_APP_BACKEND_CANISTER_ID ||
+    "uxrrr-q7777-77774-qaaaq-cai";
 
   console.log("DID2:", did);
   console.log("Principal:", principal);
@@ -80,15 +73,15 @@ function Navbar({ currentPage, setCurrentPage }) {
   const shorten = (str) =>
     str ? (str.length > 10 ? `${str.slice(0, 16)}…${str.slice(-6)}` : str) : "";
 
+  // Separate connection states
+  const isWalletConnected = isConnected && smartWallet;
+  const isInternetIdentityConnected = !!principal;
+  const isAnyConnected = isWalletConnected || isInternetIdentityConnected;
+
   // Fetch or create DID for connected wallet
   useEffect(() => {
-    if (
-      !isLoggedIn ||
-      !smartWallet?.address ||
-      walletDid ||
-      primaryWallet?.address
-    ) {
-      if (!isLoggedIn || !smartWallet?.address) {
+    if (!isWalletConnected || walletDid) {
+      if (!isWalletConnected) {
         setWalletDid(null);
         setWalletAddress(null);
         setDidLoading(false);
@@ -96,18 +89,16 @@ function Navbar({ currentPage, setCurrentPage }) {
       return;
     }
 
-    const alias = `issuer-wallet-${smartWallet?.address || primaryWallet?.address
-      }`;
+    const alias = `issuer-wallet-${smartWallet}`;
 
     const fetchOrCreateDid = async () => {
       setDidLoading(true);
       try {
-        // Try list first
         const listRes = await fetch(`${API_URL}/did/list`);
         const { success, identifiers } = await listRes.json();
         if (success && Array.isArray(identifiers)) {
           const existing = identifiers.find((i) =>
-            i.did.toLowerCase().endsWith(smartWallet?.address.toLowerCase())
+            i.did.toLowerCase().endsWith(smartWallet.toLowerCase())
           );
           if (existing) {
             localSetWalletDid(existing.did);
@@ -116,13 +107,12 @@ function Navbar({ currentPage, setCurrentPage }) {
           }
         }
 
-        // Attempt create with alias
         const createRes = await fetch(`${API_URL}/did/create`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             provider: "did:ethr",
-            walletAddress: smartWallet?.address,
+            walletAddress: smartWallet,
             alias,
           }),
         });
@@ -136,7 +126,6 @@ function Navbar({ currentPage, setCurrentPage }) {
           (createJson.error?.includes("already exists") ||
             createJson.error?.includes("UNIQUE constraint failed"))
         ) {
-          // Alias exists: fetch list again to get DID
           const retryList = await fetch(`${API_URL}/did/list`);
           const { identifiers: retryIds } = await retryList.json();
           const retryFound = retryIds.find((i) => i.alias === alias);
@@ -151,9 +140,10 @@ function Navbar({ currentPage, setCurrentPage }) {
       }
     };
 
-    setWalletAddress(smartWallet?.address);
+    setWalletAddress(smartWallet);
     fetchOrCreateDid();
-  }, [isLoggedIn, smartWallet?.address, walletDid]);
+  }, [isWalletConnected, smartWallet, walletDid]);
+
   console.log("Wallet DID:", walletDid);
 
   // Scroll effect
@@ -163,28 +153,28 @@ function Navbar({ currentPage, setCurrentPage }) {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Click outside dropdown
+  // Click outside dropdown - but exclude ThirdWeb modal elements
   useEffect(() => {
     const handler = (e) => {
+      // Don't close if clicking on ThirdWeb modal elements
+      if (e.target.closest("[data-rk]") || e.target.closest(".tw-modal")) {
+        return;
+      }
+
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setShowConnectOptions(false);
       }
     };
-    if (showConnectOptions) document.addEventListener("mousedown", handler);
+    if (showConnectOptions) {
+      document.addEventListener("mousedown", handler);
+    }
     return () => document.removeEventListener("mousedown", handler);
   }, [showConnectOptions]);
-
-  // const isAnyConnected = isLoggedIn || !!principal;
-
-  // Separate connection states
-  const isWalletConnected =
-    (isLoggedIn && smartWallet?.address) || primaryWallet?.address;
-  const isInternetIdentityConnected = !!principal;
-  const isAnyConnected = isWalletConnected || isInternetIdentityConnected;
 
   const handleInternetIdentityLogin = async () => {
     try {
       await login();
+      setShowConnectOptions(false); // Close dropdown after successful login
     } catch (error) {
       console.error("Internet Identity login failed:", error);
     }
@@ -199,6 +189,68 @@ function Navbar({ currentPage, setCurrentPage }) {
       })
       .catch(() => { });
   };
+
+  const wallets = [
+    inAppWallet({
+      auth: {
+        options: ["google", "discord", "github", "x", "passkey"],
+        mode: "redirect",
+      },
+      metadata: {
+        name: "ABYA Passport",
+        image: {
+          src: AbyaLogo,
+          width: 100,
+          height: 100,
+        },
+      },
+      executionMode: {
+        mode: "EIP7702",
+        sponsorGas: true,
+      },
+      smartAccount: {
+        chain: sepolia,
+        sponsorGas: true,
+      },
+    }),
+    createWallet("io.metamask"),
+    createWallet("com.coinbase.wallet"),
+    createWallet("me.rainbow"),
+  ];
+
+  // Custom theme for ThirdWeb
+  const customTheme = isDark
+    ? darkTheme({
+        colors: {
+          separatorLine: "hsl(41, 80%, 49%)",
+          accentText: "hsl(41, 62%, 51%)",
+          modalBg: "hsl(240, 6%, 10%)",
+          borderColor: "hsl(58, 5%, 13%)",
+          selectedTextColor: "hsl(230, 7%, 22%)",
+          primaryText: "hsl(0, 0%, 100%)",
+          secondaryText: "hsl(0, 0%, 70%)",
+          accentButtonBg: "hsl(41, 80%, 49%)",
+          accentButtonText: "hsl(0, 0%, 100%)",
+        },
+      })
+    : lightTheme({
+        colors: {
+          separatorLine: "hsl(41, 80%, 49%)",
+          accentText: "hsl(41, 62%, 51%)",
+          modalBg: "hsl(0, 0%, 100%)",
+          borderColor: "hsl(0, 0%, 85%)",
+          selectedTextColor: "hsl(100, 100%, 100%)",
+          primaryText: "hsl(0, 0%, 0%)",
+          secondaryText: "hsl(0, 0%, 30%)",
+          accentButtonBg: "hsl(41, 80%, 49%)",
+          accentButtonText: "hsl(0, 0%, 100%)",
+          // Add these to fix hover states
+          connectedButtonBg: "hsl(41, 80%, 49%)",
+          connectedButtonBgHover: "hsl(41, 70%, 45%)",
+          // Wallet item hover
+          walletSelectorButtonHoverBg: "hsl(41, 80%, 49%)",
+        },
+      });
 
   return (
     <nav
@@ -301,18 +353,18 @@ function Navbar({ currentPage, setCurrentPage }) {
                 <div className="bg-green-50 dark:bg-yellow-500/60 dark:border-yellow-700 px-4 py-2 rounded-xl flex items-center gap-2 transition-colors duration-300">
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                   <span className="text-sm font-medium dark:text-cyan-950 text-gray-100">
-                    {isLoggedIn
-                      ? shortenAddress(smartWallet.address)
+                    {isConnected
+                      ? shortenAddress(smartWallet)
                       : shortenAddress(principal)}
                   </span>
-                  {principal && !isLoggedIn && (
+                  {principal && !isConnected && (
                     <span className="text-xs bg-purple-100 dark:bg-green-600 text-purple-700 dark:text-purple-200 px-2 py-0.5 rounded-full">
                       II
                     </span>
                   )}
                 </div>
                 <button
-                  onClick={() => setShowConnectOptions(true)}
+                  onClick={() => setShowConnectOptions(!showConnectOptions)}
                   className="text-gray-200 bg-blue-900 hover:cursor-pointer hover:text-gray-700 dark:hover:text-yellow-400 transition-colors p-2 rounded-2xl hover:bg-gray-100 darkcard border border-blue-200"
                   title="Account Options"
                 >
@@ -326,10 +378,10 @@ function Navbar({ currentPage, setCurrentPage }) {
                   </svg>
                 </button>
               </div>
-            ) : !showConnectOptions ? (
+            ) : (
               <button
-                onClick={() => setShowConnectOptions(true)}
-                className="bg-blue-950 darkcard dark:shadow-yellow-500 dark-text-yellow text-white px-6 py-2.5 border border-blue-200 rounded-2xl font-semibold transition-all duration-200 dark:shadow-md hover:shadow-md hover:cursor-pointer transform hover:scale-105 flex items-center gap-2"
+                onClick={() => setShowConnectOptions(!showConnectOptions)}
+                className="bg-blue-950 darkcard dark:shadow-yellow-500 dark-text-yellow text-white px-6 py-2.5 border border-blue-200 rounded-lg font-semibold transition-all duration-200 dark:shadow-md hover:shadow-md hover:cursor-pointer transform hover:scale-105 flex items-center gap-2"
               >
                 <svg
                   width="16"
@@ -341,10 +393,14 @@ function Navbar({ currentPage, setCurrentPage }) {
                 </svg>
                 Sign In
               </button>
-            ) : null}
+            )}
 
+            {/* Dropdown Menu */}
             {showConnectOptions && (
-              <div className="absolute top-full mt-10 right-0 animate-in slide-in-from-top-2 duration-200">
+              <div
+                className="absolute top-full mt-10 right-0 animate-in slide-in-from-top-2 duration-200 z-[9999]"
+                onMouseDown={(e) => e.stopPropagation()}
+              >
                 <div
                   className={
                     `${isDark
@@ -384,25 +440,20 @@ function Navbar({ currentPage, setCurrentPage }) {
                     </button>
                   </div>
 
-                  {/* Wallet DID */}
+                  {/* Wallet DID Display */}
                   {isWalletConnected && walletDid && (
-                    <div className="flex flex-row- space-x-5 w-full  my-auto">
+                    <div className="flex flex-row space-x-5 w-full my-auto mb-4">
                       <div
-                        className={`relative mb-3 w-[93%] rounded-lg px-3 py-1 flex items-center justify-between
-  ${isDark ? "bg-yellow-700/60" : "bg-yellow-200/60"}
-`}
+                        className={`relative w-[93%] rounded-lg px-3 py-1 flex items-center justify-between
+                          ${isDark ? "bg-yellow-700/60" : "bg-yellow-200/60"}
+                        `}
                       >
-                        {isWalletConnected && walletDid && (
-                          <span className="text-xs font-mono break-all text-gray-400 dark:text-gray-800">
-                            {shorten(walletDid)}
-                          </span>
-                        )}
+                        <span className="text-xs font-mono break-all text-gray-400 dark:text-gray-800">
+                          {shorten(walletDid)}
+                        </span>
                         <button
                           className="ml-2 p-1 rounded hover:text-yellow-400 hover:cursor-pointer transition-colors"
-                          style={{ lineHeight: 1 }}
-                          onClick={() => {
-                            copyText(walletDid, setIsCopied);
-                          }}
+                          onClick={() => copyText(walletDid, setIsCopied)}
                           aria-label="Copy DID"
                         >
                           {isCopied ? (
@@ -416,13 +467,34 @@ function Navbar({ currentPage, setCurrentPage }) {
                   )}
 
                   <div className="space-y-4">
-                    {/* Connected Wallet Info */}
                     {/* Connected Internet Identity Info */}
-                    {principal && !isLoggedIn && (
+                    {isInternetIdentityConnected && (
                       <div className="p-4 rounded-2xl border border-blue-200 shadow-sm">
                         <div className="justify-center flex gap-1 mb-3">
                           <div className="bg-blue-100 darkcard rounded-lg">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="#154c79" fill-rule="evenodd" d="m12 13.386l.023-.027c1.313 1.277 3.208 2.763 4.85 2.763A4.086 4.086 0 0 0 21 12.072c0-2.237-1.845-4.05-4.126-4.05c-1.746 0-3.465 1.296-4.874 2.735zm4.815 1.098c1.404 0 2.543-1.08 2.543-2.413S18.219 9.66 16.81 9.66s-2.781 1.304-3.744 2.411c.639.72 2.34 2.412 3.744 2.412z" clip-rule="evenodd" /><path fill="#154c79" fill-rule="evenodd" d="m12.054 13.44l-.09-.09c-1.273 1.264-3.15 2.772-4.837 2.772A4.087 4.087 0 0 1 3 12.072c0-2.237 1.845-4.05 4.127-4.05c1.773 0 3.42 1.399 4.806 2.893l.121-.126zm-4.869 1.043c-1.408 0-2.547-1.08-2.547-2.412S5.777 9.66 7.185 9.66s2.781 1.304 3.744 2.411c-.639.72-2.34 2.412-3.744 2.412" clip-rule="evenodd" /><path fill="#154c79" d="m10.758 11.924l.108.094l1.102 1.404c1.296 1.21 3.186 2.7 4.905 2.7a4.11 4.11 0 0 0 4.05-3.267c-.35.634-1.575 1.629-3.762 1.606q-.169.022-.35.023c-1.41 0-3.106-1.692-3.745-2.412l.014-.018l-1.328-1.598l-1.327-1.26c-1.062-.81-2.16-1.318-3.366-1.318c-2.039 0-3.677 1.62-4.005 3.555c.909-1.647 2.866-2.178 4.585-1.724c1.125.194 2.102 1.09 3.119 2.215" /></svg>
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="16"
+                              height="16"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                fill="#154c79"
+                                fillRule="evenodd"
+                                d="m12 13.386l.023-.027c1.313 1.277 3.208 2.763 4.85 2.763A4.086 4.086 0 0 0 21 12.072c0-2.237-1.845-4.05-4.126-4.05c-1.746 0-3.465 1.296-4.874 2.735zm4.815 1.098c1.404 0 2.543-1.08 2.543-2.413S18.219 9.66 16.81 9.66s-2.781 1.304-3.744 2.411c.639.72 2.34 2.412 3.744 2.412z"
+                                clipRule="evenodd"
+                              />
+                              <path
+                                fill="#154c79"
+                                fillRule="evenodd"
+                                d="m12.054 13.44l-.09-.09c-1.273 1.264-3.15 2.772-4.837 2.772A4.087 4.087 0 0 1 3 12.072c0-2.237 1.845-4.05 4.127-4.05c1.773 0 3.42 1.399 4.806 2.893l.121-.126zm-4.869 1.043c-1.408 0-2.547-1.08-2.547-2.412S5.777 9.66 7.185 9.66s2.781 1.304 3.744 2.411c-.639.72-2.34 2.412-3.744 2.412"
+                                clipRule="evenodd"
+                              />
+                              <path
+                                fill="#154c79"
+                                d="m10.758 11.924l.108.094l1.102 1.404c1.296 1.21 3.186 2.7 4.905 2.7a4.11 4.11 0 0 0 4.05-3.267c-.35.634-1.575 1.629-3.762 1.606q-.169.022-.35.023c-1.41 0-3.106-1.692-3.745-2.412l.014-.018l-1.328-1.598l-1.327-1.26c-1.062-.81-2.16-1.318-3.366-1.318c-2.039 0-3.677 1.62-4.005 3.555c.909-1.647 2.866-2.178 4.585-1.724c1.125.194 2.102 1.09 3.119 2.215"
+                              />
+                            </svg>
                           </div>
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
@@ -440,8 +512,8 @@ function Navbar({ currentPage, setCurrentPage }) {
                           </div>
                         </div>
 
+                        {/* Principal ID and DID Display */}
                         <div className="space-y-3">
-                          {/* Principal ID */}
                           <div className="backdrop-blur-sm rounded-lg p-3 border border-blue-200">
                             <div className="flex items-center justify-between mb-2">
                               <span className="text-xs font-medium text-gray-700 dark-text-yellow uppercase tracking-wide">
@@ -469,8 +541,7 @@ function Navbar({ currentPage, setCurrentPage }) {
                             </div>
                           </div>
 
-                          {/* DID Section */}
-                          {did ? (
+                          {did && (
                             <div className="backdrop-blur-sm rounded-lg p-3 border border-blue-200">
                               <div className="flex items-center justify-between mb-2">
                                 <span className="text-xs font-medium text-gray-700 dark-text-yellow uppercase tracking-wide">
@@ -497,27 +568,6 @@ function Navbar({ currentPage, setCurrentPage }) {
                                 {did}
                               </div>
                             </div>
-                          ) : (
-                            <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-                              <div className="flex items-center gap-2">
-                                <svg
-                                  width="16"
-                                  height="16"
-                                  viewBox="0 0 24 24"
-                                  fill="currentColor"
-                                  className="text-orange-500"
-                                >
-                                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
-                                </svg>
-                                <span className="text-sm text-orange-700 font-medium">
-                                  DID Generation Pending
-                                </span>
-                              </div>
-                              <p className="text-xs text-orange-600 mt-1">
-                                Your decentralized identity is being
-                                generated...
-                              </p>
-                            </div>
                           )}
                         </div>
 
@@ -525,7 +575,6 @@ function Navbar({ currentPage, setCurrentPage }) {
                         <div className="flex gap-2 mt-4">
                           <button
                             onClick={() => {
-                              // Refresh DID if needed
                               window.location.reload();
                             }}
                             className="flex-1 hover:bg-purple-50 text-blue-900 dark-text-yellow darkcard border border-blue-200 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2"
@@ -541,7 +590,10 @@ function Navbar({ currentPage, setCurrentPage }) {
                             Refresh
                           </button>
                           <button
-                            onClick={logout}
+                            onClick={() => {
+                              logout();
+                              setShowConnectOptions(false);
+                            }}
                             className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 darkcard px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2"
                           >
                             <svg
@@ -557,67 +609,70 @@ function Navbar({ currentPage, setCurrentPage }) {
                         </div>
                       </div>
                     )}
-                    {/* Show both wallet and II info if both connected */}
-                    {isLoggedIn && principal && (
-                      <div className="p-3 rounded-xl bg-purple-50/50 border border-purple-200/50">
-                        <div className="flex items-center gap-2 mb-2">
-                          <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="currentColor"
-                            className="text-purple-600"
-                          >
-                            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                          <span className="text-sm font-medium text-gray-700">
-                            Internet Identity
-                          </span>
-                        </div>
-                        <div className="text-sm text-gray-600 font-mono bg-gray-100 p-2 rounded-lg break-all">
-                          {principal}
-                        </div>
-                        <button
-                          onClick={logout}
-                          className="mt-2 w-full text-sm text-red-600 hover:text-red-700 font-medium"
-                        >
-                          Disconnect II
-                        </button>
-                      </div>
-                    )}
-                    {/* Wallet Connection */}
-                    {!isInternetIdentityConnected && (
-                      <div className="p-3 rounded-xl border border-blue-200">
-                        <div className="flex items-center gap-2 mb-2">
-                          <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="currentColor"
-                            className="text-blue-900 dark-text-yellow"
-                          >
-                            <path d="M21 18v1c0 1.1-.9 2-2 2H5c-1.11 0-2-.9-2-2V5c0-1.1.89-2 2-2h14c1.1 0 2 .9 2 2v1h-9c-1.11 0-2 .9-2 2v8c0 1.1.89 2 2 2h9zm-9-2h10V8H12v8zm4-2.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z" />
-                          </svg>
-                          <span className="text-sm font-medium text-blue-900 dark-text-yellow">
-                            Web3 Wallet
-                          </span>
-                        </div>
-                        {/* Web3 Widget */}
-                        <div className="justify-center flex items-center gap-3">
-                          <DynamicWidget
-                            variant="dropdown"
-                            className="w-full bg-blue-950 backdrop-blur-md border border-blue-100 rounded-2xl"
-                            innerButtonComponent={
-                              <div className="w-full px-4 py-2 bg-blue-900 text-gray-900 font-medium rounded-lg hover:shadow-lg hover:shadow-[#20ff96]/30 transition-all duration-300">
-                                Sign Up or Log In
-                              </div>
-                            }
-                          />
-                        </div>
-                      </div>
-                    )}
+
+                    {/* Web3 Wallet Connection */}
                     {!isAnyConnected && (
                       <>
+                        <div className="p-3 rounded-xl border border-blue-200">
+                          <div className="flex items-center gap-2 mb-2">
+                            <svg
+                              width="16"
+                              height="16"
+                              viewBox="0 0 24 24"
+                              fill="currentColor"
+                              className="text-blue-900 dark-text-yellow"
+                            >
+                              <path d="M21 18v1c0 1.1-.9 2-2 2H5c-1.11 0-2-.9-2-2V5c0-1.1.89-2 2-2h14c1.1 0 2 .9 2 2v1h-9c-1.11 0-2 .9-2 2v8c0 1.1.89 2 2 2h9zm-9-2h10V8H12v8zm4-2.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z" />
+                            </svg>
+                            <span className="text-sm font-medium text-blue-900 dark-text-yellow">
+                              Web3 Wallet
+                            </span>
+                          </div>
+                          {/* ThirdWeb Connect Button Container */}
+                          <div
+                            className="flex justify-center items-center"
+                            onClick={(e) => {
+                              // Prevent dropdown from closing when clicking the connect button
+                              e.stopPropagation();
+                            }}
+                          >
+                            <ConnectButton
+                              client={client}
+                              wallets={wallets}
+                              connectButton={{
+                                label: "Connect Wallet",
+                                style: {
+                                  background: isDark ? "#18181b" : "#1e3a8a",
+                                  color: "white",
+                                  border: isDark ? "none" : "none",
+                                  borderRadius: "8px",
+                                  padding: "8px 16px",
+                                  fontSize: "14px",
+                                  fontWeight: "600",
+                                  cursor: "pointer",
+                                  width: "100%",
+                                  boxShadow: isDark
+                                    ? "0 0 0 2px #e4a80f, 0 0 8px 2px #e4a80f55"
+                                    : "none",
+                                },
+                              }}
+                              connectModal={{
+                                size: "compact",
+                                // titleIcon: AbyaLogo,
+                                showThirdwebBranding: true,
+                              }}
+                              theme={customTheme}
+                              // onConnect={() => {
+                              //   // Optional: Close dropdown after successful connection
+                              //   setTimeout(
+                              //     () => setShowConnectOptions(false),
+                              //     5000
+                              //   );
+                              // }}
+                            />
+                          </div>
+                        </div>
+
                         {/* Divider */}
                         <div className="flex items-center gap-3">
                           <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
@@ -646,7 +701,7 @@ function Navbar({ currentPage, setCurrentPage }) {
                           <button
                             onClick={handleInternetIdentityLogin}
                             disabled={isAuthenticating}
-                            className="w-full bg-blue-950 hover:bg-yellow-600 disabled:from-gray-400 disabled:to-gray-500 text-white px-4 py-3 rounded-xl font-semibold transition-all duration-200 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-[1.02] disabled:transform-none disabled:cursor-not-allowed"
+                            className="w-full bg-yellow-500 hover:cursor-pointer dark:bg-blue-950 hover:bg-yellow-500 disabled:from-gray-400 disabled:to-gray-500 text-white px-4 py-3 rounded-xl font-semibold transition-all duration-200 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-[1.02] disabled:transform-none disabled:cursor-not-allowed"
                           >
                             {isAuthenticating ? (
                               <>
@@ -676,39 +731,88 @@ function Navbar({ currentPage, setCurrentPage }) {
                             )}
                           </button>
                         </div>
+                      </>
+                    )}
 
-                        {/* Developer Login (for testing) */}
-                        <div className="p-3 rounded-2xl bg-orange-50/50 border border-orange-200/50">
-                          <div className="flex items-center gap-2 mb-3">
+                    {/* Show Web3 Wallet option when only II is connected */}
+                    {/* {isInternetIdentityConnected && !isWalletConnected && (
+                      <>
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
+                          <span className="text-xs text-gray-500 font-medium">
+                            ALSO CONNECT
+                          </span>
+                          <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
+                        </div>
+
+                        <div className="p-3 rounded-xl border border-blue-200">
+                          <div className="flex items-center gap-2 mb-2">
                             <svg
                               width="16"
                               height="16"
                               viewBox="0 0 24 24"
                               fill="currentColor"
-                              className="text-orange-600"
+                              className="text-blue-900 dark-text-yellow"
                             >
-                              <path d="M13 3h8v18h-8v-2h6V5h-6V3zM3 12l4 4v-3h11v-2H7V8l-4 4z" />
+                              <path d="M21 18v1c0 1.1-.9 2-2 2H5c-1.11 0-2-.9-2-2V5c0-1.1.89-2 2-2h14c1.1 0 2 .9 2 2v1h-9c-1.11 0-2 .9-2 2v8c0 1.1.89 2 2 2h9zm-9-2h10V8H12v8zm4-2.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z" />
                             </svg>
-                            <span className="text-sm font-medium text-orange-600">
-                              Developer Mode
+                            <span className="text-sm font-medium text-blue-900 dark-text-yellow">
+                              Add Web3 Wallet
                             </span>
                           </div>
-                          <button
-                            onClick={developerLogin}
-                            disabled={isAuthenticating}
-                            className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:from-gray-400 disabled:to-gray-500 text-white px-4 py-3 rounded-xl font-semibold transition-all duration-200 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-[1.02] disabled:transform-none disabled:cursor-not-allowed"
-                          >
-                            <svg
-                              width="18"
-                              height="18"
-                              viewBox="0 0 24 24"
-                              fill="currentColor"
-                            >
-                              <path d="M9.4 16.6L4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4z" />
-                            </svg>
-                            Dev Login (Testing)
-                          </button>
+                          <div
+                            className="flex justify-center items-center"
+                            onClick={(e) => e.stopPropagation()}
+                          ></div>
                         </div>
+                      </>
+                    )} */}
+
+                    {isWalletConnected && !isInternetIdentityConnected && (
+                      <>
+                        <ConnectButton
+                          client={client}
+                          wallets={wallets}
+                          connectButton={{
+                            label: "Connect Wallet",
+                            style: {
+                              background: isDark ? "#18181b" : "#1e3a8a",
+                              color: isDark ? "white" : "#ede7d1",
+                              border: isDark ? "none" : "none",
+                              boxShadow: isDark
+                                ? "0 0 0 2px #e4a80f, 0 0 8px 2px #e4a80f55"
+                                : "none",
+                              borderRadius: "8px",
+                              padding: "8px 16px",
+                              fontSize: "14px",
+                              fontWeight: "600",
+                              cursor: "pointer",
+                              width: "100%",
+                            },
+                          }}
+                          connectModal={{
+                            size: "wide",
+                            titleIcon: AbyaLogo,
+                            showThirdwebBranding: false,
+                            welcomeScreen: {
+                              title: "Connect to ABYA Passport",
+                              subtitle: "Choose your preferred sign-in method",
+                            },
+                            privacyPolicyUrl: `${window.location.origin}/privacy`,
+                            termsOfServiceUrl: `${window.location.origin}/terms`,
+                          }}
+                          theme={customTheme}
+                          onConnect={(wallet) => {
+                            console.log("Wallet connected:", wallet);
+                            setTimeout(
+                              () => setShowConnectOptions(false),
+                              2000
+                            );
+                          }}
+                          onDisconnect={() => {
+                            console.log("Wallet disconnected");
+                          }}
+                        />
                       </>
                     )}
                   </div>
