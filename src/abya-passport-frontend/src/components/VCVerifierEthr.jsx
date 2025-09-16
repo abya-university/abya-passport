@@ -1054,9 +1054,9 @@ export default function VCVerifierEthr({ onBack = () => { } }) {
   return (
     <div className="backdrop-blur-md rounded-2xl max-w-7xl mx-auto p-6 py-12">
       <div className="flex items-center justify-center mb-10">
-        <div className="p-8">
+        <div className="p-30">
           <h2 className="justify-center flex items-center gap-4 text-4xl font-bold text-blue-900 dark-text-yellow mb-4 text-center"><VerifiedIcon size={70} /> Ethereum Credential Verifier</h2>
-          <p className="text-xl text-slate-500 mt-8">Create, verify and manage verifiable presentations derived from your credentials (fetches IPFS itself).</p>
+          <p className="text-xl text-slate-500 mt-8">Verify Credentials derived from your credentials.</p>
         </div>
 
         <div className="flex items-end">
