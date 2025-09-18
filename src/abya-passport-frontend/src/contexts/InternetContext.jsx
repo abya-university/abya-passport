@@ -35,7 +35,7 @@ export const InternetIdentityProvider = ({ children }) => {
   } = useIPFS();
 
   // Network configuration - FIXED
-  const network = import.meta.env.VITE_APP_DFX_NETWORK || "local";
+  const network = import.meta.env.VITE_APP_DFX_NETWORK;
   const isLocal = network === "local";
 
   console.log("VITE_APP_DFX_NETWORK:", import.meta.env.VITE_APP_DFX_NETWORK);
@@ -392,12 +392,18 @@ export const InternetIdentityProvider = ({ children }) => {
       console.log("📁 VC uploaded to IPFS:", ipfsCid);
 
       try {
+        // Use the same calculation as backend: hours × nanoseconds_per_hour
+        const NANOS_PER_HOUR = BigInt(3600 * 1000000000); // 3,600,000,000,000
+        const expirationNanos = expiresInHours
+          ? [BigInt(expiresInHours) * NANOS_PER_HOUR]
+          : [];
+
         const result = await actor.issueVCWithIPFS(
           vcId,
           ipfsCid,
           recipientDid,
           ["VerifiableCredential"],
-          expiresInHours ? [BigInt(expiresInHours * 3600 * 1000000000)] : []
+          expirationNanos
         );
         if (result.ok) {
           console.log("✅ VC issued successfully:", vcId);

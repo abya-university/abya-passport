@@ -7,6 +7,14 @@ const API_URL =
   import.meta.env.VITE_APP_VERAMO_API_URL ||
   "https://veramo-backend-service.onrender.com";
 
+console.log("Environment check:", {
+  API_URL,
+  PINATA_JWT: import.meta.env.VITE_APP_PINATA_JWT ? "✓ Set" : "✗ Missing",
+  PINATA_GATEWAY: import.meta.env.VITE_APP_PINATA_GATEWAY
+    ? "✓ Set"
+    : "✗ Missing",
+});
+
 export default function EthrDIDDoc() {
   const [didInput, setDidInput] = useState("");
   const [didDoc, setDidDoc] = useState(null);

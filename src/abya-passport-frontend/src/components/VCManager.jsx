@@ -324,8 +324,9 @@ const VCManager = () => {
                   {vc.expirationDate && (
                     <span
                       className={`${
-                        new Date(parseInt(vc.expirationDate) / 1000000) <
-                        new Date()
+                        new Date(
+                          Number(BigInt(vc.expirationDate) / BigInt(1000000))
+                        ) < new Date()
                           ? "text-red-600"
                           : "text-gray-600"
                       }`}
@@ -827,7 +828,7 @@ const VCManager = () => {
             onClick={() => setActiveTab("received")}
             className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${
               activeTab === "received"
-                ? "bg-white text-cyan-950 shadow-sm"
+                ? "bg-white text-yellow-500 shadow-sm shadow-yellow-500"
                 : "text-gray-600 hover:text-gray-800"
             }`}
           >
@@ -837,7 +838,7 @@ const VCManager = () => {
             onClick={() => setActiveTab("issued")}
             className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${
               activeTab === "issued"
-                ? "bg-white text-cyan-950 shadow-sm"
+                ? "bg-white text-yellow-500 shadow-sm shadow-yellow-500"
                 : "text-gray-600 hover:text-gray-800"
             }`}
           >
@@ -851,7 +852,7 @@ const VCManager = () => {
         <div className="text-center mb-8">
           <button
             onClick={() => setShowIssueForm(!showIssueForm)}
-            className="bg-blue-900 darkcard text-white px-6 py-3 rounded-2xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
+            className="bg-blue-900 shadow-yellow-500 darkcard text-white px-6 py-3 rounded-2xl font-semibold transition-all duration-200 shadow-sm hover:shadow-xl transform hover:scale-105 hover:cursor-pointer"
           >
             {showIssueForm ? "Cancel" : "Issue New VC"}
           </button>

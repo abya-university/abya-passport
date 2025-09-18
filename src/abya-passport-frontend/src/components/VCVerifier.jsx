@@ -96,22 +96,53 @@ export default function VCVerifier({ vcId, localMetadata = null }) {
 
   // Parse QR code or URL data
   const parseVerificationData = (input) => {
+    // 1. Handle URLs with vc parameter (your shareable link format)
+    if (input.startsWith("https://") && input.includes("/verify?vc=")) {
+      try {
+        const url = new URL(input);
+        const vcParam = url.searchParams.get("vc");
+        if (vcParam) {
+          // Decode the URL-encoded parameter and parse it
+          const decodedVc = decodeURIComponent(vcParam);
+          return parseVerificationData(decodedVc); // Recursively parse the decoded value
+        }
+      } catch (error) {
+        throw new Error("Invalid URL format", error);
+      }
+    }
+
+    // 2. Try parsing as direct JSON VC document
     try {
       const parsed = JSON.parse(input);
-      if (parsed.type && parsed.credentialSubject) {
+      if (parsed && typeof parsed === "object" && parsed.credentialSubject) {
         return { method: "direct", vc: parsed };
       }
     } catch (e) {
-      // Continue with other parsing methods
+      // Not JSON - continue to other parsing methods
+      console.log("Not a JSON VC, trying other formats...", e);
     }
 
+    // 3. Try parsing as vc:// reference (handle both formats)
     if (input.startsWith("vc://")) {
-      const parts = input.replace("vc://", "").split("/");
+      const cleanInput = input.replace("vc://", "");
+
+      // Handle format: vc://vc:1758177577633-p1taewmgn/QmT8E9PzsBe7jdhzM96vFNKPMumUE8cX4J8gf7g99HXx5r
+      const parts = cleanInput.split("/");
       if (parts.length >= 2) {
-        return { method: "ipfs", vcId: parts[0], ipfsCid: parts[1] };
+        return {
+          method: "ipfs",
+          vcId: parts[0],
+          ipfsCid: parts[1],
+        };
+      }
+
+      // Handle simple vc://vcId format
+      if (parts.length === 1 && parts[0]) {
+        return { method: "vcid_only", vcId: parts[0] };
       }
     }
 
+    // 4. Try parsing as direct IPFS CID
     if (
       input.length > 40 &&
       (input.startsWith("Qm") || input.startsWith("b"))
@@ -119,11 +150,39 @@ export default function VCVerifier({ vcId, localMetadata = null }) {
       return { method: "ipfs_direct", ipfsCid: input };
     }
 
-    if (input.startsWith("vc_") || /^[a-zA-Z0-9_-]{10,}$/.test(input)) {
+    // 5. Try parsing as VC ID only (updated regex to match your pattern)
+    if (
+      input.startsWith("vc_") ||
+      /^vc:[a-zA-Z0-9_-]+$/.test(input) ||
+      /^[a-zA-Z0-9_-]{10,}$/.test(input)
+    ) {
       return { method: "vcid_only", vcId: input };
     }
 
-    throw new Error("Invalid verification data format");
+    // If none of the above work, throw error
+    throw new Error(
+      "Invalid verification data format. Supported formats: VC JSON document, vc://vcId/ipfsCid, IPFS CID, or VC ID"
+    );
+  };
+
+  const parseVcUri = (uri) => {
+    // Parse vc://vc:1758177577633-p1taewmgn/QmT8E9PzsBe7jdhzM96vFNKPMumUE8cX4J8gf7g99HXx5r
+    const match = uri.match(/^vc:\/\/(vc:[^\/]+)\/(.+)$/);
+    if (match) {
+      return {
+        type: "vcUri",
+        vcId: match[1],
+        ipfsCid: match[2],
+      };
+    }
+
+    // Parse simpler vc://vcId format
+    const simpleMatch = uri.match(/^vc:\/\/(.+)$/);
+    if (simpleMatch) {
+      return { type: "vcId", value: simpleMatch[1] };
+    }
+
+    throw new Error("Invalid VC URI format");
   };
 
   // Helper: Convert certificate to proper format for agent verification
@@ -147,6 +206,69 @@ export default function VCVerifier({ vcId, localMetadata = null }) {
       console.error("Certificate verification failed:", error);
       return false;
     }
+  };
+
+  //direct json verification
+  const verifyDirectVC = async (vc) => {
+    const steps = [];
+
+    try {
+      steps.push({
+        step: "Verifying direct VC document",
+        status: "processing",
+      });
+      setVerificationSteps(steps);
+
+      // Perform structural validation only for direct JSON VCs
+      const isValid = await verifyVcStructure(vc);
+
+      steps[0].status = isValid ? "completed" : "failed";
+      steps.push({
+        step: isValid
+          ? "VC structure validation passed"
+          : "VC structure validation failed",
+        status: isValid ? "completed" : "failed",
+      });
+      setVerificationSteps([...steps]);
+
+      return {
+        isValid,
+        status: isValid ? "valid" : "invalid",
+        details: {
+          structuralValid: isValid,
+          certificateValid: false, // No certificate for direct JSON
+          statusValid: false, // No status check for direct JSON
+          onChain: false,
+        },
+        vc: vc,
+        timestamp: new Date(),
+      };
+    } catch (error) {
+      steps[0].status = "failed";
+      steps[0].error = error.message;
+      setVerificationSteps([...steps]);
+      throw error;
+    }
+  };
+
+  // Helper function to validate VC structure
+  const verifyVcStructure = async (vc) => {
+    // Basic structural validation
+    if (!vc || typeof vc !== "object") return false;
+    if (!vc.type || !vc.credentialSubject) return false;
+    if (!vc.issuer && !vc.issuer?.id) return false;
+
+    // Check expiration if present
+    if (vc.expirationDate) {
+      try {
+        const expDate = new Date(vc.expirationDate);
+        if (expDate < new Date()) return false;
+      } catch (e) {
+        console.warn("Invalid expiration date format");
+      }
+    }
+
+    return true;
   };
 
   // Comprehensive VC verification using agent
@@ -215,16 +337,35 @@ export default function VCVerifier({ vcId, localMetadata = null }) {
       let statusValid = false;
       try {
         const actor = await createBackendActor(null);
+
+        // Ensure the method exists and has the correct signature
+        if (typeof actor.verifyVCStatus !== "function") {
+          throw new Error("verifyVCStatus method not found on actor");
+        }
+
         const statusResult = await actor.verifyVCStatus(vcId);
 
-        if (statusResult.ok) {
-          statusValid = true;
-          steps[steps.length - 1].status = "completed";
+        // Handle different response formats - some canisters return {ok: boolean} or just the value
+        if (typeof statusResult === "object" && statusResult !== null) {
+          if ("ok" in statusResult) {
+            statusValid = statusResult.ok;
+            if (!statusValid && "err" in statusResult) {
+              throw new Error(
+                `VC status check failed: ${JSON.stringify(statusResult.err)}`
+              );
+            }
+          } else if ("valid" in statusResult) {
+            statusValid = statusResult.valid;
+          } else {
+            // Assume it's valid if we get a response without error structure
+            statusValid = true;
+          }
         } else {
-          steps[steps.length - 1].status = "failed";
-          steps[steps.length - 1].error = statusResult.err;
-          throw new Error(`VC status check failed: ${statusResult.err}`);
+          // Handle primitive responses
+          statusValid = !!statusResult;
         }
+
+        steps[steps.length - 1].status = "completed";
       } catch (error) {
         steps[steps.length - 1].status = "failed";
         steps[steps.length - 1].error = error.message;
@@ -284,69 +425,61 @@ export default function VCVerifier({ vcId, localMetadata = null }) {
 
     try {
       const parsedData = parseVerificationData(verificationInput);
-      let targetVcId = null;
-      let vcData = null;
-      let metadata = null;
+      let verification;
 
       switch (parsedData.method) {
-        case "direct":
-          vcData = parsedData.vc;
-          showInfo("Verifying directly embedded VC");
+        case "direct": {
+          showInfo(
+            "Verifying directly embedded VC (structural validation only)"
+          );
+          verification = await verifyDirectVC(parsedData.vc);
           break;
-
-        case "ipfs":
-          targetVcId = parsedData.vcId;
+        }
+        case "ipfs": {
           showInfo("Retrieving VC from IPFS and verifying...");
-          vcData = await retrieveFromIPFS(parsedData.ipfsCid);
+          const vcData = await retrieveFromIPFS(parsedData.ipfsCid);
+          const vcIdFromDoc = vcData.id || parsedData.vcId;
+          verification = await performComprehensiveVerification(
+            vcIdFromDoc,
+            vcData
+          );
           break;
-
-        case "ipfs_direct":
+        }
+        case "ipfs_direct": {
           showInfo("Retrieving VC from IPFS CID...");
-          vcData = await retrieveFromIPFS(parsedData.ipfsCid);
+          const vcDataDirect = await retrieveFromIPFS(parsedData.ipfsCid);
+          if (vcDataDirect.id) {
+            verification = await performComprehensiveVerification(
+              vcDataDirect.id,
+              vcDataDirect
+            );
+          } else {
+            verification = await verifyDirectVC(vcDataDirect);
+          }
           break;
-
-        case "vcid_only":
-          targetVcId = parsedData.vcId;
+        }
+        case "vcid_only": {
           showInfo("Verifying VC by ID...");
+          verification = await performComprehensiveVerification(
+            parsedData.vcId
+          );
           break;
-
-        default:
+        }
+        default: {
           throw new Error("Unsupported verification method");
+        }
       }
 
-      // If we have a VC ID, perform comprehensive verification
-      if (targetVcId) {
-        const verification = await performComprehensiveVerification(
-          targetVcId,
-          metadata
-        );
+      setVerificationResult({
+        ...verification,
+        method: parsedData.method,
+        timestamp: new Date(),
+      });
 
-        // Also fetch the VC document if we don't have it
-        if (!vcData && verification.metadata?.ipfsCid) {
-          try {
-            vcData = await retrieveFromIPFS(verification.metadata.ipfsCid);
-          } catch (error) {
-            console.warn("Could not retrieve VC document:", error);
-          }
-        }
-
-        setVerificationResult({
-          ...verification,
-          vc: vcData,
-          method: parsedData.method,
-          timestamp: new Date(),
-        });
-
-        if (verification.isValid) {
-          showSuccess("Credential verification successful!");
-        } else {
-          showError("Credential verification failed");
-        }
+      if (verification.isValid) {
+        showSuccess("Credential verification successful!");
       } else {
-        // For direct VC verification, perform basic structural verification
-        showError(
-          "Direct VC verification not fully implemented - use VC ID or IPFS reference"
-        );
+        showError("Credential verification failed");
       }
     } catch (error) {
       console.error("Verification error:", error);
@@ -422,8 +555,8 @@ export default function VCVerifier({ vcId, localMetadata = null }) {
                   : "border-gray-200 hover:border-yellow-300 bg-white"
               }`}
             >
-              <Key className="w-8 h-8 mx-auto mb-2" />
-              <div className="font-medium">VC Reference</div>
+              <Key className="w-8 h-8 mx-auto mb-2 text-gray-600" />
+              <div className="font-medium text-gray-500">VC Reference</div>
               <div className="text-sm text-gray-600">VC ID or vc:// link</div>
             </button>
 
@@ -435,8 +568,8 @@ export default function VCVerifier({ vcId, localMetadata = null }) {
                   : "border-gray-200 hover:border-yellow-300 bg-white"
               }`}
             >
-              <Database className="w-8 h-8 mx-auto mb-2" />
-              <div className="font-medium">IPFS Content</div>
+              <Database className="w-8 h-8 mx-auto mb-2 text-gray-600" />
+              <div className="font-medium text-gray-500">IPFS Content</div>
               <div className="text-sm text-gray-600">IPFS CID</div>
             </button>
 
@@ -448,8 +581,8 @@ export default function VCVerifier({ vcId, localMetadata = null }) {
                   : "border-gray-200 hover:border-yellow-300 bg-white"
               }`}
             >
-              <FileText className="w-8 h-8 mx-auto mb-2" />
-              <div className="font-medium">Direct JSON</div>
+              <FileText className="w-8 h-8 mx-auto mb-2 text-gray-600" />
+              <div className="font-medium text-gray-500">Direct JSON</div>
               <div className="text-sm text-gray-600">Complete VC document</div>
             </button>
           </div>
@@ -473,7 +606,7 @@ export default function VCVerifier({ vcId, localMetadata = null }) {
                   : '{"@context": ["https://www.w3.org/2018/credentials/v1"], ...}'
               }
               rows={verificationMethod === "json" ? 8 : 3}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 resize-none"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500 resize-none text-gray-600"
             />
 
             <div className="flex justify-center space-x-4">
@@ -528,7 +661,7 @@ export default function VCVerifier({ vcId, localMetadata = null }) {
         {/* Verification Steps */}
         {verificationSteps.length > 0 && (
           <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
-            <h2 className="text-2xl font-semibold text-yellow-900 mb-6">
+            <h2 className="text-2xl font-semibold dark:text-yellow-500 text-white mb-6">
               Verification Process
             </h2>
             <div className="space-y-4">
@@ -542,7 +675,7 @@ export default function VCVerifier({ vcId, localMetadata = null }) {
                           ? "text-red-600"
                           : step.status === "warning"
                           ? "text-yellow-600"
-                          : "text-gray-800"
+                          : "text-gray-600"
                       }`}
                     >
                       {step.step}
@@ -625,7 +758,9 @@ export default function VCVerifier({ vcId, localMetadata = null }) {
                       ) : (
                         <XCircle className="w-5 h-5 text-red-600" />
                       )}
-                      <span className="text-sm font-medium">Merkle Proof</span>
+                      <span className="text-sm font-medium text-gray-700">
+                        Merkle Proof
+                      </span>
                     </div>
 
                     <div className="flex items-center space-x-2">
@@ -636,7 +771,9 @@ export default function VCVerifier({ vcId, localMetadata = null }) {
                       ) : (
                         <AlertCircle className="w-5 h-5 text-gray-400" />
                       )}
-                      <span className="text-sm font-medium">Certificate</span>
+                      <span className="text-sm font-medium text-gray-700">
+                        Certificate
+                      </span>
                     </div>
 
                     <div className="flex items-center space-x-2">
@@ -645,7 +782,9 @@ export default function VCVerifier({ vcId, localMetadata = null }) {
                       ) : (
                         <XCircle className="w-5 h-5 text-red-600" />
                       )}
-                      <span className="text-sm font-medium">Status</span>
+                      <span className="text-sm font-medium text-gray-700">
+                        Status
+                      </span>
                     </div>
 
                     <div className="flex items-center space-x-2">
@@ -654,7 +793,9 @@ export default function VCVerifier({ vcId, localMetadata = null }) {
                       ) : (
                         <AlertCircle className="w-5 h-5 text-gray-400" />
                       )}
-                      <span className="text-sm font-medium">On-Chain</span>
+                      <span className="text-sm font-medium text-gray-700">
+                        On-Chain
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -756,7 +897,7 @@ export default function VCVerifier({ vcId, localMetadata = null }) {
                             VC Hash
                           </label>
                           <div className="flex items-center space-x-2 mt-1">
-                            <code className="text-xs bg-gray-200 px-2 py-1 rounded flex-1 truncate">
+                            <code className="text-xs bg-gray-200 text-gray-500 px-2 py-1 rounded flex-1 truncate">
                               {verificationResult.details.vcHash || "N/A"}
                             </code>
                             {verificationResult.details.vcHash && (
@@ -779,7 +920,7 @@ export default function VCVerifier({ vcId, localMetadata = null }) {
                             Tree Hash
                           </label>
                           <div className="flex items-center space-x-2 mt-1">
-                            <code className="text-xs bg-gray-200 px-2 py-1 rounded flex-1 truncate">
+                            <code className="text-xs bg-gray-200 text-gray-500 px-2 py-1 rounded flex-1 truncate">
                               {verificationResult.details.treeHash || "N/A"}
                             </code>
                             {verificationResult.details.treeHash && (
@@ -799,10 +940,10 @@ export default function VCVerifier({ vcId, localMetadata = null }) {
                       </div>
 
                       <div>
-                        <label className="text-sm font-medium text-gray-600">
+                        <label className="text-sm font-medium text-green-600">
                           Verification Details
                         </label>
-                        <div className="mt-2 text-sm space-y-1">
+                        <div className="mt-2 text-sm space-y-1 text-gray-700">
                           <div>
                             Merkle Proof Path Length:{" "}
                             {verificationResult.details.proofPathLength}
@@ -857,18 +998,33 @@ export default function VCVerifier({ vcId, localMetadata = null }) {
 
                       {/* Raw VC JSON */}
                       {verificationResult.vc && (
-                        <details className="mt-4">
+                        <details className="mt-5 border-t pt-4 border-yellow-500">
                           <summary className="text-sm font-medium text-gray-600 cursor-pointer hover:text-gray-800">
                             Raw VC JSON Document
                           </summary>
                           <div className="mt-2">
-                            <pre className="text-xs bg-gray-100 p-3 rounded border overflow-x-auto max-h-64">
+                            <pre className="text-xs bg-gray-100 text-gray-700 p-3 rounded border overflow-x-auto max-h-64">
                               <code>
                                 {JSON.stringify(verificationResult.vc, null, 2)}
                               </code>
                             </pre>
                           </div>
                         </details>
+                      )}
+
+                      {verificationResult.details?.onChain === false && (
+                        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                          <div className="flex items-center">
+                            <AlertCircle className="w-5 h-5 text-blue-600 mr-2" />
+                            <span className="text-sm text-blue-700">
+                              Note: Direct JSON verification only checks
+                              structural validity. For full cryptographic
+                              verification including on-chain status and
+                              certificate validation, use a VC ID or IPFS
+                              reference.
+                            </span>
+                          </div>
+                        </div>
                       )}
                     </div>
                   )}

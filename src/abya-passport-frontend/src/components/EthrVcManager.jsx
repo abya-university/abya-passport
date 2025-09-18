@@ -16,25 +16,49 @@ import { useEthersSigner } from "./useClientSigner";
 import EthrPresentation from "./VcPresentationManager";
 import VCVerifierEthr from "./VCVerifierEthr";
 import { keccak256, toUtf8Bytes } from "ethers";
-import {
-  CopyIcon,
-  QrCodeIcon,
-  DownloadIcon,
-  VerifiedIcon,
-} from "lucide-react";
+import { CopyIcon, QrCodeIcon, DownloadIcon, VerifiedIcon } from "lucide-react";
 import * as secp from "@noble/secp256k1";
+import { defineChain, getContract, prepareContractCall } from "thirdweb";
+import {
+  ConnectButton,
+  darkTheme,
+  lightTheme,
+  useSendTransaction,
+} from "thirdweb/react";
+import { sepolia } from "thirdweb/chains";
+import { client } from "../client";
+import { useInternetIdentity } from "../contexts/InternetContext";
+import { createWallet, inAppWallet } from "thirdweb/wallets";
+import AbyaLogo from "../assets/abya.png";
 
-
-const API_BASE = "http://localhost:3000";
-const VC_ADDRESS =
-  import.meta.env.VITE_VC_CONTRACT_ADDRESS ||
-  "0x93eEc6FffeE62c79d5ef5Be5b0679aE928E8C1B2";
+const API_BASE = import.meta.env.VITE_APP_VERAMO_API_URL;
+const VC_ADDRESS = import.meta.env.VITE_VC_CONTRACT_ADDRESS;
 
 const VC_ABI = EthrABI.abi;
 
 const EthrVcManager = () => {
   const { walletAddress, walletDid, didLoading } = useEthr();
   const signerPromise = useEthersSigner();
+  const { mutate: sendTransaction } = useSendTransaction();
+  const { principal, identity } = useInternetIdentity();
+  const [showConnectOptions, setShowConnectOptions] = useState(false);
+
+  const [isDark, setIsDark] = useState(() =>
+    typeof window !== "undefined"
+      ? document.documentElement.classList.contains("dark")
+      : false
+  );
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains("dark"));
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+    return () => observer.disconnect();
+  }, []);
 
   // Debug logging
   console.log("EthrVcManager render:", {
@@ -42,6 +66,11 @@ const EthrVcManager = () => {
     walletDid,
     didLoading,
     timestamp: new Date().toISOString(),
+  });
+
+  console.log("Environment check:", {
+    API_BASE,
+    VC_ADDRESS,
   });
 
   // navigation state for showing presentation page
@@ -71,7 +100,6 @@ const EthrVcManager = () => {
   const [lastOnchainRowsDebug, setLastOnchainRowsDebug] = useState([]);
   const [stampStatus, setStampStatus] = useState(null);
   const [jwtVerifying, setJwtVerifying] = useState(false);
-
 
   useEffect(() => {
     if (didLoading) return;
@@ -291,14 +319,14 @@ const EthrVcManager = () => {
         const provider = new ethers.BrowserProvider(window.ethereum);
         try {
           await provider.send?.("eth_requestAccounts", []);
-        } catch (_) { }
+        } catch (_) {}
         return new ethers.Contract(VC_ADDRESS, VC_ABI, provider);
       }
       if (ethers?.providers?.Web3Provider) {
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         try {
           await provider.send?.("eth_requestAccounts", []);
-        } catch (_) { }
+        } catch (_) {}
         return new ethers.Contract(VC_ADDRESS, VC_ABI, provider);
       }
     }
@@ -339,7 +367,7 @@ const EthrVcManager = () => {
       "issueCredential",
       "issueCredentialWithDID",
       // helpful view
-      "getCredentialSummary"
+      "getCredentialSummary",
     ];
 
     const missingFunctions = [];
@@ -358,14 +386,11 @@ const EthrVcManager = () => {
     }
   };
 
-
-
   const extractHexAddressFromDid = (did) => {
     if (!did || typeof did !== "string") return null;
     const m = did.match(/0x[0-9a-fA-F]{40}/);
     return m ? m[0] : null;
   };
-
 
   const normalizeDidVariants = (did) => {
     const out = [];
@@ -380,10 +405,10 @@ const EthrVcManager = () => {
         const checksum = ethers.utils
           ? ethers.utils.getAddress(hex)
           : ethers.getAddress
-            ? ethers.getAddress(hex)
-            : null;
+          ? ethers.getAddress(hex)
+          : null;
         if (checksum) out.push(checksum);
-      } catch (e) { }
+      } catch (e) {}
     }
 
     if (did.startsWith("did:ethr:")) {
@@ -432,8 +457,8 @@ const EthrVcManager = () => {
       console.error("create error:", err);
       setError(
         err?.response?.data?.error ||
-        err?.message ||
-        "Failed to create credential"
+          err?.message ||
+          "Failed to create credential"
       );
     } finally {
       setLoading(false);
@@ -468,7 +493,9 @@ const EthrVcManager = () => {
       const hexMatch = extractHexAddressFromDid(subjectDidRaw);
       if (!subjectDidRaw?.startsWith("did:") && hexMatch) {
         try {
-          subjectToStore = ethers.utils ? ethers.utils.getAddress(hexMatch) : hexMatch;
+          subjectToStore = ethers.utils
+            ? ethers.utils.getAddress(hexMatch)
+            : hexMatch;
         } catch (e) {
           subjectToStore = hexMatch.toLowerCase();
         }
@@ -491,13 +518,20 @@ const EthrVcManager = () => {
       // Ensure the issuer DID matches the connected wallet
       const issuerAddress = walletAddress;
       if (!issuerAddress) {
-        throw new Error("No wallet connected. Please connect your wallet first.");
+        throw new Error(
+          "No wallet connected. Please connect your wallet first."
+        );
       }
 
       // send tx and capture txHash robustly
       try {
         setChainStatus((s) => ({ ...s, [statusKey]: { sending: true } }));
-        const contract = await getContractWithSigner();
+        const contract = getContract({
+          address: VC_ADDRESS,
+          abi: VC_ABI,
+          client,
+          chain: defineChain(sepolia),
+        });
 
         // ensure contract has at least one of the expected functions
         if (!contract.issueCredential && !contract.issueCredentialWithDID) {
@@ -523,16 +557,22 @@ const EthrVcManager = () => {
 
         // Normalize credentialJWT to bytes32 expected by contract
         const credentialJWT =
-          credentialHash && typeof credentialHash === "string" && credentialHash.length > 0
+          credentialHash &&
+          typeof credentialHash === "string" &&
+          credentialHash.length > 0
             ? credentialHash
             : (ethers && ethers.constants && ethers.constants.HashZero) ||
-            "0x0000000000000000000000000000000000000000000000000000000000000000";
+              "0x0000000000000000000000000000000000000000000000000000000000000000";
 
         // compute expiresAt (unix seconds) from credential JSON if present
         let expiresAt = 0;
         try {
           const iso =
-            cred?.expirationDate || cred?.expiration || cred?.expires || cred?.expiry || null;
+            cred?.expirationDate ||
+            cred?.expiration ||
+            cred?.expires ||
+            cred?.expiry ||
+            null;
           if (iso) {
             const t = Date.parse(iso);
             if (!Number.isNaN(t)) expiresAt = Math.floor(t / 1000);
@@ -548,39 +588,59 @@ const EthrVcManager = () => {
           // - Otherwise compute a salted/simple holderHash and call issueCredential(holderHash,...)
           const isDidLike =
             typeof subjectToStore === "string" &&
-            (subjectToStore.startsWith("did:") || subjectToStore.startsWith("0x"));
+            (subjectToStore.startsWith("did:") ||
+              subjectToStore.startsWith("0x"));
 
-          if (isDidLike && contract.issueCredentialWithDID) {
+          if (isDidLike) {
             // subjectToStore is passed as plaintext DID/address
-            txOrReceipt = await contract.issueCredentialWithDID(
-              subjectToStore,
-              cid,
-              credentialJWT,
-              expiresAt
-            );
-          } else if (contract.issueCredentialWithDID && typeof subjectToStore === "string" && !isDidLike) {
-            // If issuer provided a plain string (but contract supports DID call, still pass it)
-            txOrReceipt = await contract.issueCredentialWithDID(
-              subjectToStore,
-              cid,
-              credentialJWT,
-              expiresAt
-            );
+
+            const transaction = prepareContractCall({
+              contract,
+              method:
+                "function issueCredentialWithDID(string holderDID, string ipfsCID, bytes32 credentialJWT, uint256 expiresAt)",
+              params: [subjectToStore, cid, credentialHash, expiresAt],
+            });
+            const receipt = await sendTransaction(transaction);
+            console.log("Transaction confirmed:", receipt);
+          } else if (
+            contract.issueCredentialWithDID &&
+            typeof subjectToStore === "string" &&
+            !isDidLike
+          ) {
+            const transaction = prepareContractCall({
+              contract,
+              method:
+                "function issueCredentialWithDID(string holderDID, string ipfsCID, bytes32 credentialJWT, uint256 expiresAt)",
+              params: [subjectToStore, cid, credentialHash, expiresAt],
+            });
+            const receipt = await sendTransaction(transaction);
+            console.log("Transaction confirmed:", receipt);
           } else {
             // Fallback: compute holderHash (bytes32) from subjectToStore (utf8)
             let holderHash;
             try {
               holderHash = ethers.utils
-                ? ethers.utils.keccak256(ethers.utils.toUtf8Bytes(subjectToStore || ""))
+                ? ethers.utils.keccak256(
+                    ethers.utils.toUtf8Bytes(subjectToStore || "")
+                  )
                 : credentialJWT;
             } catch (hErr) {
-              console.warn("holderHash computation failed, using credentialJWT as fallback", hErr);
+              console.warn(
+                "holderHash computation failed, using credentialJWT as fallback",
+                hErr
+              );
               holderHash =
                 (ethers && ethers.constants && ethers.constants.HashZero) ||
                 "0x0000000000000000000000000000000000000000000000000000000000000000";
             }
 
-            txOrReceipt = await contract.issueCredential(holderHash, cid, credentialJWT, expiresAt);
+            const transaction = prepareContractCall({
+              contract,
+              method:
+                "function issueCredential(bytes32 holderHash, string ipfsCID, bytes32 credentialJWT, uint256 expiresAt)",
+              params: [holderHash, cid, credentialJWT, expiresAt],
+            });
+            sendTransaction(transaction);
           }
 
           console.log("Transaction result:", txOrReceipt);
@@ -592,8 +652,10 @@ const EthrVcManager = () => {
         let txHash = null;
         try {
           if (txOrReceipt?.hash) txHash = txOrReceipt.hash;
-          if (!txHash && txOrReceipt?.transactionHash) txHash = txOrReceipt.transactionHash;
-          if (!txHash && txOrReceipt?.request?.hash) txHash = txOrReceipt.request.hash;
+          if (!txHash && txOrReceipt?.transactionHash)
+            txHash = txOrReceipt.transactionHash;
+          if (!txHash && txOrReceipt?.request?.hash)
+            txHash = txOrReceipt.request.hash;
           if (!txHash && txOrReceipt?.receipt?.transactionHash)
             txHash = txOrReceipt.receipt.transactionHash;
 
@@ -614,7 +676,8 @@ const EthrVcManager = () => {
             const receipt = await txOrReceipt.wait();
             console.log("Transaction receipt:", receipt);
 
-            if (!txHash && receipt?.transactionHash) txHash = receipt.transactionHash;
+            if (!txHash && receipt?.transactionHash)
+              txHash = receipt.transactionHash;
             setChainStatus((s) => ({
               ...s,
               [statusKey]: { success: true, txHash },
@@ -645,13 +708,20 @@ const EthrVcManager = () => {
         if (errorMessage.includes("Only issuer can perform this action")) {
           errorMessage = `Access denied: Only the contract owner can issue credentials. Your wallet (${walletAddress}) may not be authorized. Please contact the system administrator.`;
         } else if (errorMessage.includes("execution reverted")) {
-          errorMessage = `Transaction failed: ${errorMessage.split("execution reverted: ")[1] || "Unknown smart contract error"
-            }`;
-        } else if (errorMessage.includes("Contract does not have issueCredential")) {
+          errorMessage = `Transaction failed: ${
+            errorMessage.split("execution reverted: ")[1] ||
+            "Unknown smart contract error"
+          }`;
+        } else if (
+          errorMessage.includes("Contract does not have issueCredential")
+        ) {
           errorMessage = `Contract configuration error: The contract at ${VC_ADDRESS} does not have the expected issueCredential function. Please check that the correct contract ABI is being used.`;
         } else if (errorMessage.includes("formatJson")) {
           errorMessage = `Ethers.js formatting error: There was an issue formatting the transaction data. This might be due to incompatible contract ABI or ethers version.`;
-        } else if (errorMessage.includes("bad_key") || errorMessage.includes("Invalid private key")) {
+        } else if (
+          errorMessage.includes("bad_key") ||
+          errorMessage.includes("Invalid private key")
+        ) {
           errorMessage = `Wallet connection error: Invalid or missing private key. Please ensure your wallet is properly connected and unlocked. Try disconnecting and reconnecting your wallet.`;
         } else if (errorMessage.includes("Wallet not connected")) {
           errorMessage = `Please connect your wallet first before attempting to issue credentials.`;
@@ -660,7 +730,10 @@ const EthrVcManager = () => {
         }
 
         const possibleHash =
-          chainErr?.transactionHash || chainErr?.txHash || chainErr?.receipt?.transactionHash || null;
+          chainErr?.transactionHash ||
+          chainErr?.txHash ||
+          chainErr?.receipt?.transactionHash ||
+          null;
         setChainStatus((s) => ({
           ...s,
           [statusKey]: {
@@ -726,46 +799,60 @@ const EthrVcManager = () => {
 
   // ---------------- Safe ethers helpers ---------------
   const safeHashMessage = (msg) => {
-
     try {
-      if (typeof ethers.hashMessage === "function") return ethers.hashMessage(msg);
+      if (typeof ethers.hashMessage === "function")
+        return ethers.hashMessage(msg);
       if (ethers.utils && typeof ethers.utils.hashMessage === "function")
         return ethers.utils.hashMessage(msg);
-    } catch (e) { /* ignore */ }
+    } catch (e) {
+      /* ignore */
+    }
 
     // fallback: keccak256(utf8)
     try {
       if (typeof keccak256 === "function" && typeof toUtf8Bytes === "function")
         return keccak256(toUtf8Bytes(msg));
-      if (typeof ethers.keccak256 === "function" && typeof ethers.toUtf8Bytes === "function")
+      if (
+        typeof ethers.keccak256 === "function" &&
+        typeof ethers.toUtf8Bytes === "function"
+      )
         return ethers.keccak256(ethers.toUtf8Bytes(msg));
-      if (ethers.utils && typeof ethers.utils.keccak256 === "function" && typeof ethers.utils.toUtf8Bytes === "function")
+      if (
+        ethers.utils &&
+        typeof ethers.utils.keccak256 === "function" &&
+        typeof ethers.utils.toUtf8Bytes === "function"
+      )
         return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(msg));
-    } catch (e) { /* ignore */ }
+    } catch (e) {
+      /* ignore */
+    }
 
     throw new Error("No hash function available (safeHashMessage)");
   };
 
   const safeRecoverAddress = (msgOrDigest, signature) => {
     try {
-      if (typeof ethers.verifyMessage === "function") return ethers.verifyMessage(msgOrDigest, signature);
+      if (typeof ethers.verifyMessage === "function")
+        return ethers.verifyMessage(msgOrDigest, signature);
       if (ethers.utils && typeof ethers.utils.verifyMessage === "function")
         return ethers.utils.verifyMessage(msgOrDigest, signature);
-    } catch (_) { /* ignore and try digest path */ }
+    } catch (_) {
+      /* ignore and try digest path */
+    }
 
     try {
-      const digest = typeof msgOrDigest === "string" && msgOrDigest.startsWith("0x")
-        ? msgOrDigest
-        : safeHashMessage(msgOrDigest);
-      if (typeof ethers.recoverAddress === "function") return ethers.recoverAddress(digest, signature);
+      const digest =
+        typeof msgOrDigest === "string" && msgOrDigest.startsWith("0x")
+          ? msgOrDigest
+          : safeHashMessage(msgOrDigest);
+      if (typeof ethers.recoverAddress === "function")
+        return ethers.recoverAddress(digest, signature);
       if (ethers.utils && typeof ethers.utils.recoverAddress === "function")
         return ethers.utils.recoverAddress(digest, signature);
-    } catch (e) {
-    }
+    } catch (e) {}
 
     return null;
   };
-
 
   // ---------------- exhaustive safeRecoverPublicKey (replace any prior versions) ----------------
   const safeRecoverPublicKey = (msgOrDigest, signature) => {
@@ -778,7 +865,10 @@ const EthrVcManager = () => {
         try {
           if (typeof ethers.hashMessage === "function") {
             digest = ethers.hashMessage(msgOrDigest);
-          } else if (ethers.utils && typeof ethers.utils.hashMessage === "function") {
+          } else if (
+            ethers.utils &&
+            typeof ethers.utils.hashMessage === "function"
+          ) {
             digest = ethers.utils.hashMessage(msgOrDigest);
           }
         } catch (e) {
@@ -788,11 +878,22 @@ const EthrVcManager = () => {
         // fallback: compute keccak256 of prefixed message manually (Ethereum Signed Message)
         if (!digest) {
           try {
-            const prefix = `\x19Ethereum Signed Message:\n${String(msgOrDigest).length}`;
+            const prefix = `\x19Ethereum Signed Message:\n${
+              String(msgOrDigest).length
+            }`;
             const prefixed = prefix + String(msgOrDigest);
-            if (ethers.utils && typeof ethers.utils.keccak256 === "function" && typeof ethers.utils.toUtf8Bytes === "function") {
-              digest = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(prefixed));
-            } else if (typeof ethers.keccak256 === "function" && typeof ethers.toUtf8Bytes === "function") {
+            if (
+              ethers.utils &&
+              typeof ethers.utils.keccak256 === "function" &&
+              typeof ethers.utils.toUtf8Bytes === "function"
+            ) {
+              digest = ethers.utils.keccak256(
+                ethers.utils.toUtf8Bytes(prefixed)
+              );
+            } else if (
+              typeof ethers.keccak256 === "function" &&
+              typeof ethers.toUtf8Bytes === "function"
+            ) {
               digest = ethers.keccak256(ethers.toUtf8Bytes(prefixed));
             }
           } catch (e) {
@@ -803,10 +904,21 @@ const EthrVcManager = () => {
         // last fallback: keccak256(utf8(msg))
         if (!digest) {
           try {
-            if (ethers.utils && typeof ethers.utils.keccak256 === "function" && typeof ethers.utils.toUtf8Bytes === "function") {
-              digest = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(String(msgOrDigest)));
-            } else if (typeof ethers.keccak256 === "function" && typeof ethers.toUtf8Bytes === "function") {
-              digest = ethers.keccak256(ethers.toUtf8Bytes(String(msgOrDigest)));
+            if (
+              ethers.utils &&
+              typeof ethers.utils.keccak256 === "function" &&
+              typeof ethers.utils.toUtf8Bytes === "function"
+            ) {
+              digest = ethers.utils.keccak256(
+                ethers.utils.toUtf8Bytes(String(msgOrDigest))
+              );
+            } else if (
+              typeof ethers.keccak256 === "function" &&
+              typeof ethers.toUtf8Bytes === "function"
+            ) {
+              digest = ethers.keccak256(
+                ethers.toUtf8Bytes(String(msgOrDigest))
+              );
             }
           } catch (e) {
             digest = null;
@@ -817,9 +929,16 @@ const EthrVcManager = () => {
       // 2) split signature robustly (ethers.utils.splitSignature or manual)
       let split = null;
       try {
-        if (ethers && ethers.utils && typeof ethers.utils.splitSignature === "function") {
+        if (
+          ethers &&
+          ethers.utils &&
+          typeof ethers.utils.splitSignature === "function"
+        ) {
           split = ethers.utils.splitSignature(signature);
-        } else if (typeof ethers.Signature === "function" && typeof ethers.Signature.from === "function") {
+        } else if (
+          typeof ethers.Signature === "function" &&
+          typeof ethers.Signature.from === "function"
+        ) {
           split = ethers.Signature.from(signature);
         }
       } catch (e) {
@@ -827,7 +946,11 @@ const EthrVcManager = () => {
       }
 
       // 3) manual parsing for common 65-byte sigs
-      if (!split && typeof signature === "string" && signature.startsWith("0x")) {
+      if (
+        !split &&
+        typeof signature === "string" &&
+        signature.startsWith("0x")
+      ) {
         try {
           const sigHex = signature.slice(2);
           if (sigHex.length >= 130) {
@@ -857,7 +980,11 @@ const EthrVcManager = () => {
       // 4) try recoverPublicKey using split object (preferred)
       if (digest && split) {
         try {
-          if (ethers && ethers.utils && typeof ethers.utils.recoverPublicKey === "function") {
+          if (
+            ethers &&
+            ethers.utils &&
+            typeof ethers.utils.recoverPublicKey === "function"
+          ) {
             return ethers.utils.recoverPublicKey(digest, split);
           }
           if (typeof ethers.recoverPublicKey === "function") {
@@ -878,13 +1005,20 @@ const EthrVcManager = () => {
           let vByte = (vNum & 0xff).toString(16);
           if (vByte.length === 1) vByte = "0" + vByte;
           sigHex = "0x" + rStr + sStr + vByte;
-        } else if (typeof signature === "string" && signature.startsWith("0x")) {
+        } else if (
+          typeof signature === "string" &&
+          signature.startsWith("0x")
+        ) {
           sigHex = signature;
         }
 
         if (digest && sigHex) {
           try {
-            if (ethers && ethers.utils && typeof ethers.utils.recoverPublicKey === "function") {
+            if (
+              ethers &&
+              ethers.utils &&
+              typeof ethers.utils.recoverPublicKey === "function"
+            ) {
               return ethers.utils.recoverPublicKey(digest, sigHex);
             }
             if (typeof ethers.recoverPublicKey === "function") {
@@ -903,25 +1037,56 @@ const EthrVcManager = () => {
         // a) try verifyMessage -> get address; then if address recovered, return null for public key (address-only)
         let maybeAddr = null;
         try {
-          if (typeof ethers.verifyMessage === "function") maybeAddr = ethers.verifyMessage(msgOrDigest, signature);
-          else if (ethers.utils && typeof ethers.utils.verifyMessage === "function") maybeAddr = ethers.utils.verifyMessage(msgOrDigest, signature);
-        } catch (_) { maybeAddr = null; }
+          if (typeof ethers.verifyMessage === "function")
+            maybeAddr = ethers.verifyMessage(msgOrDigest, signature);
+          else if (
+            ethers.utils &&
+            typeof ethers.utils.verifyMessage === "function"
+          )
+            maybeAddr = ethers.utils.verifyMessage(msgOrDigest, signature);
+        } catch (_) {
+          maybeAddr = null;
+        }
 
         // b) if we can compute digest with/without prefix, repeat recoverPublicKey attempts
         const altDigests = [];
         try {
           // raw keccak256(utf8)
-          if (ethers.utils && typeof ethers.utils.keccak256 === "function" && typeof ethers.utils.toUtf8Bytes === "function") {
-            altDigests.push(ethers.utils.keccak256(ethers.utils.toUtf8Bytes(String(msgOrDigest))));
-          } else if (typeof ethers.keccak256 === "function" && typeof ethers.toUtf8Bytes === "function") {
-            altDigests.push(ethers.keccak256(ethers.toUtf8Bytes(String(msgOrDigest))));
+          if (
+            ethers.utils &&
+            typeof ethers.utils.keccak256 === "function" &&
+            typeof ethers.utils.toUtf8Bytes === "function"
+          ) {
+            altDigests.push(
+              ethers.utils.keccak256(
+                ethers.utils.toUtf8Bytes(String(msgOrDigest))
+              )
+            );
+          } else if (
+            typeof ethers.keccak256 === "function" &&
+            typeof ethers.toUtf8Bytes === "function"
+          ) {
+            altDigests.push(
+              ethers.keccak256(ethers.toUtf8Bytes(String(msgOrDigest)))
+            );
           }
           // prefixed manually
-          const prefix = `\x19Ethereum Signed Message:\n${String(msgOrDigest).length}`;
+          const prefix = `\x19Ethereum Signed Message:\n${
+            String(msgOrDigest).length
+          }`;
           const pref = prefix + String(msgOrDigest);
-          if (ethers.utils && typeof ethers.utils.keccak256 === "function" && typeof ethers.utils.toUtf8Bytes === "function") {
-            altDigests.push(ethers.utils.keccak256(ethers.utils.toUtf8Bytes(pref)));
-          } else if (typeof ethers.keccak256 === "function" && typeof ethers.toUtf8Bytes === "function") {
+          if (
+            ethers.utils &&
+            typeof ethers.utils.keccak256 === "function" &&
+            typeof ethers.utils.toUtf8Bytes === "function"
+          ) {
+            altDigests.push(
+              ethers.utils.keccak256(ethers.utils.toUtf8Bytes(pref))
+            );
+          } else if (
+            typeof ethers.keccak256 === "function" &&
+            typeof ethers.toUtf8Bytes === "function"
+          ) {
             altDigests.push(ethers.keccak256(ethers.toUtf8Bytes(pref)));
           }
         } catch (e) {
@@ -931,7 +1096,11 @@ const EthrVcManager = () => {
         for (const d of altDigests) {
           try {
             if (split) {
-              if (ethers && ethers.utils && typeof ethers.utils.recoverPublicKey === "function") {
+              if (
+                ethers &&
+                ethers.utils &&
+                typeof ethers.utils.recoverPublicKey === "function"
+              ) {
                 const rc = ethers.utils.recoverPublicKey(d, split);
                 if (rc) return rc;
               }
@@ -941,7 +1110,11 @@ const EthrVcManager = () => {
               }
             }
             if (typeof signature === "string" && signature.startsWith("0x")) {
-              if (ethers && ethers.utils && typeof ethers.utils.recoverPublicKey === "function") {
+              if (
+                ethers &&
+                ethers.utils &&
+                typeof ethers.utils.recoverPublicKey === "function"
+              ) {
                 const rc = ethers.utils.recoverPublicKey(d, signature);
                 if (rc) return rc;
               }
@@ -950,12 +1123,17 @@ const EthrVcManager = () => {
                 if (rc) return rc;
               }
             }
-          } catch (e) { /* ignore */ }
+          } catch (e) {
+            /* ignore */
+          }
         }
 
         // nothing recovered; return null (address may still be recoverable)
         if (maybeAddr) {
-          console.warn("public key not recoverable but address recovered:", maybeAddr);
+          console.warn(
+            "public key not recoverable but address recovered:",
+            maybeAddr
+          );
         }
       } catch (err) {
         // swallow
@@ -968,20 +1146,26 @@ const EthrVcManager = () => {
     }
   };
 
-
   // ---------------- verifyStampAndFillPublicKey ----------------
   const verifyStampAndFillPublicKey = async (cred) => {
     try {
       if (!cred) throw new Error("No credential provided");
       const stamp = cred?.proof?.stamp;
-      if (!stamp || !stamp.signature) throw new Error("No stamp.signature found");
+      if (!stamp || !stamp.signature)
+        throw new Error("No stamp.signature found");
 
       const unsigned = JSON.parse(JSON.stringify(cred));
       if (unsigned.proof && unsigned.proof.stamp) delete unsigned.proof.stamp;
-      const jsonToVerify = JSON.stringify(unsigned, Object.keys(unsigned).sort());
+      const jsonToVerify = JSON.stringify(
+        unsigned,
+        Object.keys(unsigned).sort()
+      );
 
       // Recover address (best-effort)
-      const recoveredAddress = safeRecoverAddress(jsonToVerify, stamp.signature);
+      const recoveredAddress = safeRecoverAddress(
+        jsonToVerify,
+        stamp.signature
+      );
 
       // Try recover public key now (if missing)
       let publicKey = stamp.publicKey || null;
@@ -1015,14 +1199,17 @@ const EthrVcManager = () => {
     }
   };
 
-
-
-
   // ---------------- Issuer signature stamping & local verification (robust fallback) ----------------
   const stampCredential = async () => {
     try {
-      if (!credential) return alert("No credential to stamp. Create or load a credential first.");
-      if (!walletAddress) return alert("No connected wallet address. Please connect your wallet.");
+      if (!credential)
+        return alert(
+          "No credential to stamp. Create or load a credential first."
+        );
+      if (!walletAddress)
+        return alert(
+          "No connected wallet address. Please connect your wallet."
+        );
 
       // 1) Try existing signerPromise (preferred)
       let signer = null;
@@ -1039,10 +1226,12 @@ const EthrVcManager = () => {
             const provider = new ethers.BrowserProvider(window.ethereum);
             try {
               await provider.send("eth_requestAccounts", []);
-            } catch (_) { }
+            } catch (_) {}
             try {
               signer = provider.getSigner ? provider.getSigner() : null;
-              const addr = signer?.getAddress ? await signer.getAddress() : null;
+              const addr = signer?.getAddress
+                ? await signer.getAddress()
+                : null;
               if (addr && addr.toLowerCase() !== walletAddress.toLowerCase()) {
                 signer = provider.getSigner ? provider.getSigner() : signer;
               }
@@ -1053,7 +1242,7 @@ const EthrVcManager = () => {
             const provider = new ethers.providers.Web3Provider(window.ethereum);
             try {
               await provider.send("eth_requestAccounts", []);
-            } catch (_) { }
+            } catch (_) {}
             signer = provider.getSigner ? provider.getSigner() : null;
           }
         } catch (e) {
@@ -1081,7 +1270,8 @@ const EthrVcManager = () => {
       if (!signature && typeof window !== "undefined" && window.ethereum) {
         try {
           const msgHex =
-            typeof ethers.hexlify === "function" && typeof ethers.toUtf8Bytes === "function"
+            typeof ethers.hexlify === "function" &&
+            typeof ethers.toUtf8Bytes === "function"
               ? ethers.hexlify(ethers.toUtf8Bytes(jsonToSign))
               : jsonToSign;
           let sig = null;
@@ -1106,7 +1296,9 @@ const EthrVcManager = () => {
       }
 
       if (!signature) {
-        return alert("Failed to obtain a signature. Make sure your wallet is connected/unlocked and you approved the request.");
+        return alert(
+          "Failed to obtain a signature. Make sure your wallet is connected/unlocked and you approved the request."
+        );
       }
 
       // Best-effort recover address and public key
@@ -1125,7 +1317,12 @@ const EthrVcManager = () => {
       updatedCredential.proof = { ...(updatedCredential.proof || {}), stamp };
 
       setCredential(updatedCredential);
-      setStampStatus({ ok: true, signerAddress: recoveredAddress, publicKey: recoveredPublicKey, method: stamp.method });
+      setStampStatus({
+        ok: true,
+        signerAddress: recoveredAddress,
+        publicKey: recoveredPublicKey,
+        method: stamp.method,
+      });
 
       try {
         await verifyStampAndFillPublicKey(updatedCredential);
@@ -1144,8 +1341,6 @@ const EthrVcManager = () => {
     }
   };
 
-
-
   /**
    * verifyStampLocal - Rebuild unsigned credential and verify signature using safe wrappers.
    */
@@ -1153,11 +1348,15 @@ const EthrVcManager = () => {
     try {
       if (!cred) return { ok: false, error: "No credential provided" };
       const stamp = cred?.proof?.stamp;
-      if (!stamp || !stamp.signature) return { ok: false, error: "No local stamp found" };
+      if (!stamp || !stamp.signature)
+        return { ok: false, error: "No local stamp found" };
 
       const unsigned = JSON.parse(JSON.stringify(cred));
       if (unsigned.proof && unsigned.proof.stamp) delete unsigned.proof.stamp;
-      const jsonToVerify = JSON.stringify(unsigned, Object.keys(unsigned).sort());
+      const jsonToVerify = JSON.stringify(
+        unsigned,
+        Object.keys(unsigned).sort()
+      );
 
       let recovered = null;
       try {
@@ -1168,12 +1367,19 @@ const EthrVcManager = () => {
 
       let recoveredPublicKey = null;
       try {
-        recoveredPublicKey = safeRecoverPublicKey(jsonToVerify, stamp.signature);
+        recoveredPublicKey = safeRecoverPublicKey(
+          jsonToVerify,
+          stamp.signature
+        );
       } catch (e) {
         recoveredPublicKey = null;
       }
 
-      const ok = !!(recovered && stamp.signerAddress && recovered.toLowerCase() === stamp.signerAddress?.toLowerCase());
+      const ok = !!(
+        recovered &&
+        stamp.signerAddress &&
+        recovered.toLowerCase() === stamp.signerAddress?.toLowerCase()
+      );
       return {
         ok,
         recoveredAddress: recovered,
@@ -1183,9 +1389,6 @@ const EthrVcManager = () => {
       return { ok: false, error: err?.message || String(err) };
     }
   };
-
-
-
 
   // ---------------- on-chain fetch helpers (unchanged) ----------------
   const getIdsForDid = async (did) => {
@@ -1205,29 +1408,38 @@ const EthrVcManager = () => {
       for (const v of variants) {
         try {
           const res = await readContract.getCredentialsForDID(v);
-          const idStrings = Array.isArray(res) ? res.map((x) => safeToString(x)) : [];
+          const idStrings = Array.isArray(res)
+            ? res.map((x) => safeToString(x))
+            : [];
           if (idStrings && idStrings.length > 0) {
             ids = idStrings;
             usedVariant = v;
             break;
           }
-        } catch (inner) { }
+        } catch (inner) {}
       }
 
       // last fallback: try plain walletAddress as variant (if available)
       if ((!ids || ids.length === 0) && walletAddress) {
         try {
           const res2 = await readContract.getCredentialsForDID(walletAddress);
-          const idStrings2 = Array.isArray(res2) ? res2.map((x) => safeToString(x)) : [];
+          const idStrings2 = Array.isArray(res2)
+            ? res2.map((x) => safeToString(x))
+            : [];
           if (idStrings2 && idStrings2.length > 0) {
             ids = idStrings2;
             usedVariant = walletAddress;
           }
-        } catch (_) { }
+        } catch (_) {}
       }
 
       setLastOnchainIds(ids);
-      console.log("getCredentialsForDID tried variant:", usedVariant, "->", ids);
+      console.log(
+        "getCredentialsForDID tried variant:",
+        usedVariant,
+        "->",
+        ids
+      );
       return ids;
     } catch (err) {
       console.error("getIdsForDid error", err);
@@ -1235,7 +1447,6 @@ const EthrVcManager = () => {
       return [];
     }
   };
-
 
   const fetchOnChainCredentialsForDid = async (did) => {
     try {
@@ -1254,24 +1465,28 @@ const EthrVcManager = () => {
       for (const v of variants) {
         try {
           const res = await readContract.getCredentialsForDID(v);
-          const idList = Array.isArray(res) ? res.map((x) => safeToString(x)) : [];
+          const idList = Array.isArray(res)
+            ? res.map((x) => safeToString(x))
+            : [];
           if (idList && idList.length > 0) {
             idsRaw = idList;
             usedVariant = v;
             break;
           }
-        } catch (inner) { }
+        } catch (inner) {}
       }
 
       if ((!idsRaw || idsRaw.length === 0) && walletAddress) {
         try {
           const res2 = await readContract.getCredentialsForDID(walletAddress);
-          const idList2 = Array.isArray(res2) ? res2.map((x) => safeToString(x)) : [];
+          const idList2 = Array.isArray(res2)
+            ? res2.map((x) => safeToString(x))
+            : [];
           if (idList2 && idList2.length > 0) {
             idsRaw = idList2;
             usedVariant = walletAddress;
           }
-        } catch (_) { }
+        } catch (_) {}
       }
 
       const idList = idsRaw;
@@ -1322,7 +1537,10 @@ const EthrVcManager = () => {
               ipfsJson = await fetchDidDocument(mappingCID);
             } catch (fetchErr) {
               // fallback to public gateways
-              console.warn("fetchDidDocument failed, falling back to public gateways", fetchErr);
+              console.warn(
+                "fetchDidDocument failed, falling back to public gateways",
+                fetchErr
+              );
               const gateways = [
                 `https://dweb.link/ipfs/${mappingCID}`,
                 `https://ipfs.io/ipfs/${mappingCID}`,
@@ -1354,8 +1572,10 @@ const EthrVcManager = () => {
               credentialSubject: { id: holderHash || idStr },
               issuer: { id: null },
               issuanceDate: issueDate,
-              expirationDate: expiresAt ? new Date(expiresAt * 1000).toISOString() : undefined,
-              credentialJWT: credentialJWT || undefined
+              expirationDate: expiresAt
+                ? new Date(expiresAt * 1000).toISOString()
+                : undefined,
+              credentialJWT: credentialJWT || undefined,
             };
           }
 
@@ -1388,12 +1608,14 @@ const EthrVcManager = () => {
     }
   };
 
-
   const fetchAllOnChainCredentials = async () => {
     try {
       const readContract = await getContractReadonly();
       const count = await readContract.credentialCount();
-      const n = count && typeof count?.toString === "function" ? Number(safeToString(count)) : Number(count || 0);
+      const n =
+        count && typeof count?.toString === "function"
+          ? Number(safeToString(count))
+          : Number(count || 0);
       const out = [];
       for (let i = 1; i <= n; i++) {
         try {
@@ -1412,7 +1634,7 @@ const EthrVcManager = () => {
               try {
                 const res = await fetch(`https://dweb.link/ipfs/${mappingCID}`);
                 if (res.ok) ipfsJson = await res.json();
-              } catch (e) { }
+              } catch (e) {}
             }
           }
           const issueDateRaw = summary?.[4];
@@ -1432,7 +1654,7 @@ const EthrVcManager = () => {
             },
           };
           out.push(credObj);
-        } catch (inner) { }
+        } catch (inner) {}
       }
       return out;
     } catch (err) {
@@ -1440,7 +1662,6 @@ const EthrVcManager = () => {
       return [];
     }
   };
-
 
   const fetchCredentials = async () => {
     setListLoading(true);
@@ -1487,8 +1708,8 @@ const EthrVcManager = () => {
       console.error("fetchCredentials error:", err);
       setError(
         err?.response?.data?.error ||
-        err?.message ||
-        "Failed to fetch credentials"
+          err?.message ||
+          "Failed to fetch credentials"
       );
     } finally {
       setListLoading(false);
@@ -1521,8 +1742,8 @@ const EthrVcManager = () => {
     } else {
       alert(
         "Failed to fetch IPFS JSON for " +
-        mappingCID +
-        " — see console for details"
+          mappingCID +
+          " — see console for details"
       );
     }
   };
@@ -1646,12 +1867,15 @@ const EthrVcManager = () => {
                 atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"))
                   .split("")
                   .map(function (c) {
-                    return "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2);
+                    return (
+                      "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2)
+                    );
                   })
                   .join("")
               )
             );
-            const embeddedStamp = payloadJson?.vc?.proof?.stamp || payloadJson?.proof?.stamp;
+            const embeddedStamp =
+              payloadJson?.vc?.proof?.stamp || payloadJson?.proof?.stamp;
             if (embeddedStamp) {
               const tempCred = { ...(payloadJson.vc || payloadJson) };
               tempCred.proof = tempCred.proof || {};
@@ -1668,7 +1892,8 @@ const EthrVcManager = () => {
       console.error(err);
       setVerificationResult({
         verified: false,
-        error: err?.response?.data?.error || err?.message || "Verification failed",
+        error:
+          err?.response?.data?.error || err?.message || "Verification failed",
       });
     } finally {
       // always clear spinner state
@@ -1676,17 +1901,16 @@ const EthrVcManager = () => {
     }
   };
 
-
   // ---------- Small visual helper: status dot ----------
   const StatusDot = ({ status }) => {
     if (!status) return null;
     const cls = status.error
       ? "bg-red-500"
       : status.success
-        ? "bg-emerald-500"
-        : status.sending || status.uploading
-          ? "bg-yellow-400"
-          : "bg-slate-300";
+      ? "bg-emerald-500"
+      : status.sending || status.uploading
+      ? "bg-yellow-400"
+      : "bg-slate-300";
     return <span className={`inline-block w-2 h-2 rounded-full ${cls} mr-2`} />;
   };
 
@@ -1699,154 +1923,305 @@ const EthrVcManager = () => {
     return <VCVerifierEthr onBack={() => setCurrentPage("home")} />;
   }
 
+  const wallets = [
+    inAppWallet({
+      auth: {
+        options: ["google", "discord", "github", "x", "passkey"],
+        mode: "redirect",
+      },
+      metadata: {
+        name: "ABYA Passport",
+        image: {
+          // src: AbyaLogo,
+          width: 100,
+          height: 100,
+        },
+      },
+      executionMode: {
+        mode: "EIP7702",
+        sponsorGas: true,
+      },
+      smartAccount: {
+        chain: sepolia,
+        sponsorGas: true,
+      },
+    }),
+    createWallet("io.metamask"),
+    createWallet("com.coinbase.wallet"),
+    createWallet("me.rainbow"),
+  ];
+
+  // Custom theme for ThirdWeb
+  const customTheme = isDark
+    ? darkTheme({
+        colors: {
+          separatorLine: "hsl(41, 80%, 49%)",
+          accentText: "hsl(41, 62%, 51%)",
+          modalBg: "hsl(240, 6%, 10%)",
+          borderColor: "hsl(58, 5%, 13%)",
+          selectedTextColor: "hsl(230, 7%, 22%)",
+          primaryText: "hsl(0, 0%, 100%)",
+          secondaryText: "hsl(0, 0%, 70%)",
+          accentButtonBg: "hsl(41, 80%, 49%)",
+          accentButtonText: "hsl(0, 0%, 100%)",
+        },
+      })
+    : lightTheme({
+        colors: {
+          separatorLine: "hsl(41, 80%, 49%)",
+          accentText: "hsl(41, 62%, 51%)",
+          modalBg: "hsl(0, 0%, 100%)",
+          borderColor: "hsl(0, 0%, 85%)",
+          selectedTextColor: "hsl(100, 100%, 100%)",
+          primaryText: "hsl(0, 0%, 0%)",
+          secondaryText: "hsl(0, 0%, 30%)",
+          accentButtonBg: "hsl(41, 80%, 49%)",
+          accentButtonText: "hsl(0, 0%, 100%)",
+          // Add these to fix hover states
+          connectedButtonBg: "hsl(41, 80%, 49%)",
+          connectedButtonBgHover: "hsl(41, 70%, 45%)",
+          // Wallet item hover
+          walletSelectorButtonHoverBg: "hsl(41, 80%, 49%)",
+        },
+      });
+
   // ---------------- Render (only UI changed) ----------------
   return (
     <div className="min-h-screen bg-transparentpx-4 py-16">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-30">
-          <h1 className="text-5xl font-bold text-blue-900 dark-text-yellow mb-4 text-center">
-            Ethereum Credential Manager
-          </h1>
-          <p className="text-xl text-gray-600 mt-8 mb-8 animate-fadein delay-500">
-            Create, manage, and verify Ethereum-based Verifiable Credentials
-          </p>
-        </div>
-
-        {/* Connection Status Card */}
-        <div className="mb-16 backdrop-blur-md rounded-3xl darkcard shadow-lg p-10">
-          <div className="flex items-center justify-between mb-10">
-            <h3 className="text-2xl font-bold text-blue-900 dark-text-yellow flex items-center">
-              Connection Status
-            </h3>
-            <div
-              className={`px-3 py-1 rounded-full text-sm font-medium ${walletAddress
-                ? "bg-emerald-100 text-green-800"
-                : "bg-red-100 text-red-800"
-                }`}
-            >
-              {walletAddress ? "✓ Connected" : "✗ Disconnected"}
-            </div>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-4 mb-4">
-            <div className="bg-emerald-50 rounded-2xl p-4">
-              <div className="flex items-center justify-center w-20 h-20 rounded-xl bg-blue-100 mb-10 mx-auto shadow-inner">
+      {(!walletAddress && principal) || identity ? (
+        <div className="max-w-md mx-auto mt-20 text-center">
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-2xl p-8 shadow-lg">
+            {/* Icon */}
+            <div className="mb-6">
+              <div className="w-16 h-16 mx-auto bg-blue-100 dark:bg-blue-800 rounded-full flex items-center justify-center">
                 <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="57"
-                  height="48"
-                  viewBox="0 0 38 32"
+                  className="w-8 h-8 text-blue-600 dark:text-blue-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
                 >
-                  <g fill="#f0ce00">
-                    <path d="M32.509 7.5a.5.5 0 0 0 .5-.5V5.335a1.64 1.64 0 0 0-1.638-1.638h-2.687l-.613-1.809a.5.5 0 0 0-.619-.318L12.899 5.994a.501.501 0 0 0 .292.957L27.28 2.667l1.343 3.965a.499.499 0 1 0 .947-.321l-.547-1.615h2.349c.352 0 .638.286.638.638V7c-.001.276.223.5.499.5" />
-                    <path d="M36.5 15a.5.5 0 0 0 0 1c.351 0 .5.149.5.5v6c0 .351-.149.5-.5.5h-8c-.351 0-.5-.149-.5-.5v-5c0-.351.149-.5.5-.5h6a.5.5 0 0 0 .5-.5v-6c0-.911-.589-1.5-1.5-1.5H3c-1.233 0-2-.767-2-2s.767-2 2-2h5.076l-3.026.998a.5.5 0 1 0 .313.949L23.482.974a.5.5 0 1 0-.314-.95l-12.1 3.99C11.045 4.01 11.024 4 11 4H3C1.206 4 0 5.206 0 7v22c0 1.794 1.206 3 3 3h30.5c.911 0 1.5-.589 1.5-1.5v-5a.5.5 0 0 0-1 0v5c0 .351-.149.5-.5.5H3c-1.233 0-2-.767-2-2V9.312c.513.433 1.192.688 2 .688h30.5c.351 0 .5.149.5.5V16h-5.5c-.911 0-1.5.589-1.5 1.5v5c0 .911.589 1.5 1.5 1.5h8c.911 0 1.5-.589 1.5-1.5v-6c0-.911-.589-1.5-1.5-1.5" />
-                    <circle cx="32" cy="20" r="1" />
-                  </g>
-                </svg>
-              </div>
-              <label className="text-sm font-medium text-gray-600 block mb-2">
-                Wallet Address
-              </label>
-              <div
-                className={`font-mono text-sm break-all mb-20 ${walletAddress ? "text-emerald-700" : "text-gray-400"
-                  }`}
-              >
-                {walletAddress || "Not connected"}
-              </div>
-            </div>
-
-            <div className="bg-emerald-50 rounded-2xl p-4">
-              <div className="flex items-center justify-center w-20 h-20 rounded-xl bg-blue-100 mb-10 mx-auto shadow-inner">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="68"
-                  height="68"
-                  viewBox="0 0 48 48"
-                >
-                  <rect
-                    width="36.65"
-                    height="26.043"
-                    x="5.675"
-                    y="10.979"
-                    fill="none"
-                    stroke="#f0ce00"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    rx="3"
-                    ry="3"
-                    stroke-width="1"
-                  />
-                  <circle
-                    cx="14.838"
-                    cy="21.487"
-                    r="3.563"
-                    fill="none"
-                    stroke="#f0ce00"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="1"
-                  />
                   <path
-                    fill="none"
-                    stroke="#f0ce00"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M10.328 31.095h9.783a.92.92 0 0 0 .7-1.52a7.172 7.172 0 0 0-11.183 0a.92.92 0 0 0 .7 1.52M28.709 20.85h6.999m-6.999 6.872h6.999m-6.999-3.436h9.671"
-                    stroke-width="1"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
                   />
                 </svg>
               </div>
-              <label className="text-sm font-medium text-gray-600 block mb-2">
-                Wallet DID
-              </label>
-              <div
-                className={`font-mono text-sm break-all ${walletDid ? "text-emerald-700" : "text-orange-600"
-                  }`}
-              >
-                {didLoading ? (
-                  <span className="flex items-center">
-                    <svg
-                      className="animate-spin -ml-1 mr-2 h-4 w-4 text-orange-600"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      ></circle>
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      ></path>
-                    </svg>
-                    Loading...
-                  </span>
-                ) : (
-                  walletDid || "Not available"
-                )}
-              </div>
+            </div>
+
+            {/* Title */}
+            <h2 className="text-2xl font-bold text-blue-900 dark:text-blue-100 mb-4">
+              Ethereum Wallet Required
+            </h2>
+
+            {/* Message */}
+            <p className="text-gray-600 dark:text-gray-300 mb-6 leading-relaxed">
+              This section requires an Ethereum wallet connection. You're
+              currently connected with your Internet Identity, but this page is
+              specifically for Ethereum-based credentials.
+            </p>
+
+            {/* Action Button */}
+            <ConnectButton
+              client={client}
+              wallets={wallets}
+              connectButton={{
+                label: "Connect Wallet",
+                style: {
+                  background: isDark ? "#18181b" : "#1e3a8a",
+                  color: isDark ? "white" : "#ede7d1",
+                  border: isDark ? "none" : "none",
+                  boxShadow: isDark
+                    ? "0 0 0 2px #e4a80f, 0 0 8px 2px #e4a80f55"
+                    : "none",
+                  borderRadius: "8px",
+                  padding: "8px 16px",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  width: "100%",
+                },
+              }}
+              connectModal={{
+                size: "compact",
+                titleIcon: AbyaLogo,
+                showThirdwebBranding: false,
+                welcomeScreen: {
+                  title: "Connect to ABYA Passport",
+                  subtitle: "Choose your preferred sign-in method",
+                },
+                privacyPolicyUrl: `${window.location.origin}/privacy`,
+                termsOfServiceUrl: `${window.location.origin}/terms`,
+              }}
+              theme={customTheme}
+              onConnect={(wallet) => {
+                console.log("Wallet connected:", wallet);
+                setTimeout(() => setShowConnectOptions(false), 2000);
+              }}
+              onDisconnect={() => {
+                console.log("Wallet disconnected");
+              }}
+            />
+
+            {/* Additional Info */}
+            <div className="mt-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg">
+              <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                💡 <strong>Tip:</strong> Make sure you have an Ethereum wallet
+                (like MetaMask) installed and unlocked to access this feature.
+              </p>
             </div>
           </div>
+        </div>
+      ) : (
+        <div className="max-w-6xl mx-auto">
+          {/* Header */}
+          <div className="text-center mb-30">
+            <h1 className="text-5xl font-bold text-blue-900 dark-text-yellow mb-4 text-center">
+              Ethereum Credential Manager
+            </h1>
+            <p className="text-xl text-gray-600 mt-8 mb-8 animate-fadein delay-500">
+              Create, manage, and verify Ethereum-based Verifiable Credentials
+            </p>
+          </div>
 
-          {/* Contract Info */}
-          <div className="bg-transparent rounded-lg p-4 mb-8">
-            <div className="font-mono text-sm break-all text-emerald-600">
-              {VC_ADDRESS}
+          {/* Connection Status Card */}
+          <div className="mb-16 backdrop-blur-md rounded-3xl darkcard shadow-lg p-10">
+            <div className="flex items-center justify-between mb-10">
+              <h3 className="text-2xl font-bold text-blue-900 dark-text-yellow flex items-center">
+                Connection Status
+              </h3>
+              <div
+                className={`px-3 py-1 rounded-full text-sm font-medium ${
+                  walletAddress
+                    ? "bg-emerald-100 text-green-800"
+                    : "bg-red-100 text-red-800"
+                }`}
+              >
+                {walletAddress ? "✓ Connected" : "✗ Disconnected"}
+              </div>
             </div>
-            <div className="text-xs text-gray-500 mt-1 mb-4">
-              Contract Type:{" "}
-              {VC_ABI && VC_ABI.length
-                ? `${VC_ABI.length} functions available`
-                : "ABI not loaded"}
+
+            <div className="grid md:grid-cols-2 gap-4 mb-4">
+              <div className="bg-emerald-50 rounded-2xl p-4">
+                <div className="flex items-center justify-center w-20 h-20 rounded-xl bg-blue-100 mb-10 mx-auto shadow-inner">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="57"
+                    height="48"
+                    viewBox="0 0 38 32"
+                  >
+                    <g fill="#f0ce00">
+                      <path d="M32.509 7.5a.5.5 0 0 0 .5-.5V5.335a1.64 1.64 0 0 0-1.638-1.638h-2.687l-.613-1.809a.5.5 0 0 0-.619-.318L12.899 5.994a.501.501 0 0 0 .292.957L27.28 2.667l1.343 3.965a.499.499 0 1 0 .947-.321l-.547-1.615h2.349c.352 0 .638.286.638.638V7c-.001.276.223.5.499.5" />
+                      <path d="M36.5 15a.5.5 0 0 0 0 1c.351 0 .5.149.5.5v6c0 .351-.149.5-.5.5h-8c-.351 0-.5-.149-.5-.5v-5c0-.351.149-.5.5-.5h6a.5.5 0 0 0 .5-.5v-6c0-.911-.589-1.5-1.5-1.5H3c-1.233 0-2-.767-2-2s.767-2 2-2h5.076l-3.026.998a.5.5 0 1 0 .313.949L23.482.974a.5.5 0 1 0-.314-.95l-12.1 3.99C11.045 4.01 11.024 4 11 4H3C1.206 4 0 5.206 0 7v22c0 1.794 1.206 3 3 3h30.5c.911 0 1.5-.589 1.5-1.5v-5a.5.5 0 0 0-1 0v5c0 .351-.149.5-.5.5H3c-1.233 0-2-.767-2-2V9.312c.513.433 1.192.688 2 .688h30.5c.351 0 .5.149.5.5V16h-5.5c-.911 0-1.5.589-1.5 1.5v5c0 .911.589 1.5 1.5 1.5h8c.911 0 1.5-.589 1.5-1.5v-6c0-.911-.589-1.5-1.5-1.5" />
+                      <circle cx="32" cy="20" r="1" />
+                    </g>
+                  </svg>
+                </div>
+                <label className="text-sm font-medium text-gray-600 block mb-2">
+                  Wallet Address
+                </label>
+                <div
+                  className={`font-mono text-sm break-all mb-20 ${
+                    walletAddress ? "text-emerald-700" : "text-gray-400"
+                  }`}
+                >
+                  {walletAddress || "Not connected"}
+                </div>
+              </div>
+
+              <div className="bg-emerald-50 rounded-2xl p-4">
+                <div className="flex items-center justify-center w-20 h-20 rounded-xl bg-blue-100 mb-10 mx-auto shadow-inner">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="68"
+                    height="68"
+                    viewBox="0 0 48 48"
+                  >
+                    <rect
+                      width="36.65"
+                      height="26.043"
+                      x="5.675"
+                      y="10.979"
+                      fill="none"
+                      stroke="#f0ce00"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      rx="3"
+                      ry="3"
+                      stroke-width="1"
+                    />
+                    <circle
+                      cx="14.838"
+                      cy="21.487"
+                      r="3.563"
+                      fill="none"
+                      stroke="#f0ce00"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="1"
+                    />
+                    <path
+                      fill="none"
+                      stroke="#f0ce00"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M10.328 31.095h9.783a.92.92 0 0 0 .7-1.52a7.172 7.172 0 0 0-11.183 0a.92.92 0 0 0 .7 1.52M28.709 20.85h6.999m-6.999 6.872h6.999m-6.999-3.436h9.671"
+                      stroke-width="1"
+                    />
+                  </svg>
+                </div>
+                <label className="text-sm font-medium text-gray-600 block mb-2">
+                  Wallet DID
+                </label>
+                <div
+                  className={`font-mono text-sm break-all ${
+                    walletDid ? "text-emerald-700" : "text-orange-600"
+                  }`}
+                >
+                  {didLoading ? (
+                    <span className="flex items-center">
+                      <svg
+                        className="animate-spin -ml-1 mr-2 h-4 w-4 text-orange-600"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      Loading...
+                    </span>
+                  ) : (
+                    walletDid || "Not available"
+                  )}
+                </div>
+              </div>
             </div>
-            {/* <div className="text-xs text-orange-600 mt-2 bg-orange-50 p-2 rounded border border-orange-200">
+
+            {/* Contract Info */}
+            <div className="bg-transparent rounded-lg p-4 mb-8">
+              <div className="font-mono text-sm break-all text-emerald-600">
+                {VC_ADDRESS}
+              </div>
+              <div className="text-xs text-gray-500 mt-1 mb-4">
+                Contract Type:{" "}
+                {VC_ABI && VC_ABI.length
+                  ? `${VC_ABI.length} functions available`
+                  : "ABI not loaded"}
+              </div>
+              {/* <div className="text-xs text-orange-600 mt-2 bg-orange-50 p-2 rounded border border-orange-200">
               <div className="flex items-center justify-between">
                 <div>
                   <strong>Network:</strong> This contract is configured for
@@ -1863,159 +2238,19 @@ const EthrVcManager = () => {
                 </button>
               </div>
             </div> */}
-          </div>
+            </div>
 
-          {/* IPFS Status */}
-          <div className="rounded-lg p-4">
-            <div
-              className={`flex items-center ${isPinataAvailable() ? "text-emerald-700" : "text-orange-600"
+            {/* IPFS Status */}
+            <div className="rounded-lg p-4">
+              <div
+                className={`flex items-center ${
+                  isPinataAvailable() ? "text-emerald-700" : "text-orange-600"
                 }`}
-            >
-              <svg
-                className={`w-4 h-4 mr-2 ${isPinataAvailable() ? "text-emerald-500" : "text-orange-500"
-                  }`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d={
-                    isPinataAvailable()
-                      ? "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                      : "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
-                  }
-                />
-              </svg>
-              <span className="text-sm font-medium">
-                {isPinataAvailable()
-                  ? "Pinata IPFS - Ready"
-                  : "Fallback Storage - LocalStorage"}
-              </span>
-            </div>
-            {!isPinataAvailable() && (
-              <div className="mt-2 text-xs text-gray-600 bg-yellow-50 p-2 rounded border border-yellow-200">
-                <strong>Note:</strong>{" "}
-                {getPinataInitError() || "Pinata not configured"}
-                <br />
-                <span className="italic">
-                  Credentials will be stored locally for development.{" "}
-                  <a
-                    href="/.env.example"
-                    target="_blank"
-                    className="underline text-blue-600"
-                  >
-                    Configure Pinata
-                  </a>{" "}
-                  for production use.
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Wallet Readiness Warning */}
-        {(!walletAddress || !window?.ethereum) && (
-          <div className="mb-8 backdrop-blur-md border border-red-600 rounded-2xl p-6">
-            <div className="flex items-center justify-center mb-3">
-              <svg
-                className="w-6 h-6 mr-2 text-red-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
-                />
-              </svg>
-              <h3 className="text-lg font-semibold text-red-600">
-                Wallet Connection Required
-              </h3>
-            </div>
-            <div className="text-red-600">
-              {!window?.ethereum ? (
-                <div>
-                  <p className="mb-2">
-                    <strong>No Web3 wallet detected:</strong> Please install
-                    MetaMask or another compatible wallet to interact with smart
-                    contracts.
-                  </p>
-                  <a
-                    href="https://metamask.io/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center text-blue-600 hover:text-blue-800 underline"
-                  >
-                    Install MetaMask →
-                  </a>
-                </div>
-              ) : !walletAddress ? (
-                <p>
-                  <strong>Wallet not connected:</strong> Please connect your
-                  wallet to create and publish credentials on-chain. This will
-                  prevent "Invalid private key" errors during transactions.
-                </p>
-              ) : null}
-            </div>
-          </div>
-        )}
-
-        {/* Wallet Connection Warning */}
-        {!walletAddress && (
-          <div className="mb-8 bg-gradient-to-br from-blue-100 to-white border border-red-600 rounded-2xl p-6">
-            <div className="flex justify-center items-center mb-4 p-4">
-              <svg
-                className="w-6 h-6 mr-2 text-red-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
-                />
-              </svg>
-              <h3 className="text-lg font-semibold text-red-600">
-                Wallet Connection Required:
-              </h3>
-
-              <div className="ml-4">
-                <p className="text-red-600 mt-1">
-                  Connect your Ethereum wallet (MetaMask, etc.) to create and
-                  manage verifiable credentials.
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={async () => {
-                if (typeof window !== "undefined" && window.ethereum) {
-                  try {
-                    await window.ethereum.request({
-                      method: "eth_requestAccounts",
-                    });
-                    // The EthrContext should automatically detect this and update
-                  } catch (err) {
-                    console.error("Failed to connect wallet:", err);
-                    alert("Failed to connect wallet: " + err.message);
-                  }
-                } else {
-                  alert(
-                    "No Ethereum wallet detected. Please install MetaMask or another Web3 wallet."
-                  );
-                }
-              }}
-              className="bg-blue-900 darkcard text-white dark-text-yellow px-6 py-3 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 font-medium shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
-            >
-              <span className="flex items-center">
                 <svg
-                  className="w-5 h-5 mr-2"
+                  className={`w-4 h-4 mr-2 ${
+                    isPinataAvailable() ? "text-emerald-500" : "text-orange-500"
+                  }`}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -2024,91 +2259,447 @@ const EthrVcManager = () => {
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={2}
-                    d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                    d={
+                      isPinataAvailable()
+                        ? "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                        : "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                    }
                   />
                 </svg>
-                Connect Wallet
-              </span>
-            </button>
-          </div>
-        )}
-
-        {/* Main Interface */}
-        {!walletAddress ? (
-          <div className="text-center py-16 bg-white border border-red-600 rounded-2xl shadow-lg">
-            <div className="mx-auto w-24 h-24 bg-gray-100 darkcard rounded-full flex items-center justify-center mb-4">
-              <svg
-                className="w-12 h-12 text-yellow-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 15v2m-6 0h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                />
-              </svg>
-            </div>
-
-            <div className="flex justify-center items-center mb-4 p-4">
-              <svg
-                className="w-6 h-6 mr-2 text-red-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
-                />
-              </svg>
-              <h3 className="text-xl font-semibold text-red-600 mb-2">
-                Wallet Connection Required!
-              </h3>
-              <p className="text-red-600">
-                Please connect your Ethereum wallet to continue with credential
-                management.
-              </p>
+                <span className="text-sm font-medium">
+                  {isPinataAvailable()
+                    ? "Pinata IPFS - Ready"
+                    : "Fallback Storage - LocalStorage"}
+                </span>
+              </div>
+              {!isPinataAvailable() && (
+                <div className="mt-2 text-xs text-gray-600 bg-yellow-50 p-2 rounded border border-yellow-200">
+                  <strong>Note:</strong>{" "}
+                  {getPinataInitError() || "Pinata not configured"}
+                  <br />
+                  <span className="italic">
+                    Credentials will be stored locally for development.{" "}
+                    <a
+                      href="/.env.example"
+                      target="_blank"
+                      className="underline text-blue-600"
+                    >
+                      Configure Pinata
+                    </a>{" "}
+                    for production use.
+                  </span>
+                </div>
+              )}
             </div>
           </div>
-        ) : (
-          <div className="space-y-8">
-            {/* Create VC Form */}
-            <div className="backdrop-blur-md darkcard shadow-lg rounded-3xl p-10">
-              <div className="flex justify-center items-center mb-30">
+
+          {/* Wallet Readiness Warning */}
+          {(!walletAddress || !window?.ethereum) && (
+            <div className="mb-8 backdrop-blur-md border border-red-600 rounded-2xl p-6">
+              <div className="flex items-center justify-center mb-3">
+                <svg
+                  className="w-6 h-6 mr-2 text-red-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                  />
+                </svg>
+                <h3 className="text-lg font-semibold text-red-600">
+                  Wallet Connection Required
+                </h3>
+              </div>
+              <div className="text-red-600">
+                {!window?.ethereum ? (
+                  <div>
+                    <p className="mb-2">
+                      <strong>No Web3 wallet detected:</strong> Please install
+                      MetaMask or another compatible wallet to interact with
+                      smart contracts.
+                    </p>
+                    <a
+                      href="https://metamask.io/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center text-blue-600 hover:text-blue-800 underline"
+                    >
+                      Install MetaMask →
+                    </a>
+                  </div>
+                ) : !walletAddress ? (
+                  <p>
+                    <strong>Wallet not connected:</strong> Please connect your
+                    wallet to create and publish credentials on-chain. This will
+                    prevent "Invalid private key" errors during transactions.
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          )}
+
+          {/* Wallet Connection Warning */}
+          {!walletAddress && (
+            <div className="mb-8 bg-gradient-to-br from-blue-100 to-white border border-red-600 rounded-2xl p-6">
+              <div className="flex justify-center items-center mb-4 p-4">
+                <svg
+                  className="w-6 h-6 mr-2 text-red-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                  />
+                </svg>
+                <h3 className="text-lg font-semibold text-red-600">
+                  Wallet Connection Required:
+                </h3>
+
                 <div className="ml-4">
-                  <h3 className="text-4xl font-bold text-blue-900 dark-text-yellow flex items-center">
-                    Create Ethereum Verifiable Credential
-                  </h3>
-                  <p className="text-gray-600">
-                    Fill in the details to issue a new credential
+                  <p className="text-red-600 mt-1">
+                    Connect your Ethereum wallet (MetaMask, etc.) to create and
+                    manage verifiable credentials.
                   </p>
                 </div>
               </div>
-
-              <form onSubmit={handleSubmit} className="space-y-8">
-                <div className="grid md:grid-cols-2 gap-6">
-                  {/* Issuer DID (Auto-filled, read-only) */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark-text-yellow mb-2">
-                      Issuer DID <span className="text-red-500 ml-1">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="issuerDid"
-                      value={formData.issuerDid}
-                      className="w-full px-4 py-3 bg-slate-200 border border-yellow-200 darkcard rounded-3xl text-gray-700 dark-text-white cursor-not-allowed"
-                      readOnly
-                      placeholder="Issuer DID (auto-filled from connected wallet)"
+              <button
+                onClick={async () => {
+                  if (typeof window !== "undefined" && window.ethereum) {
+                    try {
+                      await window.ethereum.request({
+                        method: "eth_requestAccounts",
+                      });
+                      // The EthrContext should automatically detect this and update
+                    } catch (err) {
+                      console.error("Failed to connect wallet:", err);
+                      alert("Failed to connect wallet: " + err.message);
+                    }
+                  } else {
+                    alert(
+                      "No Ethereum wallet detected. Please install MetaMask or another Web3 wallet."
+                    );
+                  }
+                }}
+                className="bg-blue-900 darkcard text-white dark-text-yellow px-6 py-3 rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 font-medium shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+              >
+                <span className="flex items-center">
+                  <svg
+                    className="w-5 h-5 mr-2"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
                     />
-                    <div className="mt-2 p-3 bg-emerald-50 rounded-2xl">
-                      <div className="flex items-start">
+                  </svg>
+                  Connect Wallet
+                </span>
+              </button>
+            </div>
+          )}
+
+          {/* Main Interface */}
+          {!walletAddress ? (
+            <div className="text-center py-16 bg-white border border-red-600 rounded-2xl shadow-lg">
+              <div className="mx-auto w-24 h-24 bg-gray-100 darkcard rounded-full flex items-center justify-center mb-4">
+                <svg
+                  className="w-12 h-12 text-yellow-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 15v2m-6 0h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                  />
+                </svg>
+              </div>
+
+              <div className="flex justify-center items-center mb-4 p-4">
+                <svg
+                  className="w-6 h-6 mr-2 text-red-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                  />
+                </svg>
+                <h3 className="text-xl font-semibold text-red-600 mb-2">
+                  Wallet Connection Required!
+                </h3>
+                <p className="text-red-600">
+                  Please connect your Ethereum wallet to continue with
+                  credential management.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-8">
+              {/* Create VC Form */}
+              <div className="backdrop-blur-md darkcard shadow-lg rounded-3xl p-10">
+                <div className="flex justify-center items-center mb-30">
+                  <div className="ml-4">
+                    <h3 className="text-4xl font-bold text-blue-900 dark-text-yellow flex items-center">
+                      Create Ethereum Verifiable Credential
+                    </h3>
+                    <p className="text-gray-600">
+                      Fill in the details to issue a new credential
+                    </p>
+                  </div>
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-8">
+                  <div className="grid md:grid-cols-2 gap-6">
+                    {/* Issuer DID (Auto-filled, read-only) */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark-text-yellow mb-2">
+                        Issuer DID <span className="text-red-500 ml-1">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="issuerDid"
+                        value={formData.issuerDid}
+                        className="w-full px-4 py-3 bg-slate-200 border border-yellow-200 darkcard rounded-3xl text-gray-700 dark-text-white cursor-not-allowed"
+                        readOnly
+                        placeholder="Issuer DID (auto-filled from connected wallet)"
+                      />
+                      <div className="mt-2 p-3 bg-emerald-50 rounded-2xl">
+                        <div className="flex items-start">
+                          <svg
+                            className="w-5 h-5 text-emerald-500 mt-0.5 mr-2 flex-shrink-0"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                          </svg>
+                          <div className="text-sm text-emerald-700">
+                            <strong>Auto-configured:</strong> The issuer must be
+                            your connected wallet address. This ensures only you
+                            can issue credentials from your account.
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Subject DID */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark-text-yellow mb-2">
+                        Subject DID <span className="text-red-500 ml-1">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="subjectDid"
+                        value={formData.subjectDid}
+                        onChange={handleChange}
+                        className="w-full px-4 py-3 border border-yellow-200 rounded-3xl darkcard text-gray-700 dark-text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
+                        disabled={didLoading}
+                        required
+                        placeholder="Enter subject DID"
+                      />
+                      <div className="mt-2 p-3 bg-blue-50 darkcard overflow-x-auto rounded-lg">
+                        <div className="flex items-start">
+                          <svg
+                            className="w-5 h-5 text-blue-900 dark-text-yellow mt-0.5 mr-2 flex-shrink-0"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                          </svg>
+                          <div className="text-sm text-blue-700 dark-text-white">
+                            {didLoading ? (
+                              <span className="flex items-center">
+                                <svg
+                                  className="animate-spin h-4 w-4 mr-2"
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <circle
+                                    className="opacity-25"
+                                    cx="12"
+                                    cy="12"
+                                    r="10"
+                                    stroke="currentColor"
+                                    strokeWidth="4"
+                                  ></circle>
+                                  <path
+                                    className="opacity-75"
+                                    fill="currentColor"
+                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                  ></path>
+                                </svg>
+                                Loading wallet DID...
+                              </span>
+                            ) : walletDid ? (
+                              <div>
+                                <span className="font-medium">
+                                  Using wallet DID:
+                                </span>
+                                <br />
+                                <code className="bg-white px-2 py-1 rounded border text-xs font-mono">
+                                  {walletDid}
+                                </code>
+                              </div>
+                            ) : (
+                              <span>
+                                No wallet DID available — please enter a subject
+                                DID manually.
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Other fields */}
+                    {["name", "role", "organization", "expirationDate"].map(
+                      (field) => (
+                        <div
+                          key={field}
+                          className={
+                            field === "expirationDate" ? "md:col-span-2" : ""
+                          }
+                        >
+                          <label className="block text-sm font-medium text-gray-700 dark-text-yellow mb-2 capitalize">
+                            {field.replace(/([A-Z])/g, " $1").trim()}
+                            {field !== "expirationDate" && (
+                              <span className="text-red-500 ml-2">*</span>
+                            )}
+                          </label>
+                          <input
+                            type={
+                              field === "expirationDate"
+                                ? "datetime-local"
+                                : "text"
+                            }
+                            name={field}
+                            value={formData[field]}
+                            onChange={handleChange}
+                            className="w-full mb-10 px-4 py-4 border border-yellow-200 darkcard rounded-3xl text-gray-700 dark-text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
+                            required={field !== "expirationDate"}
+                            placeholder={
+                              field === "expirationDate"
+                                ? "Optional expiration date"
+                                : `Enter ${field
+                                    .replace(/([A-Z])/g, " $1")
+                                    .trim()
+                                    .toLowerCase()}`
+                            }
+                          />
+                        </div>
+                      )
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap gap-3 pt-4">
+                    <button
+                      type="submit"
+                      disabled={loading || didLoading}
+                      className="bg-blue-900 text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-blue-800 disabled:from-gray-400 disabled:to-gray-500 transition-all duration-200 font-medium shadow-md hover:shadow-lg transform hover:-translate-y-0.5 disabled:transform-none disabled:hover:shadow-md"
+                    >
+                      {loading ? (
+                        <span className="flex items-center">
+                          <svg
+                            className="animate-spin -ml-1 mr-2 h-4 w-4"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            ></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
+                          </svg>
+                          Creating...
+                        </span>
+                      ) : (
+                        "Create Credential"
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={fetchCredentials}
+                      className="bg-gray-100 darkcard text-gray-700 dark-text-yellow px-6 py-3 rounded-lg hover:bg-gray-200 transition-colors duration-200 font-medium"
+                    >
+                      {listLoading ? (
+                        <span className="flex items-center">
+                          <svg
+                            className="animate-spin -ml-1 mr-2 h-4 w-4"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            ></circle>
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                            ></path>
+                          </svg>
+                          Refreshing...
+                        </span>
+                      ) : (
+                        "Refresh List"
+                      )}
+                    </button>
+
+                    {/* New button -> open verifier */}
+                    <button
+                      type="button"
+                      onClick={() => setCurrentPage("vcverifier")}
+                      className="bg-emerald-600 text-white px-6 py-3 rounded-lg hover:bg-emerald-700 transition-colors duration-200 font-medium"
+                    >
+                      <span className="flex items-center">
                         <svg
-                          className="w-5 h-5 text-emerald-500 mt-0.5 mr-2 flex-shrink-0"
+                          className="w-5 h-5 mr-2"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -2120,34 +2711,16 @@ const EthrVcManager = () => {
                             d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                           />
                         </svg>
-                        <div className="text-sm text-emerald-700">
-                          <strong>Auto-configured:</strong> The issuer must be
-                          your connected wallet address. This ensures only you
-                          can issue credentials from your account.
-                        </div>
-                      </div>
-                    </div>
+                        Credential Verifier
+                      </span>
+                    </button>
                   </div>
 
-                  {/* Subject DID */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark-text-yellow mb-2">
-                      Subject DID <span className="text-red-500 ml-1">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="subjectDid"
-                      value={formData.subjectDid}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border border-yellow-200 rounded-3xl darkcard text-gray-700 dark-text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
-                      disabled={didLoading}
-                      required
-                      placeholder="Enter subject DID"
-                    />
-                    <div className="mt-2 p-3 bg-blue-50 darkcard overflow-x-auto rounded-lg">
-                      <div className="flex items-start">
+                  {error && (
+                    <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                      <div className="flex items-center">
                         <svg
-                          className="w-5 h-5 text-blue-900 dark-text-yellow mt-0.5 mr-2 flex-shrink-0"
+                          className="w-5 h-5 text-red-500 mr-2"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -2156,173 +2729,28 @@ const EthrVcManager = () => {
                             strokeLinecap="round"
                             strokeLinejoin="round"
                             strokeWidth={2}
-                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                           />
                         </svg>
-                        <div className="text-sm text-blue-700 dark-text-white">
-                          {didLoading ? (
-                            <span className="flex items-center">
-                              <svg
-                                className="animate-spin h-4 w-4 mr-2"
-                                xmlns="http://www.w3.org/2000/svg"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                              >
-                                <circle
-                                  className="opacity-25"
-                                  cx="12"
-                                  cy="12"
-                                  r="10"
-                                  stroke="currentColor"
-                                  strokeWidth="4"
-                                ></circle>
-                                <path
-                                  className="opacity-75"
-                                  fill="currentColor"
-                                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                ></path>
-                              </svg>
-                              Loading wallet DID...
-                            </span>
-                          ) : walletDid ? (
-                            <div>
-                              <span className="font-medium">
-                                Using wallet DID:
-                              </span>
-                              <br />
-                              <code className="bg-white px-2 py-1 rounded border text-xs font-mono">
-                                {walletDid}
-                              </code>
-                            </div>
-                          ) : (
-                            <span>
-                              No wallet DID available — please enter a subject
-                              DID manually.
-                            </span>
-                          )}
-                        </div>
+                        <span className="text-red-700 font-medium">
+                          Error:{" "}
+                          {typeof error === "object"
+                            ? JSON.stringify(error)
+                            : error}
+                        </span>
                       </div>
                     </div>
-                  </div>
-
-                  {/* Other fields */}
-                  {["name", "role", "organization", "expirationDate"].map(
-                    (field) => (
-                      <div
-                        key={field}
-                        className={
-                          field === "expirationDate" ? "md:col-span-2" : ""
-                        }
-                      >
-                        <label className="block text-sm font-medium text-gray-700 dark-text-yellow mb-2 capitalize">
-                          {field.replace(/([A-Z])/g, " $1").trim()}
-                          {field !== "expirationDate" && (
-                            <span className="text-red-500 ml-2">*</span>
-                          )}
-                        </label>
-                        <input
-                          type={
-                            field === "expirationDate"
-                              ? "datetime-local"
-                              : "text"
-                          }
-                          name={field}
-                          value={formData[field]}
-                          onChange={handleChange}
-                          className="w-full mb-10 px-4 py-4 border border-yellow-200 darkcard rounded-3xl text-gray-700 dark-text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors duration-200"
-                          required={field !== "expirationDate"}
-                          placeholder={
-                            field === "expirationDate"
-                              ? "Optional expiration date"
-                              : `Enter ${field
-                                .replace(/([A-Z])/g, " $1")
-                                .trim()
-                                .toLowerCase()}`
-                          }
-                        />
-                      </div>
-                    )
                   )}
-                </div>
+                </form>
+              </div>
 
-                <div className="flex flex-wrap gap-3 pt-4">
-                  <button
-                    type="submit"
-                    disabled={loading || didLoading}
-                    className="bg-blue-900 text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-blue-800 disabled:from-gray-400 disabled:to-gray-500 transition-all duration-200 font-medium shadow-md hover:shadow-lg transform hover:-translate-y-0.5 disabled:transform-none disabled:hover:shadow-md"
-                  >
-                    {loading ? (
-                      <span className="flex items-center">
-                        <svg
-                          className="animate-spin -ml-1 mr-2 h-4 w-4"
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          ></circle>
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          ></path>
-                        </svg>
-                        Creating...
-                      </span>
-                    ) : (
-                      "Create Credential"
-                    )}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={fetchCredentials}
-                    className="bg-gray-100 darkcard text-gray-700 dark-text-yellow px-6 py-3 rounded-lg hover:bg-gray-200 transition-colors duration-200 font-medium"
-                  >
-                    {listLoading ? (
-                      <span className="flex items-center">
-                        <svg
-                          className="animate-spin -ml-1 mr-2 h-4 w-4"
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          ></circle>
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          ></path>
-                        </svg>
-                        Refreshing...
-                      </span>
-                    ) : (
-                      "Refresh List"
-                    )}
-                  </button>
-
-                  {/* New button -> open verifier */}
-                  <button
-                    type="button"
-                    onClick={() => setCurrentPage("vcverifier")}
-                    className="bg-emerald-600 text-white px-6 py-3 rounded-lg hover:bg-emerald-700 transition-colors duration-200 font-medium"
-                  >
-                    <span className="flex items-center">
+              {/* Created Credential Preview */}
+              {credential && (
+                <div className="backdrop-blur-md rounded-2xl shadow-lg p-6 border-l-4 border-emerald-600">
+                  <div className="flex items-center mb-4">
+                    <div className="flex-shrink-0">
                       <svg
-                        className="w-5 h-5 mr-2"
+                        className="w-8 h-8 text-emerald-600"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -2334,537 +2762,449 @@ const EthrVcManager = () => {
                           d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                         />
                       </svg>
-                      Credential Verifier
-                    </span>
-                  </button>
-                </div>
-
-                {error && (
-                  <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                    <div className="flex items-center">
-                      <svg
-                        className="w-5 h-5 text-red-500 mr-2"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
-                      <span className="text-red-700 font-medium">
-                        Error:{" "}
-                        {typeof error === "object"
-                          ? JSON.stringify(error)
-                          : error}
-                      </span>
+                    </div>
+                    <div className="ml-4">
+                      <h3 className="text-xl font-semibold text-emerald-700">
+                        Credential Created Successfully
+                      </h3>
                     </div>
                   </div>
-                )}
-              </form>
-            </div>
 
-            {/* Created Credential Preview */}
-            {credential && (
-              <div className="backdrop-blur-md rounded-2xl shadow-lg p-6 border-l-4 border-emerald-600">
-                <div className="flex items-center mb-4">
-                  <div className="flex-shrink-0">
-                    <svg
-                      className="w-8 h-8 text-emerald-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                  <div className="bg-white-100 rounded-lg p-4 mb-4 max-h-64 overflow-y-auto">
+                    <pre className="text-sm text-gray-800 dark-text-white whitespace-pre-wrap">
+                      {JSON.stringify(credential, null, 2)}
+                    </pre>
+                  </div>
+
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      onClick={() =>
+                        copyToClipboard(
+                          JSON.stringify(credential, null, 2),
+                          "Credential JSON"
+                        )
+                      }
+                      className="bg-green-100 text-green-700 px-4 py-2 rounded-lg hover:bg-emerald-200 transition-colors duration-200 font-medium"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                  </div>
-                  <div className="ml-4">
-                    <h3 className="text-xl font-semibold text-emerald-700">
-                      Credential Created Successfully
-                    </h3>
-                  </div>
-                </div>
+                      <span className="flex items-center gap-2">
+                        <CopyIcon size={14} /> JSON
+                      </span>
+                    </button>
 
-                <div className="bg-white-100 rounded-lg p-4 mb-4 max-h-64 overflow-y-auto">
-                  <pre className="text-sm text-gray-800 dark-text-white whitespace-pre-wrap">
-                    {JSON.stringify(credential, null, 2)}
-                  </pre>
-                </div>
+                    <button
+                      onClick={() =>
+                        credential?.proof?.jwt &&
+                        copyToClipboard(credential.proof.jwt, "JWT")
+                      }
+                      className="flex items-center gap-2 bg-green-100 text-green-700 px-4 py-2 rounded-lg hover:bg-emerald-200 transition-colors duration-200 font-medium"
+                    >
+                      <CopyIcon size={14} /> JWT
+                    </button>
 
-                <div className="flex flex-wrap gap-3">
-                  <button
-                    onClick={() =>
-                      copyToClipboard(
-                        JSON.stringify(credential, null, 2),
-                        "Credential JSON"
-                      )
-                    }
-                    className="bg-green-100 text-green-700 px-4 py-2 rounded-lg hover:bg-emerald-200 transition-colors duration-200 font-medium"
-                  >
-                    <span className="flex items-center gap-2">
-                      <CopyIcon size={14} /> JSON
-                    </span>
-                  </button>
+                    <button
+                      onClick={() =>
+                        credential?.proof?.jwt &&
+                        generateQr(credential.proof.jwt)
+                      }
+                      className="flex items-center gap-2 bg-green-100 text-green-700 px-4 py-2 rounded-lg hover:bg-emerald-200 transition-colors duration-200 font-medium"
+                    >
+                      <QrCodeIcon size={14} /> QR
+                    </button>
 
-                  <button
-                    onClick={() =>
-                      credential?.proof?.jwt &&
-                      copyToClipboard(credential.proof.jwt, "JWT")
-                    }
-                    className="flex items-center gap-2 bg-green-100 text-green-700 px-4 py-2 rounded-lg hover:bg-emerald-200 transition-colors duration-200 font-medium"
-                  >
-                    <CopyIcon size={14} /> JWT
-                  </button>
+                    <button
+                      onClick={() => downloadJSON(credential)}
+                      className="flex items-center gap-2 bg-green-100 text-green-700 px-4 py-2 rounded-lg hover:bg-emerald-200 transition-colors duration-200 font-medium"
+                    >
+                      <DownloadIcon size={14} /> JSON
+                    </button>
 
-                  <button
-                    onClick={() =>
-                      credential?.proof?.jwt && generateQr(credential.proof.jwt)
-                    }
-                    className="flex items-center gap-2 bg-green-100 text-green-700 px-4 py-2 rounded-lg hover:bg-emerald-200 transition-colors duration-200 font-medium"
-                  >
-                    <QrCodeIcon size={14} /> QR
-                  </button>
+                    <button
+                      onClick={() => downloadPDF(credential)}
+                      className="flex items-center gap-2 bg-green-100 text-green-700 px-4 py-2 rounded-lg hover:bg-emerald-200 transition-colors duration-200 font-medium"
+                    >
+                      <DownloadIcon size={14} /> PDF
+                    </button>
 
-                  <button
-                    onClick={() => downloadJSON(credential)}
-                    className="flex items-center gap-2 bg-green-100 text-green-700 px-4 py-2 rounded-lg hover:bg-emerald-200 transition-colors duration-200 font-medium"
-                  >
-                    <DownloadIcon size={14} /> JSON
-                  </button>
+                    <button
+                      onClick={() => {
+                        if (credential?.proof?.jwt)
+                          setJwtToVerify(credential.proof.jwt);
+                        else alert("No JWT present");
+                      }}
+                      className="flex items-center gap-2 bg-green-100 text-green-700 px-4 py-2 rounded-lg hover:bg-emerald-200 transition-colors duration-200 font-medium"
+                    >
+                      <VerifiedIcon size={14} /> Verify
+                    </button>
 
-                  <button
-                    onClick={() => downloadPDF(credential)}
-                    className="flex items-center gap-2 bg-green-100 text-green-700 px-4 py-2 rounded-lg hover:bg-emerald-200 transition-colors duration-200 font-medium"
-                  >
-                    <DownloadIcon size={14} /> PDF
-                  </button>
+                    <button
+                      onClick={stampCredential}
+                      className="bg-yellow-500 text-white px-4 py-2 rounded-lg hover:bg-yellow-600 transition-all duration-200 font-medium shadow-sm"
+                      title="Sign (stamp) this credential with your connected wallet"
+                    >
+                      {stampStatus?.ok ? "Stamped ✓" : "Stamp Credential"}
+                    </button>
 
-                  <button
-                    onClick={() => {
-                      if (credential?.proof?.jwt)
-                        setJwtToVerify(credential.proof.jwt);
-                      else alert("No JWT present");
-                    }}
-                    className="flex items-center gap-2 bg-green-100 text-green-700 px-4 py-2 rounded-lg hover:bg-emerald-200 transition-colors duration-200 font-medium"
-                  >
-                    <VerifiedIcon size={14} /> Verify
-                  </button>
-
-                  <button
-                    onClick={stampCredential}
-                    className="bg-yellow-500 text-white px-4 py-2 rounded-lg hover:bg-yellow-600 transition-all duration-200 font-medium shadow-sm"
-                    title="Sign (stamp) this credential with your connected wallet"
-                  >
-                    {stampStatus?.ok ? "Stamped ✓" : "Stamp Credential"}
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      publishCredentialToIpfsAndStoreOnChain(
-                        credential,
-                        "latest"
-                      )
-                    }
-                    className="bg-gradient-to-r from-emerald-600 to-green-600 text-white px-4 py-2 rounded-lg hover:from-emerald-700 hover:to-green-700 transition-all duration-200 font-medium shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
-                  >
-                    {ipfsStatus["latest"]?.uploading
-                      ? "Uploading..."
-                      : chainStatus["latest"]?.sending
+                    <button
+                      onClick={() =>
+                        publishCredentialToIpfsAndStoreOnChain(
+                          credential,
+                          "latest"
+                        )
+                      }
+                      className="bg-gradient-to-r from-emerald-600 to-green-600 text-white px-4 py-2 rounded-lg hover:from-emerald-700 hover:to-green-700 transition-all duration-200 font-medium shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                    >
+                      {ipfsStatus["latest"]?.uploading
+                        ? "Uploading..."
+                        : chainStatus["latest"]?.sending
                         ? "Storing on-chain..."
                         : "Publish to IPFS & Blockchain"}
-                  </button>
-                </div>
+                    </button>
+                  </div>
 
-                {/* Status indicators */}
-                <div className="mt-4 space-y-2">
-                  {ipfsStatus["latest"]?.cid && (
-                    <div className="flex items-center p-3 backdrop-blur-md rounded-lg">
-                      <svg
-                        className="w-5 h-5 text-emerald-500 mr-2"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M13 10V3L4 14h7v7l9-11h-7z"
-                        />
-                      </svg>
-                      <span className="text-sm text-emerald-500">
-                        IPFS CID :{" "}
-                        <a
-                          target="_blank"
-                          rel="noreferrer"
-                          href={`https://dweb.link/ipfs/${ipfsStatus["latest"].cid}`}
-                          className="underline font-mono dark-text-white"
+                  {/* Status indicators */}
+                  <div className="mt-4 space-y-2">
+                    {ipfsStatus["latest"]?.cid && (
+                      <div className="flex items-center p-3 backdrop-blur-md rounded-lg">
+                        <svg
+                          className="w-5 h-5 text-emerald-500 mr-2"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
                         >
-                          {ipfsStatus["latest"].cid}
-                        </a>
-                      </span>
-                    </div>
-                  )}
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M13 10V3L4 14h7v7l9-11h-7z"
+                          />
+                        </svg>
+                        <span className="text-sm text-emerald-500">
+                          IPFS CID :{" "}
+                          <a
+                            target="_blank"
+                            rel="noreferrer"
+                            href={`https://dweb.link/ipfs/${ipfsStatus["latest"].cid}`}
+                            className="underline font-mono dark-text-white"
+                          >
+                            {ipfsStatus["latest"].cid}
+                          </a>
+                        </span>
+                      </div>
+                    )}
 
-                  {chainStatus["latest"]?.txHash && (
-                    <div className="backdrop-blur-md flex items-center p-3 rounded-lg">
-                      <svg
-                        className="w-5 h-5 text-emerald-500 mr-2"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
-                      <span className="text-sm text-emerald-500">
-                        Transaction :{" "}
-                        <a
-                          target="_blank"
-                          rel="noreferrer"
-                          href={`https://etherscan.io/tx/${chainStatus["latest"].txHash}`}
-                          className="underline font-mono dark-text-white"
+                    {chainStatus["latest"]?.txHash && (
+                      <div className="backdrop-blur-md flex items-center p-3 rounded-lg">
+                        <svg
+                          className="w-5 h-5 text-emerald-500 mr-2"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
                         >
-                          {chainStatus["latest"].txHash}
-                        </a>
-                      </span>
-                    </div>
-                  )}
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                        <span className="text-sm text-emerald-500">
+                          Transaction :{" "}
+                          <a
+                            target="_blank"
+                            rel="noreferrer"
+                            href={`https://etherscan.io/tx/${chainStatus["latest"].txHash}`}
+                            className="underline font-mono dark-text-white"
+                          >
+                            {chainStatus["latest"].txHash}
+                          </a>
+                        </span>
+                      </div>
+                    )}
 
-                  {chainStatus["latest"]?.error && (
-                    <div className="flex items-center p-3 bg-red-50 rounded-lg">
-                      <svg
-                        className="w-5 h-5 text-red-500 mr-2"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
-                      <span className="text-sm text-red-700">
-                        On-chain error:{" "}
-                        {typeof chainStatus["latest"].error === "object"
-                          ? JSON.stringify(chainStatus["latest"].error)
-                          : chainStatus["latest"].error}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* QR Code Viewer */}
-            {qrDataUrl && (
-              <div className="backdrop-blur-md rounded-xl shadow-lg p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h4 className="text-xl font-semibold text-blue-900 dark-text-yellow flex items-center">
-                    <svg
-                      className="w-6 h-6 mr-2 text-blue-900 dark-text-yellow"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"
-                      />
-                    </svg>
-                    QR Code
-                  </h4>
-                  <button
-                    onClick={() => setQrDataUrl(null)}
-                    className="text-gray-500 hover:text-red-500 transition-colors duration-200"
-                  >
-                    <svg
-                      className="w-6 h-6"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
-                </div>
-                <div className="flex justify-center">
-                  <div className="p-4 bg-white border-2 border-gray-200 rounded-lg shadow-inner">
-                    <img
-                      src={qrDataUrl}
-                      alt="QR Code"
-                      className="max-w-xs mx-auto"
-                    />
+                    {chainStatus["latest"]?.error && (
+                      <div className="flex items-center p-3 bg-red-50 rounded-lg">
+                        <svg
+                          className="w-5 h-5 text-red-500 mr-2"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                        <span className="text-sm text-red-700">
+                          On-chain error:{" "}
+                          {typeof chainStatus["latest"].error === "object"
+                            ? JSON.stringify(chainStatus["latest"].error)
+                            : chainStatus["latest"].error}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
-                <p className="text-center text-sm text-gray-600 mt-4">
-                  Scan this QR code to access the credential JWT
-                </p>
-              </div>
-            )}
+              )}
 
-            {/* Credentials List */}
-            <div className="bg-transparent rounded-xl p-6 mt-40">
-              <div className="flex justify-center items-center mb-16">
-                <div className="flex-shrink-0"></div>
-                <div className="mb-4">
-                  <h3 className="text-4xl font-semibold text-blue-900 dark-text-yellow">
-                    Stored Verifiable Credentials
-                  </h3>
-                  <p className="text-gray-600">
-                    Manage your verifiable credentials
+              {/* QR Code Viewer */}
+              {qrDataUrl && (
+                <div className="backdrop-blur-md rounded-xl shadow-lg p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-xl font-semibold text-blue-900 dark-text-yellow flex items-center">
+                      <svg
+                        className="w-6 h-6 mr-2 text-blue-900 dark-text-yellow"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"
+                        />
+                      </svg>
+                      QR Code
+                    </h4>
+                    <button
+                      onClick={() => setQrDataUrl(null)}
+                      className="text-gray-500 hover:text-red-500 transition-colors duration-200"
+                    >
+                      <svg
+                        className="w-6 h-6"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="flex justify-center">
+                    <div className="p-4 bg-white border-2 border-gray-200 rounded-lg shadow-inner">
+                      <img
+                        src={qrDataUrl}
+                        alt="QR Code"
+                        className="max-w-xs mx-auto"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-center text-sm text-gray-600 mt-4">
+                    Scan this QR code to access the credential JWT
                   </p>
                 </div>
-              </div>
+              )}
 
-              {listLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <div className="text-center">
-                    <svg
-                      className="animate-spin h-8 w-8 text-blue-600 mx-auto mb-4"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        className="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                      ></circle>
-                      <path
-                        className="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      ></path>
-                    </svg>
-                    <p className="text-gray-600 dark-text-yellow">
-                      Loading credentials...
+              {/* Credentials List */}
+              <div className="bg-transparent rounded-xl p-6 mt-40">
+                <div className="flex justify-center items-center mb-16">
+                  <div className="flex-shrink-0"></div>
+                  <div className="mb-4">
+                    <h3 className="text-4xl font-semibold text-blue-900 dark-text-yellow">
+                      Stored Verifiable Credentials
+                    </h3>
+                    <p className="text-gray-600">
+                      Manage your verifiable credentials
                     </p>
                   </div>
                 </div>
-              ) : credentials.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="mx-auto w-24 h-24 bg-blue-100 darkcard rounded-full flex items-center justify-center mb-4">
-                    <svg
-                      className="w-12 h-12 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                      />
-                    </svg>
-                  </div>
-                  <h3 className="text-lg font-medium text-blue-900 dark-text-yellow mb-2">
-                    No Credentials Found
-                  </h3>
-                  <p className="text-gray-500 dark-text-yellow mb-6">
-                    Create your first verifiable credential to get started
-                  </p>
 
-                  {/* Diagnostics */}
-                  <div className="backdrop-blur-md rounded-lg p-4 text-left max-w-md mx-auto">
-                    <h4 className="font-bold text-blue-900 dark-text-yellow mb-3">
-                      Connection Details
-                    </h4>
-                    <div className="space-y-2 text-sm mb-4">
-                      <div className="flex justify-between">
-                        <span className="text-blue-900 dark-text-yellow font-semibold">
-                          Wallet DID:
-                        </span>
-                        <code className="px-2 py-1 rounded overflow-y-auto text-gray-600 text-xs font-mono">
-                          {walletDid || "—"}
-                        </code>
-                      </div>
-                      <div className="flex justify-between mt-8">
-                        <span className="text-blue-900 dark-text-yellow font-semibold">
-                          Wallet Address:
-                        </span>
-                        <code className="px-2 py-1 rounded text-xs text-gray-600 font-mono">
-                          {walletAddress || "—"}
-                        </code>
-                      </div>
-                      <div className="flex justify-between mt-8">
-                        <span className="text-blue-900 dark-text-yellow font-semibold">
-                          On-chain IDs:
-                        </span>
-                        <span className="text-xs text-gray-600">
-                          {lastOnchainIds.length > 0
-                            ? lastOnchainIds.join(", ")
-                            : "none"}
-                        </span>
-                      </div>
+                {listLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="text-center">
+                      <svg
+                        className="animate-spin h-8 w-8 text-blue-600 mx-auto mb-4"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      <p className="text-gray-600 dark-text-yellow">
+                        Loading credentials...
+                      </p>
                     </div>
+                  </div>
+                ) : credentials.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="mx-auto w-24 h-24 bg-blue-100 darkcard rounded-full flex items-center justify-center mb-4">
+                      <svg
+                        className="w-12 h-12 text-gray-400"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                        />
+                      </svg>
+                    </div>
+                    <h3 className="text-lg font-medium text-blue-900 dark-text-yellow mb-2">
+                      No Credentials Found
+                    </h3>
+                    <p className="text-gray-500 dark-text-yellow mb-6">
+                      Create your first verifiable credential to get started
+                    </p>
 
-                    {lastOnchainRowsDebug.length > 0 && (
-                      <details className="mt-3">
-                        <summary className="cursor-pointer text-xs text-gray-600 dark-text-yellow hover:text-gray-800">
-                          Show raw on-chain data
-                        </summary>
-                        <div className="mt-2 bg-white rounded p-2 max-h-32 overflow-auto">
-                          <pre className="text-xs text-gray-600 dark-text-white">
-                            {JSON.stringify(lastOnchainRowsDebug, null, 2)}
-                          </pre>
+                    {/* Diagnostics */}
+                    <div className="backdrop-blur-md rounded-lg p-4 text-left max-w-md mx-auto">
+                      <h4 className="font-bold text-blue-900 dark-text-yellow mb-3">
+                        Connection Details
+                      </h4>
+                      <div className="space-y-2 text-sm mb-4">
+                        <div className="flex justify-between">
+                          <span className="text-blue-900 dark-text-yellow font-semibold">
+                            Wallet DID:
+                          </span>
+                          <code className="px-2 py-1 rounded overflow-y-auto text-gray-600 text-xs font-mono">
+                            {walletDid || "—"}
+                          </code>
                         </div>
-                      </details>
-                    )}
+                        <div className="flex justify-between mt-8">
+                          <span className="text-blue-900 dark-text-yellow font-semibold">
+                            Wallet Address:
+                          </span>
+                          <code className="px-2 py-1 rounded text-xs text-gray-600 font-mono">
+                            {walletAddress || "—"}
+                          </code>
+                        </div>
+                        <div className="flex justify-between mt-8">
+                          <span className="text-blue-900 dark-text-yellow font-semibold">
+                            On-chain IDs:
+                          </span>
+                          <span className="text-xs text-gray-600">
+                            {lastOnchainIds.length > 0
+                              ? lastOnchainIds.join(", ")
+                              : "none"}
+                          </span>
+                        </div>
+                      </div>
 
-                    <div className="mt-4">
-                      <button
-                        onClick={async () => {
-                          if (!walletDid)
-                            return alert(
-                              "Connect wallet / set walletDid first"
-                            );
-                          setListLoading(true);
-                          const ids = await getIdsForDid(walletDid);
-                          setListLoading(false);
-                          if ((ids?.length ?? 0) === 0)
-                            alert("No on-chain IDs returned for this DID");
-                        }}
-                        className="bg-yellow-400 hover:bg-yellow-300 font-semibold text-blue-900 px-3 py-2 rounded text-sm transition-colors duration-200"
-                      >
-                        Fetch IDs for Wallet DID
-                      </button>
+                      {lastOnchainRowsDebug.length > 0 && (
+                        <details className="mt-3">
+                          <summary className="cursor-pointer text-xs text-gray-600 dark-text-yellow hover:text-gray-800">
+                            Show raw on-chain data
+                          </summary>
+                          <div className="mt-2 bg-white rounded p-2 max-h-32 overflow-auto">
+                            <pre className="text-xs text-gray-600 dark-text-white">
+                              {JSON.stringify(lastOnchainRowsDebug, null, 2)}
+                            </pre>
+                          </div>
+                        </details>
+                      )}
+
+                      <div className="mt-4">
+                        <button
+                          onClick={async () => {
+                            if (!walletDid)
+                              return alert(
+                                "Connect wallet / set walletDid first"
+                              );
+                            setListLoading(true);
+                            const ids = await getIdsForDid(walletDid);
+                            setListLoading(false);
+                            if ((ids?.length ?? 0) === 0)
+                              alert("No on-chain IDs returned for this DID");
+                          }}
+                          className="bg-yellow-400 hover:bg-yellow-300 font-semibold text-blue-900 px-3 py-2 rounded text-sm transition-colors duration-200"
+                        >
+                          Fetch IDs for Wallet DID
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {credentials.map((cred, i) => {
-                    const jwt =
-                      cred?.proof?.jwt ||
-                      cred?.jwt ||
-                      (typeof cred === "string" ? cred : null);
-                    const subjectId =
-                      cred?.credentialSubject?.id ||
-                      cred?.credentialSubject?.sub ||
-                      cred?.onchain?.studentDID ||
-                      cred?.subject ||
-                      cred?.id ||
-                      "N/A";
+                ) : (
+                  <div className="space-y-4">
+                    {credentials.map((cred, i) => {
+                      const jwt =
+                        cred?.proof?.jwt ||
+                        cred?.jwt ||
+                        (typeof cred === "string" ? cred : null);
+                      const subjectId =
+                        cred?.credentialSubject?.id ||
+                        cred?.credentialSubject?.sub ||
+                        cred?.onchain?.studentDID ||
+                        cred?.subject ||
+                        cred?.id ||
+                        "N/A";
 
-                    return (
-                      <div
-                        key={i}
-                        className="backdrop-blur-md rounded-2xl border border-gray-100 p-6 hover:shadow-md transition-all duration-200"
-                      >
-                        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-                          {/* Credential Info */}
-                          <div className="flex-1">
-                            <div className="grid md:grid-cols-2 gap-3 mb-4 p-1">
-                              <div className="flex flex-col mb-4">
-                                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
-                                  Subject
-                                </label>
-                                <p className="text-sm font-mono text-gray-800 dark-text-white break-all">
-                                  {subjectId}
-                                </p>
+                      return (
+                        <div
+                          key={i}
+                          className="backdrop-blur-md rounded-2xl border border-gray-100 p-6 hover:shadow-md transition-all duration-200"
+                        >
+                          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                            {/* Credential Info */}
+                            <div className="flex-1">
+                              <div className="grid md:grid-cols-2 gap-3 mb-4 p-1">
+                                <div className="flex flex-col mb-4">
+                                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                                    Subject
+                                  </label>
+                                  <p className="text-sm font-mono text-gray-800 dark-text-white break-all">
+                                    {subjectId}
+                                  </p>
+                                </div>
+                                <div className="flex flex-col mb-4">
+                                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                                    Name
+                                  </label>
+                                  <p className="text-sm text-gray-800 dark-text-white">
+                                    {cred?.credentialSubject?.name ??
+                                      cred?.name ??
+                                      cred?.credentialSubject?.fullName ??
+                                      "N/A"}
+                                  </p>
+                                </div>
+                                <div className="flex flex-col mb-4">
+                                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                                    Issuer
+                                  </label>
+                                  <p className="text-sm font-mono text-gray-800 dark-text-white break-all">
+                                    {cred?.issuer?.id ?? cred?.issuer ?? "N/A"}
+                                  </p>
+                                </div>
+                                <div className="flex flex-col mb-4">
+                                  <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                                    Issued
+                                  </label>
+                                  <p className="text-sm text-gray-800 dark-text-white">
+                                    {cred?.issuanceDate
+                                      ? new Date(
+                                          cred.issuanceDate
+                                        ).toLocaleDateString()
+                                      : "N/A"}
+                                  </p>
+                                </div>
                               </div>
-                              <div className="flex flex-col mb-4">
-                                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
-                                  Name
-                                </label>
-                                <p className="text-sm text-gray-800 dark-text-white">
-                                  {cred?.credentialSubject?.name ??
-                                    cred?.name ??
-                                    cred?.credentialSubject?.fullName ??
-                                    "N/A"}
-                                </p>
-                              </div>
-                              <div className="flex flex-col mb-4">
-                                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
-                                  Issuer
-                                </label>
-                                <p className="text-sm font-mono text-gray-800 dark-text-white break-all">
-                                  {cred?.issuer?.id ?? cred?.issuer ?? "N/A"}
-                                </p>
-                              </div>
-                              <div className="flex flex-col mb-4">
-                                <label className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
-                                  Issued
-                                </label>
-                                <p className="text-sm text-gray-800 dark-text-white">
-                                  {cred?.issuanceDate
-                                    ? new Date(
-                                      cred.issuanceDate
-                                    ).toLocaleDateString()
-                                    : "N/A"}
-                                </p>
-                              </div>
-                            </div>
 
-                            {/* On-chain info */}
-                            {cred?.onchain?.mappingCID ? (
-                              <div className="flex items-center p-3 bg-blue-100 rounded-lg">
-                                <svg
-                                  className="w-4 h-4 text-blue-400 dark-text-white mr-2 flex-shrink-0"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M13 10V3L4 14h7v7l9-11h-7z"
-                                  />
-                                </svg>
-                                <span className="text-sm text-blue-400 dark-text-white">
-                                  On-chain CID:{" "}
-                                  <a
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    href={`https://dweb.link/ipfs/${cred.onchain.mappingCID}`}
-                                    className="underline font-mono"
-                                  >
-                                    {cred.onchain.mappingCID}
-                                  </a>
-                                  {cred.onchain?.id && (
-                                    <span className="ml-2">
-                                      (ID #{cred.onchain.id})
-                                    </span>
-                                  )}
-                                  {cred.onchain?.valid === false && (
-                                    <span className="ml-2 text-red-600 font-medium">
-                                      (revoked)
-                                    </span>
-                                  )}
-                                </span>
-                              </div>
-                            ) : (
-                              cred?.onchain && (
-                                <div className="flex items-center p-3 bg-yellow-50 rounded-lg">
+                              {/* On-chain info */}
+                              {cred?.onchain?.mappingCID ? (
+                                <div className="flex items-center p-3 bg-blue-100 rounded-lg">
                                   <svg
-                                    className="w-4 h-4 text-yellow-500 mr-2"
+                                    className="w-4 h-4 text-blue-400 dark-text-white mr-2 flex-shrink-0"
                                     fill="none"
                                     stroke="currentColor"
                                     viewBox="0 0 24 24"
@@ -2873,424 +3213,524 @@ const EthrVcManager = () => {
                                       strokeLinecap="round"
                                       strokeLinejoin="round"
                                       strokeWidth={2}
-                                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                                      d="M13 10V3L4 14h7v7l9-11h-7z"
                                     />
                                   </svg>
-                                  <span className="text-sm text-yellow-700">
-                                    On-chain: ID {cred.onchain.id ?? "?"},{" "}
-                                    <span className="italic">
-                                      no IPFS mapping
-                                    </span>
+                                  <span className="text-sm text-blue-400 dark-text-white">
+                                    On-chain CID:{" "}
+                                    <a
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      href={`https://dweb.link/ipfs/${cred.onchain.mappingCID}`}
+                                      className="underline font-mono"
+                                    >
+                                      {cred.onchain.mappingCID}
+                                    </a>
+                                    {cred.onchain?.id && (
+                                      <span className="ml-2">
+                                        (ID #{cred.onchain.id})
+                                      </span>
+                                    )}
+                                    {cred.onchain?.valid === false && (
+                                      <span className="ml-2 text-red-600 font-medium">
+                                        (revoked)
+                                      </span>
+                                    )}
                                   </span>
                                 </div>
-                              )
-                            )}
-                          </div>
-
-                          {/* Actions */}
-                          <div className="flex-shrink-0 space-y-3">
-                            {/* Quick actions */}
-                            <div className="flex flex-wrap gap-2">
-                              <button
-                                onClick={() => downloadJSON(cred)}
-                                className="flex items-center gap-2 bg-blue-100 darkcard text-yellow-600 hover:text-yellow-500 px-3 py-2 rounded-lg hover:bg-yellow-200 transition-colors duration-200 text-sm font-medium"
-                              >
-                                <DownloadIcon size={14} /> JSON
-                              </button>
-                              <button
-                                onClick={() => downloadPDF(cred)}
-                                className="flex items-center gap-2 bg-blue-100 darkcard text-yellow-600 hover:text-yellow-500 px-3 py-2 rounded-lg hover:bg-yellow-200 transition-colors duration-200 text-sm font-medium"
-                              >
-                                <DownloadIcon size={14} /> PDF
-                              </button>
-                              <button
-                                onClick={() =>
-                                  jwt
-                                    ? copyToClipboard(jwt, "JWT")
-                                    : alert("No JWT for this credential")
-                                }
-                                className="flex items-center gap-2 bg-blue-100 darkcard text-yellow-600 hover:text-yellow-500 px-3 py-2 rounded-lg hover:bg-yellow-200 transition-colors duration-200 text-sm font-medium"
-                              >
-                                <CopyIcon size={14} /> JWT
-                              </button>
-                              <button
-                                onClick={() =>
-                                  jwt
-                                    ? generateQr(jwt)
-                                    : alert("No JWT to generate QR")
-                                }
-                                className="flex items-center gap-2 bg-blue-100 darkcard text-yellow-600 hover:text-yellow-500 px-3 py-2 rounded-lg hover:bg-yellow-200 transition-colors duration-200 text-sm font-medium"
-                              >
-                                QR
-                              </button>
+                              ) : (
+                                cred?.onchain && (
+                                  <div className="flex items-center p-3 bg-yellow-50 rounded-lg">
+                                    <svg
+                                      className="w-4 h-4 text-yellow-500 mr-2"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                                      />
+                                    </svg>
+                                    <span className="text-sm text-yellow-700">
+                                      On-chain: ID {cred.onchain.id ?? "?"},{" "}
+                                      <span className="italic">
+                                        no IPFS mapping
+                                      </span>
+                                    </span>
+                                  </div>
+                                )
+                              )}
                             </div>
 
-                            {/* IPFS token input */}
-                            <input
-                              placeholder="IPFS token (optional)"
-                              value={ipfsToken}
-                              onChange={(e) => setIpfsToken(e.target.value)}
-                              className="w-full border border-gray-100 text-blue-900 dark-text-white px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            />
-
-                            {/* Publish actions */}
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() =>
-                                  publishCredentialToIpfsAndStoreOnChain(
-                                    cred,
-                                    i
-                                  )
-                                }
-                                className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white px-3 py-2 rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-200 text-sm font-medium shadow-sm hover:shadow-md"
-                              >
-                                {ipfsStatus[i]?.uploading
-                                  ? "Uploading..."
-                                  : chainStatus[i]?.sending
-                                    ? "Storing..."
-                                    : "Publish & Store"}
-                              </button>
-
-                              {cred?.onchain?.mappingCID && (
+                            {/* Actions */}
+                            <div className="flex-shrink-0 space-y-3">
+                              {/* Quick actions */}
+                              <div className="flex flex-wrap gap-2">
+                                <button
+                                  onClick={() => downloadJSON(cred)}
+                                  className="flex items-center gap-2 bg-blue-100 darkcard text-yellow-600 hover:text-yellow-500 px-3 py-2 rounded-lg hover:bg-yellow-200 transition-colors duration-200 text-sm font-medium"
+                                >
+                                  <DownloadIcon size={14} /> JSON
+                                </button>
+                                <button
+                                  onClick={() => downloadPDF(cred)}
+                                  className="flex items-center gap-2 bg-blue-100 darkcard text-yellow-600 hover:text-yellow-500 px-3 py-2 rounded-lg hover:bg-yellow-200 transition-colors duration-200 text-sm font-medium"
+                                >
+                                  <DownloadIcon size={14} /> PDF
+                                </button>
                                 <button
                                   onClick={() =>
-                                    retryFetchIpfs(cred.onchain.mappingCID, i)
+                                    jwt
+                                      ? copyToClipboard(jwt, "JWT")
+                                      : alert("No JWT for this credential")
                                   }
-                                  className="bg-gray-100 text-yellow-600 hover:text-yellow-500 darkcard font-bold px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors duration-200 text-sm"
+                                  className="flex items-center gap-2 bg-blue-100 darkcard text-yellow-600 hover:text-yellow-500 px-3 py-2 rounded-lg hover:bg-yellow-200 transition-colors duration-200 text-sm font-medium"
                                 >
-                                  {ipfsStatus["retry-" + i]?.fetching
-                                    ? "..."
-                                    : "↻"}
+                                  <CopyIcon size={14} /> JWT
                                 </button>
-                              )}
-                            </div>
-
-                            {/* Status indicators */}
-                            <div className="space-y-1">
-                              {ipfsStatus[i]?.cid && (
-                                <div className="text-xs">
-                                  <a
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    href={`https://dweb.link/ipfs/${ipfsStatus[i].cid}`}
-                                    className="text-blue-600 hover:text-blue-800 underline"
-                                  >
-                                    View IPFS ({ipfsStatus[i].cid.slice(0, 8)}
-                                    ...)
-                                  </a>
-                                </div>
-                              )}
-                              {ipfsStatus[i]?.error && (
-                                <div className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded">
-                                  {typeof ipfsStatus[i].error === "object"
-                                    ? JSON.stringify(ipfsStatus[i].error)
-                                    : ipfsStatus[i].error}
-                                </div>
-                              )}
-                              {chainStatus[i]?.txHash && (
-                                <div className="text-xs">
-                                  <a
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    href={`https://etherscan.io/tx/${chainStatus[i].txHash}`}
-                                    className="text-green-600 hover:text-green-800 underline"
-                                  >
-                                    View TX ({chainStatus[i].txHash.slice(0, 8)}
-                                    ...)
-                                  </a>
-                                </div>
-                              )}
-                              {chainStatus[i]?.error && (
-                                <div className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded">
-                                  {typeof chainStatus[i].error === "object"
-                                    ? JSON.stringify(chainStatus[i].error)
-                                    : chainStatus[i].error}
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Retry IPFS result */}
-                            {ipfsStatus["retry-" + i]?.json && (
-                              <div className="bg-gray-50 rounded-lg p-3">
-                                <div className="text-xs font-medium text-gray-700 mb-2">
-                                  Fetched IPFS Data:
-                                </div>
-                                <div className="bg-white rounded p-2 max-h-24 overflow-auto">
-                                  <pre className="text-xs text-gray-600">
-                                    {JSON.stringify(
-                                      ipfsStatus["retry-" + i].json,
-                                      null,
-                                      2
-                                    )}
-                                  </pre>
-                                </div>
+                                <button
+                                  onClick={() =>
+                                    jwt
+                                      ? generateQr(jwt)
+                                      : alert("No JWT to generate QR")
+                                  }
+                                  className="flex items-center gap-2 bg-blue-100 darkcard text-yellow-600 hover:text-yellow-500 px-3 py-2 rounded-lg hover:bg-yellow-200 transition-colors duration-200 text-sm font-medium"
+                                >
+                                  QR
+                                </button>
                               </div>
-                            )}
+
+                              {/* IPFS token input */}
+                              <input
+                                placeholder="IPFS token (optional)"
+                                value={ipfsToken}
+                                onChange={(e) => setIpfsToken(e.target.value)}
+                                className="w-full border border-gray-100 text-blue-900 dark-text-white px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              />
+
+                              {/* Publish actions */}
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() =>
+                                    publishCredentialToIpfsAndStoreOnChain(
+                                      cred,
+                                      i
+                                    )
+                                  }
+                                  className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white px-3 py-2 rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all duration-200 text-sm font-medium shadow-sm hover:shadow-md"
+                                >
+                                  {ipfsStatus[i]?.uploading
+                                    ? "Uploading..."
+                                    : chainStatus[i]?.sending
+                                    ? "Storing..."
+                                    : "Publish & Store"}
+                                </button>
+
+                                {cred?.onchain?.mappingCID && (
+                                  <button
+                                    onClick={() =>
+                                      retryFetchIpfs(cred.onchain.mappingCID, i)
+                                    }
+                                    className="bg-gray-100 text-yellow-600 hover:text-yellow-500 darkcard font-bold px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors duration-200 text-sm"
+                                  >
+                                    {ipfsStatus["retry-" + i]?.fetching
+                                      ? "..."
+                                      : "↻"}
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Status indicators */}
+                              <div className="space-y-1">
+                                {ipfsStatus[i]?.cid && (
+                                  <div className="text-xs">
+                                    <a
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      href={`https://dweb.link/ipfs/${ipfsStatus[i].cid}`}
+                                      className="text-blue-600 hover:text-blue-800 underline"
+                                    >
+                                      View IPFS ({ipfsStatus[i].cid.slice(0, 8)}
+                                      ...)
+                                    </a>
+                                  </div>
+                                )}
+                                {ipfsStatus[i]?.error && (
+                                  <div className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded">
+                                    {typeof ipfsStatus[i].error === "object"
+                                      ? JSON.stringify(ipfsStatus[i].error)
+                                      : ipfsStatus[i].error}
+                                  </div>
+                                )}
+                                {chainStatus[i]?.txHash && (
+                                  <div className="text-xs">
+                                    <a
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      href={`https://etherscan.io/tx/${chainStatus[i].txHash}`}
+                                      className="text-green-600 hover:text-green-800 underline"
+                                    >
+                                      View TX (
+                                      {chainStatus[i].txHash.slice(0, 8)}
+                                      ...)
+                                    </a>
+                                  </div>
+                                )}
+                                {chainStatus[i]?.error && (
+                                  <div className="text-xs text-red-600 bg-red-50 px-2 py-1 rounded">
+                                    {typeof chainStatus[i].error === "object"
+                                      ? JSON.stringify(chainStatus[i].error)
+                                      : chainStatus[i].error}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Retry IPFS result */}
+                              {ipfsStatus["retry-" + i]?.json && (
+                                <div className="bg-gray-50 rounded-lg p-3">
+                                  <div className="text-xs font-medium text-gray-700 mb-2">
+                                    Fetched IPFS Data:
+                                  </div>
+                                  <div className="bg-white rounded p-2 max-h-24 overflow-auto">
+                                    <pre className="text-xs text-gray-600">
+                                      {JSON.stringify(
+                                        ipfsStatus["retry-" + i].json,
+                                        null,
+                                        2
+                                      )}
+                                    </pre>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* JWT Verification */}
-            <div className="backdrop-blur-md rounded-xl shadow-lg p-6">
-              <div className="flex items-center mb-6">
-                <div className="flex-shrink-0">
-                  <svg
-                    className="w-30 h-30 text-blue-900 dark-text-yellow"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-                    />
-                  </svg>
-                </div>
-                <div className="ml-4">
-                  <h3 className="text-3xl font-semibold text-blue-900 mb-2 dark-text-yellow">
-                    JWT Verification
-                  </h3>
-                  <p className="text-gray-600">
-                    Verify the authenticity of a credential JWT
-                  </p>
-                </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark-text-yellow mb-2">
-                    JWT Token <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    value={jwtToVerify}
-                    onChange={(e) => setJwtToVerify(e.target.value.trim())}
-                    rows={4}
-                    className="w-full border border-gray-100 text-gray-900 dark-text-white px-4 py-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors duration-200 font-mono text-sm"
-                    placeholder="Paste JWT token here for verification..."
-                  />
+              {/* JWT Verification */}
+              <div className="backdrop-blur-md rounded-xl shadow-lg p-6">
+                <div className="flex items-center mb-6">
+                  <div className="flex-shrink-0">
+                    <svg
+                      className="w-30 h-30 text-blue-900 dark-text-yellow"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                      />
+                    </svg>
+                  </div>
+                  <div className="ml-4">
+                    <h3 className="text-3xl font-semibold text-blue-900 mb-2 dark-text-yellow">
+                      JWT Verification
+                    </h3>
+                    <p className="text-gray-600">
+                      Verify the authenticity of a credential JWT
+                    </p>
+                  </div>
                 </div>
 
-                <div className="flex gap-3">
-                  <button
-                    onClick={handleJwtVerification}
-                    disabled={jwtVerifying}
-                    className={`bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-3 rounded-lg transition-all duration-200 font-medium shadow-md hover:shadow-lg transform ${jwtVerifying ? "opacity-70 cursor-wait hover:shadow-none" : "hover:from-green-700 hover:to-emerald-700 hover:-translate-y-0.5"}`}
-                  >
-                    <span className="flex items-center">
-                      {jwtVerifying ? (
-                        // spinner icon while verifying
-                        <svg
-                          className="animate-spin w-5 h-5 mr-2"
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark-text-yellow mb-2">
+                      JWT Token <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      value={jwtToVerify}
+                      onChange={(e) => setJwtToVerify(e.target.value.trim())}
+                      rows={4}
+                      className="w-full border border-gray-100 text-gray-900 dark-text-white px-4 py-3 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors duration-200 font-mono text-sm"
+                      placeholder="Paste JWT token here for verification..."
+                    />
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={handleJwtVerification}
+                      disabled={jwtVerifying}
+                      className={`bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-3 rounded-lg transition-all duration-200 font-medium shadow-md hover:shadow-lg transform ${
+                        jwtVerifying
+                          ? "opacity-70 cursor-wait hover:shadow-none"
+                          : "hover:from-green-700 hover:to-emerald-700 hover:-translate-y-0.5"
+                      }`}
+                    >
+                      <span className="flex items-center">
+                        {jwtVerifying ? (
+                          // spinner icon while verifying
+                          <svg
+                            className="animate-spin w-5 h-5 mr-2"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              className="opacity-25"
+                              cx="12"
+                              cy="12"
+                              r="10"
+                              stroke="currentColor"
+                              strokeWidth="4"
+                            />
+                            <path
+                              className="opacity-75"
+                              fill="currentColor"
+                              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                            />
+                          </svg>
+                        ) : (
+                          // static check icon when idle
+                          <svg
+                            className="w-5 h-5 mr-2"
+                            fill="none"
                             stroke="currentColor"
-                            strokeWidth="4"
-                          />
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                          />
-                        </svg>
-                      ) : (
-                        // static check icon when idle
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                          </svg>
+                        )}
+
+                        <span>
+                          {jwtVerifying ? "Verifying..." : "Verify JWT"}
+                        </span>
+                      </span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setJwtToVerify("");
+                        setVerificationResult(null);
+                      }}
+                      className="bg-gray-100 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-300 transition-colors duration-200 font-medium"
+                    >
+                      <span className="flex items-center">
                         <svg
                           className="w-5 h-5 mr-2"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
                         >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
                         </svg>
-                      )}
+                        Clear
+                      </span>
+                    </button>
+                  </div>
 
-                      <span>{jwtVerifying ? "Verifying..." : "Verify JWT"}</span>
-                    </span>
-                  </button>
+                  {/* Verification Results */}
+                  {verificationResult && (
+                    <div className="mt-6">
+                      <div
+                        className={`p-4 rounded-lg border-l-4 ${
+                          verificationResult.verified
+                            ? "bg-green-50 darkcard border-green-500"
+                            : "bg-red-50 border-red-500"
+                        }`}
+                      >
+                        <div className="flex items-center mb-3">
+                          {verificationResult.verified ? (
+                            <>
+                              <svg
+                                className="w-6 h-6 text-green-600 mr-2"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                                />
+                              </svg>
+                              <span className="text-green-800 font-semibold text-lg">
+                                Verification Successful ✅
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <svg
+                                className="w-6 h-6 text-red-600 mr-2"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                                />
+                              </svg>
+                              <span className="text-red-800 font-semibold text-lg">
+                                Verification Failed —{" "}
+                                {typeof verificationResult?.error === "object"
+                                  ? JSON.stringify(verificationResult.error)
+                                  : verificationResult?.error ??
+                                    "Unknown error"}
+                              </span>
+                            </>
+                          )}
+                        </div>
 
+                        {verificationResult.payload && (
+                          <div className="grid md:grid-cols-3 gap-4 mb-4">
+                            <div className="bg-white rounded-lg p-3">
+                              <label className="text-xs font-medium text-emerald-500 uppercase tracking-wide">
+                                Issuer
+                              </label>
+                              <p className="text-sm font-mono text-emerald-800 break-all">
+                                {verificationResult.payload?.iss ?? "N/A"}
+                              </p>
+                            </div>
+                            <div className="bg-white rounded-lg p-3">
+                              <label className="text-xs font-medium text-emerald-500 uppercase tracking-wide">
+                                Subject
+                              </label>
+                              <p className="text-sm font-mono text-emerald-800 break-all">
+                                {verificationResult.payload?.sub ?? "N/A"}
+                              </p>
+                            </div>
+                            <div className="bg-white rounded-lg p-3">
+                              <label className="text-xs font-medium text-emerald-500 uppercase tracking-wide">
+                                Expiry
+                              </label>
+                              <p className="text-sm text-emerald-800">
+                                {verificationResult.payload?.exp
+                                  ? new Date(
+                                      verificationResult.payload.exp * 1000
+                                    ).toLocaleDateString()
+                                  : "N/A"}
+                              </p>
+                            </div>
+                          </div>
+                        )}
 
+                        <details className="mt-3">
+                          <summary className="cursor-pointer text-sm font-medium text-blue-900 dark-text-yellow hover:text-gray-900">
+                            View full verification details
+                          </summary>
+                          <div className="mt-2 bg-white rounded-lg p-3 max-h-64 overflow-y-auto">
+                            <pre className="text-xs text-gray-600 whitespace-pre-wrap">
+                              {JSON.stringify(verificationResult, null, 2)}
+                            </pre>
+                          </div>
+                        </details>
+                      </div>
+                    </div>
+                  )}
+                  {/* Stamp verification indicator */}
+                  {stampStatus && (
+                    <div
+                      className={`mt-3 p-3 rounded-lg ${
+                        stampStatus.ok
+                          ? "bg-green-50 border-l-4 border-green-500"
+                          : "bg-red-50 border-l-4 border-red-500"
+                      }`}
+                    >
+                      <div className="flex items-center mb-1">
+                        <svg
+                          className={`w-5 h-5 mr-2 ${
+                            stampStatus.ok ? "text-green-600" : "text-red-600"
+                          }`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d={
+                              stampStatus.ok
+                                ? "M9 12l2 2 4-4"
+                                : "M6 18L18 6M6 6l12 12"
+                            }
+                          />
+                        </svg>
+                        <div className="text-sm font-medium">
+                          {stampStatus.ok
+                            ? "Stamp verified"
+                            : "Stamp verification failed"}
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-700">
+                        {stampStatus.ok ? (
+                          <>
+                            Signer:{" "}
+                            <code className="font-mono">
+                              {stampStatus.recoveredAddress}
+                            </code>
+                            {stampStatus.publicKey && (
+                              <>
+                                <br />
+                                Public key:{" "}
+                                <code className="font-mono break-all">
+                                  {stampStatus.publicKey}
+                                </code>
+                              </>
+                            )}
+                          </>
+                        ) : (
+                          <div>
+                            {stampStatus.error ||
+                              "No valid stamp found or recovery failed."}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
                   <button
-                    onClick={() => {
-                      setJwtToVerify("");
-                      setVerificationResult(null);
-                    }}
-                    className="bg-gray-100 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-300 transition-colors duration-200 font-medium"
+                    type="button"
+                    onClick={() => setCurrentPage("vcverifier")}
+                    className="bg-emerald-600 text-white px-6 py-3 rounded-lg hover:bg-emerald-700 transition-colors duration-200 font-medium"
                   >
-                    <span className="flex items-center">
+                    <span className="flex items-center gap-4">
+                      Credential Verifier
                       <svg
-                        className="w-5 h-5 mr-2"
-                        fill="none"
-                        stroke="currentColor"
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="28"
+                        height="28"
                         viewBox="0 0 24 24"
                       >
                         <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          fill="none"
+                          stroke="#fff"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M14 12H4m10 0l-4 4m4-4l-4-4m10-4v16"
                         />
                       </svg>
-                      Clear
                     </span>
                   </button>
                 </div>
-
-                {/* Verification Results */}
-                {verificationResult && (
-                  <div className="mt-6">
-                    <div
-                      className={`p-4 rounded-lg border-l-4 ${verificationResult.verified
-                        ? "bg-green-50 darkcard border-green-500"
-                        : "bg-red-50 border-red-500"
-                        }`}
-                    >
-                      <div className="flex items-center mb-3">
-                        {verificationResult.verified ? (
-                          <>
-                            <svg
-                              className="w-6 h-6 text-green-600 mr-2"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                              />
-                            </svg>
-                            <span className="text-green-800 font-semibold text-lg">
-                              Verification Successful ✅
-                            </span>
-                          </>
-                        ) : (
-                          <>
-                            <svg
-                              className="w-6 h-6 text-red-600 mr-2"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                              />
-                            </svg>
-                            <span className="text-red-800 font-semibold text-lg">
-                              Verification Failed —{" "}
-                              {typeof verificationResult?.error === "object"
-                                ? JSON.stringify(verificationResult.error)
-                                : verificationResult?.error ?? "Unknown error"}
-                            </span>
-                          </>
-                        )}
-                      </div>
-
-                      {verificationResult.payload && (
-                        <div className="grid md:grid-cols-3 gap-4 mb-4">
-                          <div className="bg-white rounded-lg p-3">
-                            <label className="text-xs font-medium text-emerald-500 uppercase tracking-wide">
-                              Issuer
-                            </label>
-                            <p className="text-sm font-mono text-emerald-800 break-all">
-                              {verificationResult.payload?.iss ?? "N/A"}
-                            </p>
-                          </div>
-                          <div className="bg-white rounded-lg p-3">
-                            <label className="text-xs font-medium text-emerald-500 uppercase tracking-wide">
-                              Subject
-                            </label>
-                            <p className="text-sm font-mono text-emerald-800 break-all">
-                              {verificationResult.payload?.sub ?? "N/A"}
-                            </p>
-                          </div>
-                          <div className="bg-white rounded-lg p-3">
-                            <label className="text-xs font-medium text-emerald-500 uppercase tracking-wide">
-                              Expiry
-                            </label>
-                            <p className="text-sm text-emerald-800">
-                              {verificationResult.payload?.exp
-                                ? new Date(
-                                  verificationResult.payload.exp * 1000
-                                ).toLocaleDateString()
-                                : "N/A"}
-                            </p>
-                          </div>
-                        </div>
-                      )}
-
-                      <details className="mt-3">
-                        <summary className="cursor-pointer text-sm font-medium text-blue-900 dark-text-yellow hover:text-gray-900">
-                          View full verification details
-                        </summary>
-                        <div className="mt-2 bg-white rounded-lg p-3 max-h-64 overflow-y-auto">
-                          <pre className="text-xs text-gray-600 whitespace-pre-wrap">
-                            {JSON.stringify(verificationResult, null, 2)}
-                          </pre>
-                        </div>
-                      </details>
-                    </div>
-                  </div>
-                )}
-                {/* Stamp verification indicator */}
-                {stampStatus && (
-                  <div className={`mt-3 p-3 rounded-lg ${stampStatus.ok ? "bg-green-50 border-l-4 border-green-500" : "bg-red-50 border-l-4 border-red-500"}`}>
-                    <div className="flex items-center mb-1">
-                      <svg className={`w-5 h-5 mr-2 ${stampStatus.ok ? "text-green-600" : "text-red-600"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={stampStatus.ok ? "M9 12l2 2 4-4" : "M6 18L18 6M6 6l12 12"} />
-                      </svg>
-                      <div className="text-sm font-medium">{stampStatus.ok ? "Stamp verified" : "Stamp verification failed"}</div>
-                    </div>
-                    <div className="text-xs text-gray-700">
-                      {stampStatus.ok ? (
-                        <>
-                          Signer: <code className="font-mono">{stampStatus.recoveredAddress}</code>
-                          {stampStatus.publicKey && (
-                            <>
-                              <br />Public key: <code className="font-mono break-all">{stampStatus.publicKey}</code>
-                            </>
-                          )}
-                        </>
-                      ) : (
-                        <div>
-                          {stampStatus.error || "No valid stamp found or recovery failed."}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage("vcverifier")}
-                  className="bg-emerald-600 text-white px-6 py-3 rounded-lg hover:bg-emerald-700 transition-colors duration-200 font-medium"
-                >
-                  <span className="flex items-center gap-4">
-                    Credential Verifier
-                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24"><path fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 12H4m10 0l-4 4m4-4l-4-4m10-4v16"/></svg>
-                  </span>
-                </button>
               </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

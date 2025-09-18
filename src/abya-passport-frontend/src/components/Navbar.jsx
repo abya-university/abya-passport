@@ -28,7 +28,7 @@ function Navbar({ currentPage, setCurrentPage }) {
 
   const account = useActiveAccount();
   const isConnected = !!account;
-  const address = account?.address;
+  // const address = account?.address;
   const smartWallet = account?.address;
 
   console.log("Smart Wallet:", smartWallet);
@@ -187,7 +187,7 @@ function Navbar({ currentPage, setCurrentPage }) {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       })
-      .catch(() => { });
+      .catch(() => {});
   };
 
   const wallets = [
@@ -255,11 +255,12 @@ function Navbar({ currentPage, setCurrentPage }) {
   return (
     <nav
       className={`fixed top-4 left-1/2 transform -translate-x-1/2 w-[95vw] max-w-7xl transition-all duration-300 p-1 rounded-2xl z-50
-        ${isScrolled
-          ? isDark
-            ? "bg-transparent backdrop-blur-xl shadow-2xl border border-transparent"
-            : "bg-white/95 backdrop-blur-xl shadow-2xl border border-gray-200/20"
-          : "bg-transparent border-transparent shadow-none backdrop-blur-none"
+        ${
+          isScrolled
+            ? isDark
+              ? "bg-transparent backdrop-blur-xl shadow-2xl border border-transparent"
+              : "bg-white/95 backdrop-blur-xl shadow-2xl border border-gray-200/20"
+            : "bg-transparent border-transparent shadow-none backdrop-blur-none"
         }`}
       style={{
         background: isDark ? "transparent" : undefined,
@@ -272,17 +273,19 @@ function Navbar({ currentPage, setCurrentPage }) {
         }
       >
         <ul
-          className={`flex items-center justify-between gap-8 ${isDark ? "text-gray-100 font-sans" : "text-blue-900 font-sans"
-            }`}
+          className={`flex items-center justify-between gap-8 ${
+            isDark ? "text-gray-100 font-sans" : "text-blue-900 font-sans"
+          }`}
         >
           {/* Logo/Brand */}
           <li>
             <a
               href="/"
-              className={`text-2xl font-bold transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 flex items-center ${isDark
+              className={`text-2xl font-bold transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-2 flex items-center ${
+                isDark
                   ? "text-yellow-400 font-semibold"
                   : "text-blue-900 font-bold"
-                }`}
+              }`}
             >
               <img
                 src={AbyaLogo}
@@ -305,11 +308,12 @@ function Navbar({ currentPage, setCurrentPage }) {
                 key={item.name}
                 onClick={() => setCurrentPage && setCurrentPage(item.page)}
                 className={`relative transition-all duration-200 group font-medium
-                  ${currentPage === item.page
-                    ? isDark
-                      ? "text-yellow-400 font-bold"
-                      : "text-yellow-600 font-bold"
-                    : isDark
+                  ${
+                    currentPage === item.page
+                      ? isDark
+                        ? "text-yellow-400 font-bold"
+                        : "text-yellow-600 font-bold"
+                      : isDark
                       ? "text-gray-100 hover:text-yellow-300 font-normal"
                       : "text-blue-900 hover:text-blue-600 font-normal"
                   }
@@ -318,11 +322,12 @@ function Navbar({ currentPage, setCurrentPage }) {
                 {item.name}
                 <span
                   className={`absolute -bottom-1 left-0 h-0.5 transition-all duration-200
-                    ${currentPage === item.page
-                      ? isDark
-                        ? "bg-yellow-400 w-full"
-                        : "bg-yellow-600 w-full"
-                      : isDark
+                    ${
+                      currentPage === item.page
+                        ? isDark
+                          ? "bg-yellow-400 w-full"
+                          : "bg-yellow-600 w-full"
+                        : isDark
                         ? "bg-yellow-400 w-0 group-hover:w-full"
                         : "bg-yellow-600 w-0 group-hover:w-full"
                     }
@@ -403,9 +408,10 @@ function Navbar({ currentPage, setCurrentPage }) {
               >
                 <div
                   className={
-                    `${isDark
-                      ? "bg-[#101c2b]/95 border-blue-200 text-gray-100"
-                      : "bg-white/95 border-gray-200/20 text-gray-800"
+                    `${
+                      isDark
+                        ? "bg-[#101c2b]/95 border-blue-200 text-gray-100"
+                        : "bg-white/95 border-gray-200/20 text-gray-800"
                     } ` +
                     "backdrop-blur-xl p-6 rounded-2xl shadow-2xl border min-w-[300px] transition-colors duration-300"
                   }
@@ -414,8 +420,9 @@ function Navbar({ currentPage, setCurrentPage }) {
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex flex-col gap-3">
                       <span
-                        className={`text-lg font-semibold ${isDark ? "text-gray-100" : "text-blue-900"
-                          }`}
+                        className={`text-lg font-semibold ${
+                          isDark ? "text-gray-100" : "text-blue-900"
+                        }`}
                       >
                         {isAnyConnected
                           ? "Connected Account"
@@ -424,10 +431,11 @@ function Navbar({ currentPage, setCurrentPage }) {
                     </div>
                     <button
                       onClick={() => setShowConnectOptions(false)}
-                      className={`transition-colors p-1 rounded-lg ${isDark
+                      className={`transition-colors p-1 rounded-lg ${
+                        isDark
                           ? "text-gray-300 hover:text-yellow-400 hover:bg-gray-800"
                           : "text-gray-400 hover:text-gray-600 hover:bg-gray-100"
-                        }`}
+                      }`}
                     >
                       <svg
                         width="20"

@@ -1,6 +1,6 @@
 // src/contexts/EthrContext.jsx
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { useDynamicContext, useIsLoggedIn } from "@dynamic-labs/sdk-react-core";
+import { useActiveAccount } from "thirdweb/react";
 
 const API_URL =
   import.meta.env.VITE_APP_VERAMO_API_URL ||
@@ -20,33 +20,30 @@ export function EthrProvider({ children }) {
   const [walletDid, _setWalletDid] = useState(null);
   const [didLoading, setDidLoading] = useState(false);
 
-  const { user, primaryWallet } = useDynamicContext();
-  const isLoggedIn = useIsLoggedIn();
-
-  const smartWallet = user?.verifiedCredentials?.find(
-    (cred) => cred.walletName === "zerodev" || primaryWallet?.address
-  );
+  const account = useActiveAccount();
+  const isLoggedIn = !!account;
+  const smartWallet = account?.address;
 
   // whenever the connected address changes, reset state
   useEffect(() => {
-    _setWalletAddress(isLoggedIn ? smartWallet?.address : null);
+    _setWalletAddress(isLoggedIn ? smartWallet : null);
     _setWalletDid(null);
-  }, [smartWallet?.address, isLoggedIn]);
+  }, [smartWallet, isLoggedIn]);
 
   const setWalletAddress = (addr) => _setWalletAddress(addr);
   const setWalletDid = (did) => _setWalletDid(did);
 
   const refreshDid = async () => {
-    if (!isLoggedIn || !smartWallet?.address) return;
+    if (!isLoggedIn || !smartWallet) return;
     setDidLoading(true);
-    const alias = `issuer-wallet-${smartWallet?.address}`;
+    const alias = `issuer-wallet-${smartWallet}`;
     try {
       // 1) list
       const listRes = await fetch(`${API_URL}/did/list`);
       const { success, identifiers = [] } = await listRes.json();
       if (success) {
         const found = identifiers.find((i) =>
-          i.did.toLowerCase().endsWith(smartWallet?.address.toLowerCase())
+          i.did.toLowerCase().endsWith(smartWallet.toLowerCase())
         );
         if (found) {
           setWalletDid(found.did);
@@ -59,7 +56,7 @@ export function EthrProvider({ children }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           provider: "did:ethr",
-          walletAddress: smartWallet?.address,
+          walletAddress: smartWallet,
           alias,
         }),
       });
@@ -87,10 +84,10 @@ export function EthrProvider({ children }) {
 
   // automatically run refreshDid once when address appears
   useEffect(() => {
-    if ((isLoggedIn && smartWallet?.address) || primaryWallet?.address) {
+    if (isLoggedIn && smartWallet) {
       refreshDid();
     }
-  }, [isLoggedIn, smartWallet?.address || primaryWallet?.address]);
+  }, [isLoggedIn, smartWallet]);
 
   return (
     <EthrContext.Provider
