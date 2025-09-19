@@ -1,6 +1,6 @@
 // src/abya-passport-frontend/src/components/VCManager.jsx
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useInternetIdentity } from "../contexts/InternetContext";
 import { useToast } from "./Toast";
 import VCSharer from "./VCSharer";
@@ -76,6 +76,12 @@ const VCManager = () => {
       claims: prev.claims.filter((_, i) => i !== index),
     }));
   };
+
+  useEffect(() => {
+    if (identity && activeTab === "received") {
+      loadMyReceivedVCs();
+    }
+  }, [identity, activeTab, loadMyReceivedVCs]);
 
   // Update claim field
   const updateClaimField = (index, field, value) => {
@@ -324,9 +330,8 @@ const VCManager = () => {
                   {vc.expirationDate && (
                     <span
                       className={`${
-                        new Date(
-                          Number(BigInt(vc.expirationDate) / BigInt(1000000))
-                        ) < new Date()
+                        new Date(parseInt(vc.expirationDate) / 1000000) <
+                        new Date()
                           ? "text-red-600"
                           : "text-gray-600"
                       }`}
@@ -825,6 +830,7 @@ const VCManager = () => {
       <div className="flex justify-center mb-8">
         <div className="backdrop-blur-md rounded-lg p-1">
           <button
+            type="button"
             onClick={() => setActiveTab("received")}
             className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${
               activeTab === "received"
@@ -835,6 +841,7 @@ const VCManager = () => {
             Received VCs ({(myReceivedVCs || []).length})
           </button>
           <button
+            type="button"
             onClick={() => setActiveTab("issued")}
             className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${
               activeTab === "issued"
@@ -851,6 +858,7 @@ const VCManager = () => {
       {activeTab === "issued" && (
         <div className="text-center mb-8">
           <button
+            type="button"
             onClick={() => setShowIssueForm(!showIssueForm)}
             className="bg-blue-900 shadow-yellow-500 darkcard text-white px-6 py-3 rounded-2xl font-semibold transition-all duration-200 shadow-sm hover:shadow-xl transform hover:scale-105 hover:cursor-pointer"
           >
@@ -1081,7 +1089,7 @@ const VCManager = () => {
       {/* Loading State */}
       {isLoadingVCs && (
         <div className="text-center py-8">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500"></div>
           <p className="mt-2 text-gray-600">Loading credentials...</p>
         </div>
       )}

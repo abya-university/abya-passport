@@ -1,6 +1,13 @@
 // src/abya-passport-frontend/src/contexts/InternetContext.jsx
 
-import { createContext, useContext, useState, useEffect, useRef } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+} from "react";
 import { AuthClient } from "@dfinity/auth-client";
 import { HttpAgent, Actor } from "@dfinity/agent";
 import { Ed25519KeyIdentity } from "@dfinity/identity";
@@ -528,7 +535,7 @@ export const InternetIdentityProvider = ({ children }) => {
     }
   };
 
-  const loadMyIssuedVCs = async () => {
+  const loadMyIssuedVCs = useCallback(async () => {
     if (!identity) return;
     setIsLoadingVCs(true);
     try {
@@ -578,10 +585,10 @@ export const InternetIdentityProvider = ({ children }) => {
     } finally {
       setIsLoadingVCs(false);
     }
-  };
+  }, [identity, canisterId, retrieveVCDocument]);
 
   // Load VCs functions - FIXED
-  const loadMyReceivedVCs = async () => {
+  const loadMyReceivedVCs = useCallback(async () => {
     if (!did) return;
     setIsLoadingVCs(true);
     try {
@@ -621,7 +628,7 @@ export const InternetIdentityProvider = ({ children }) => {
     } finally {
       setIsLoadingVCs(false);
     }
-  };
+  }, [did, identity, retrieveVCDocument]);
 
   // Replace your existing verifyVC and add these helper functions to your InternetIdentityContext
 
