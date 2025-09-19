@@ -1,12 +1,24 @@
 import React, { useState } from "react";
-import { useInternetIdentity } from "../contexts/InternetContext";
+// import { useInternetIdentity } from "../contexts/InternetContext";
 import { useToast } from "./Toast";
 import QRCode from "react-qr-code";
 import QRCodeLib from "qrcode";
-import { Copy, CopyIcon, Download, DownloadIcon, LinkIcon, Pin, PinIcon, QrCode, QrCodeIcon, Share2, X } from "lucide-react";
+import {
+  Copy,
+  CopyIcon,
+  Download,
+  DownloadIcon,
+  LinkIcon,
+  Pin,
+  PinIcon,
+  QrCode,
+  QrCodeIcon,
+  Share2,
+  X,
+} from "lucide-react";
 
 const VCSharer = ({ vc, isOpen, onClose }) => {
-  const { identity } = useInternetIdentity();
+  // const { identity } = useInternetIdentity();
   const { showSuccess, showError } = useToast();
 
   const [shareMethod, setShareMethod] = useState("qr");
@@ -19,19 +31,19 @@ const VCSharer = ({ vc, isOpen, onClose }) => {
     if (!vc) return "";
 
     switch (method) {
-      case "reference":
+      case "reference": {
         // Lightweight reference format
         const reference = `vc://${vc.id}/${vc.metadata?.ipfsCid || vc.ipfsCid}`;
         setQrCodeData(reference);
         return reference;
-
-      case "full":
+      }
+      case "full": {
         // Complete VC document
         const fullVC = JSON.stringify(vc.document || vc);
         setQrCodeData(fullVC);
         return fullVC;
-
-      case "selective":
+      }
+      case "selective": {
         // Selected claims only
         const selectedVC = {
           ...vc,
@@ -44,7 +56,7 @@ const VCSharer = ({ vc, isOpen, onClose }) => {
         const selectiveData = JSON.stringify(selectedVC);
         setQrCodeData(selectiveData);
         return selectiveData;
-
+      }
       default:
         return "";
     }
@@ -70,7 +82,7 @@ const VCSharer = ({ vc, isOpen, onClose }) => {
       await navigator.clipboard.writeText(text);
       showSuccess(`${label} copied to clipboard!`);
     } catch (error) {
-      showError("Failed to copy to clipboard");
+      showError("Failed to copy to clipboard", error);
     }
   };
 
@@ -166,7 +178,9 @@ const VCSharer = ({ vc, isOpen, onClose }) => {
                   : "border-blue-200 hover:border-gray-300"
               }`}
             >
-              <div className="justify-center flex text-3xl text-gray-600 mb-2"><QrCodeIcon size={34} /></div>
+              <div className="justify-center flex text-3xl text-gray-600 mb-2">
+                <QrCodeIcon size={34} />
+              </div>
               <div className="font-medium text-gray-600">QR Code</div>
               <div className="text-sm text-gray-600">Scannable QR code</div>
             </button>
@@ -179,7 +193,9 @@ const VCSharer = ({ vc, isOpen, onClose }) => {
                   : "border-blue-200 hover:border-gray-300"
               }`}
             >
-              <div className="justify-center flex text-3xl text-gray-600 mb-2"><LinkIcon size={34} /> </div>
+              <div className="justify-center flex text-3xl text-gray-600 mb-2">
+                <LinkIcon size={34} />{" "}
+              </div>
               <div className="font-medium text-gray-600">Shareable URL</div>
               <div className="text-sm text-gray-600">
                 Direct verification link
@@ -194,8 +210,12 @@ const VCSharer = ({ vc, isOpen, onClose }) => {
                   : "border-blue-200 hover:border-gray-300"
               }`}
             >
-              <div className="justify-center text-gray-600 flex text-3xl mb-2"><PinIcon size={34} /></div>
-              <div className="font-medium text-gray-600">Selective Disclosure</div>
+              <div className="justify-center text-gray-600 flex text-3xl mb-2">
+                <PinIcon size={34} />
+              </div>
+              <div className="font-medium text-gray-600">
+                Selective Disclosure
+              </div>
               <div className="text-sm text-gray-600">
                 Share specific claims only
               </div>
@@ -238,7 +258,9 @@ const VCSharer = ({ vc, isOpen, onClose }) => {
                   onClick={() => generateQRCode("selective")}
                   className="p-3 bg-blue-100 hover:bg-blue-200 rounded-2xl border border-blue-200 text-left transition-colors"
                 >
-                  <div className="font-medium text-blue-900 dark-text-yellow">Selective</div>
+                  <div className="font-medium text-blue-900 dark-text-yellow">
+                    Selective
+                  </div>
                   <div className="text-sm text-gray-600">
                     Only chosen claims
                   </div>
@@ -381,7 +403,9 @@ const VCSharer = ({ vc, isOpen, onClose }) => {
                         }}
                         className="flex items-center justify-center space-x-2 py-2 px-4 text-gray-100 hover:bg-yellow-600 rounded-3xl text-gray-700 transition-colors"
                       >
-                        <span><Share2 /></span>
+                        <span>
+                          <Share2 />
+                        </span>
                       </button>
                     </div>
                   </div>
@@ -490,7 +514,7 @@ const VCSharer = ({ vc, isOpen, onClose }) => {
                   <div className="space-y-4">
                     {/* QR Code Display */}
                     <div className="flex flex-col md:flex-row items-start space-y-4 md:space-y-0 md:space-x-6">
-                    <div className="flex-shrink-0">
+                      <div className="flex-shrink-0">
                         {generateQRCodeSVG(qrCodeData)}
                       </div>
                       <div className="flex-1">

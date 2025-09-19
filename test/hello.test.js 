@@ -1,0 +1,11 @@
+const assert = require('assert');
+
+function hello() {
+    return 'Hello, world!';
+}
+
+describe('Hello Function', () => {
+    it('should return "Hello, world!"', () => {
+        assert.strictEqual(hello(), 'Hello, world!');
+    });
+});

@@ -4,7 +4,16 @@ import { useEthr } from "../contexts/EthrContext";
 import { storeDidDocument, registerDidOnIpfs } from "../services/ipfsService";
 
 const API_URL =
-  import.meta.env.VITE_APP_VERAMO_API_URL || "http://localhost:3000";
+  import.meta.env.VITE_APP_VERAMO_API_URL ||
+  "https://veramo-backend-service.onrender.com";
+
+console.log("Environment check:", {
+  API_URL,
+  PINATA_JWT: import.meta.env.VITE_APP_PINATA_JWT ? "✓ Set" : "✗ Missing",
+  PINATA_GATEWAY: import.meta.env.VITE_APP_PINATA_GATEWAY
+    ? "✓ Set"
+    : "✗ Missing",
+});
 
 export default function EthrDIDDoc() {
   const [didInput, setDidInput] = useState("");
@@ -181,7 +190,7 @@ export default function EthrDIDDoc() {
             <span className="font-semibold text-blue-900 dark-text-white">
               DID Doc: CID
             </span>
-            <span className="break-all text-blue-900 dark:text-yellow-200">
+            <span className="break-all text-blue-900 dark-text-yellow">
               {ipfsCid || "–"}
             </span>
           </div>
@@ -189,7 +198,7 @@ export default function EthrDIDDoc() {
             <span className="font-semibold text-blue-900 dark-text-white">
               Registry: CID
             </span>
-            <span className="break-all text-blue-900 dark:text-yellow-200">
+            <span className="break-all text-blue-900 dark-text-yellow">
               {registryCid || "–"}
             </span>
           </div>
