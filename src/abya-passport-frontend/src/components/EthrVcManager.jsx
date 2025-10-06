@@ -119,35 +119,6 @@ const EthrVcManager = () => {
     ],
   };
 
-  // const switchToSkaleTitan = async () => {
-  //   if (!window.ethereum) return false;
-
-  //   try {
-  //     // Try switching to the network
-  //     await window.ethereum.request({
-  //       method: "wallet_switchEthereumChain",
-  //       params: [{ chainId: SKALE_TITAN_CONFIG.chainId }],
-  //     });
-  //     return true;
-  //   } catch (switchError) {
-  //     // This error code indicates that the chain has not been added to MetaMask.
-  //     if (switchError.code === 4902) {
-  //       try {
-  //         await window.ethereum.request({
-  //           method: "wallet_addEthereumChain",
-  //           params: [SKALE_TITAN_CONFIG],
-  //         });
-  //         return true;
-  //       } catch (addError) {
-  //         console.error("Failed to add network:", addError);
-  //         return false;
-  //       }
-  //     }
-  //     console.error("Failed to switch network:", switchError);
-  //     return false;
-  //   }
-  // };
-
   // ---------------- helpers for ethers / BigNumber handling ----------------
   const safeToString = (v) => {
     try {

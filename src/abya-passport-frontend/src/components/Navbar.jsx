@@ -107,7 +107,9 @@ function Navbar({ currentPage, setCurrentPage }) {
       desiredChain?.slug ||
       "sepolia";
 
-    const alias = `issuer-${networkSlug}-${smartWallet}`;
+    // const alias = `issuer-${networkSlug}-${smartWallet}`;
+    const alias = `issuer-wallet-${smartWallet}`;
+
 
     const fetchOrCreateDid = async () => {
       setDidLoading(true);
