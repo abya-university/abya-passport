@@ -3,8 +3,22 @@ import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import * as ethers from "ethers";
 import { useEthr } from "../contexts/EthrContext";
-import { useEthersSigner } from "./useClientSigner";
-import { CreditCard, CreditCardIcon, IdCardIcon, StepBackIcon, VerifiedIcon, Wallet2Icon, WalletCards } from "lucide-react";
+
+import {
+  useActiveAccount,
+  useActiveWalletChain,
+} from "thirdweb/react";
+import { ethers5Adapter } from "thirdweb/adapters/ethers5";
+import { client } from "../client.jsx";
+
+import {
+  CreditCard,
+  CreditCardIcon,
+  IdCardIcon,
+  StepBackIcon,
+  VerifiedIcon,
+  Wallet2Icon,
+} from "lucide-react";
 import { fetchDidDocument } from "../services/ipfsService";
 
 const API_BASE = "http://localhost:3000";
@@ -63,12 +77,46 @@ const normalizeDidVariants = (did) => {
   return out.filter((v, i) => v && out.indexOf(v) === i);
 };
 
-const getContractReadonly = async () => {
+/**
+ * getContractReadonly
+ * - UPDATED: prefer thirdweb's ethers adapter to obtain a provider (when user is connected via thirdweb)
+ * - FALLBACK: window.ethereum injected provider
+ * - LAST RESORT: JSON-RPC provider from VITE_APP_RPC_URL or ethers.getDefaultProvider()
+ *
+ * NOTE: this function now accepts (account, activeChain) which we pass from the component via hooks.
+ */
+const getContractReadonly = async (account = null, activeChain = null) => {
   const rpcUrl =
     (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_APP_RPC_URL) || null;
-  let provider;
-  if (typeof window !== "undefined" && window.ethereum) {
+  let provider = null;
+
+  // 1) Try thirdweb adapter -> obtains signer (and provider) for the active account/chain
+  try {
+    if (account) {
+      // ethers5Adapter.signer.toEthers can produce a signer that includes provider
+      const signerOrProvider = await ethers5Adapter.signer.toEthers({
+        client,
+        chain: activeChain ?? undefined,
+        account,
+      });
+      if (signerOrProvider) {
+        // signerOrProvider may be a Signer object; prefer its provider for read calls
+        if (signerOrProvider.provider) {
+          provider = signerOrProvider.provider;
+        } else {
+          // if it's a provider, use it
+          provider = signerOrProvider;
+        }
+      }
+    }
+  } catch (e) {
+    console.warn("ethers5Adapter -> toEthers failed (non-fatal):", e);
+  }
+
+  // 2) Fallback to injected window.ethereum (MetaMask / walletconnect provider)
+  if (!provider && typeof window !== "undefined" && window.ethereum) {
     try {
+      // Use Web3Provider for ethers v5 compatibility
       if (ethers?.providers?.Web3Provider) {
         provider = new ethers.providers.Web3Provider(window.ethereum);
       } else if (ethers?.BrowserProvider) {
@@ -80,6 +128,7 @@ const getContractReadonly = async () => {
     }
   }
 
+  // 3) Fallback to RPC URL or default provider
   if (!provider) {
     try {
       if (rpcUrl) {
@@ -97,8 +146,11 @@ const getContractReadonly = async () => {
     }
   }
 
-  if (!provider) throw new Error("No JSONRPC or injected provider available for readonly operations");
+  if (!provider) {
+    throw new Error("No provider available for readonly operations (thirdweb/injected/rpc all failed)");
+  }
 
+  // Create contract connected to provider (read-only)
   const contract = new ethers.Contract(VC_ADDRESS, VC_ABI, provider);
   return contract;
 };
@@ -136,7 +188,6 @@ const getAddressFromDid = (did) => {
   }
 };
 
-// deep subset: returns true if every key in small exists and equals in big (recursively) - used to compare credentialSubject
 const deepSubsetMatch = (small, big) => {
   if (small === big) return true;
   if (typeof small !== "object" || small === null) return small === big;
@@ -154,7 +205,6 @@ const deepSubsetMatch = (small, big) => {
   return true;
 };
 
-/* fallback local signature extraction (kept but not used for stamp-only policy) */
 const extractIssuerAddress = (issuer) => {
   if (!issuer) return null;
   if (typeof issuer === "string") {
@@ -172,10 +222,14 @@ const extractIssuerAddress = (issuer) => {
   return null;
 };
 
-/* ------------------- on-chain fetcher (unchanged except include mappingCID) ------------------- */
-const fetchOnChainCredentialsForDid = async (did, walletAddressFallback = null) => {
+/**
+ * fetchOnChainCredentialsForDid
+ * - UPDATED: uses getContractReadonly(account, activeChain)
+ * - Accepts account and activeChain (thirdweb) so adapter can be used for provider
+ */
+const fetchOnChainCredentialsForDid = async (did, walletAddressFallback = null, account = null, activeChain = null) => {
   try {
-    const readContract = await getContractReadonly();
+    const readContract = await getContractReadonly(account, activeChain);
     if (!readContract.getCredentialsForDID) {
       console.warn("Contract does not expose getCredentialsForDID");
       return [];
@@ -312,7 +366,16 @@ const fetchOnChainCredentialsForDid = async (did, walletAddressFallback = null) 
 
 export default function VCVerifierEthr({ onBack = () => { } }) {
   const { walletAddress, walletDid } = useEthr();
-  const signerPromise = useEthersSigner();
+
+  // thirdweb hooks (used now throughout to decide provider / chain)
+  const account = useActiveAccount();
+  const activeChain = useActiveWalletChain();
+
+  // signer address (no custom hook): derive from thirdweb account object
+  const [signerAddr, setSignerAddr] = useState(null);
+  useEffect(() => {
+    setSignerAddr(account?.address || null);
+  }, [account]);
 
   const [jwtInput, setJwtInput] = useState("");
   const [jsonText, setJsonText] = useState("");
@@ -321,12 +384,11 @@ export default function VCVerifierEthr({ onBack = () => { } }) {
   const [decodedJwtPayload, setDecodedJwtPayload] = useState(null);
   const [verificationResult, setVerificationResult] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [signerAddr, setSignerAddr] = useState(null);
 
   // Stored credentials list + selection + per-credential status map
   const [stored, setStored] = useState([]);
   const [selectedIds, setSelectedIds] = useState(new Set());
-  const [statusMap, setStatusMap] = useState({}); 
+  const [statusMap, setStatusMap] = useState({});
 
   // UI state
   const [fetchingList, setFetchingList] = useState(false);
@@ -344,17 +406,8 @@ export default function VCVerifierEthr({ onBack = () => { } }) {
   }, []);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const s = await signerPromise;
-        if (!s) return;
-        try {
-          const addr = await s.getAddress();
-          if (mountedRef.current) setSignerAddr(addr);
-        } catch (_) { }
-      } catch (_) { }
-    })();
-  }, [signerPromise]);
+    // nothing async here that needs signerPromise; signer address from account is enough for display
+  }, [account]);
 
   const TRY_FETCH_PATHS = useMemo(
     () => [
@@ -446,7 +499,8 @@ export default function VCVerifierEthr({ onBack = () => { } }) {
       if (!found || (Array.isArray(found) && found.length === 0)) {
         if (walletDid || walletAddress) {
           const didToUse = walletDid || walletAddress;
-          const onchain = await fetchOnChainCredentialsForDid(didToUse, walletAddress);
+          // PASS thirdweb account & activeChain into on-chain fetch function
+          const onchain = await fetchOnChainCredentialsForDid(didToUse, walletAddress, account, activeChain);
           if (onchain && onchain.length > 0) {
             const normalized = onchain.map((c, idx) => ({ ...(c || {}), __uiId: c?.onchain?.id?.toString?.() || `onchain-${idx}` }));
             if (mountedRef.current) setStored(normalized);
@@ -502,7 +556,7 @@ export default function VCVerifierEthr({ onBack = () => { } }) {
   useEffect(() => {
     fetchStoredCredentials();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [walletDid, walletAddress]);
+  }, [walletDid, walletAddress, account?.address, activeChain?.slug]);
 
   /* --------------------------- Selection & verification logic --------------------------- */
   const toggleSelect = (uiId) => {
@@ -550,7 +604,6 @@ export default function VCVerifierEthr({ onBack = () => { } }) {
   };
 
   const verifyWithBackend = async (payload) => {
-    // kept for compatibility but NOT used for stamp-only signature policy
     try {
       const body = typeof payload === "string" ? { credential: payload } : { credential: payload };
       const res = await axios.post(`${API_BASE}/credential/verify`, body);
@@ -561,7 +614,6 @@ export default function VCVerifierEthr({ onBack = () => { } }) {
     }
   };
 
-  // concurrency helper
   const runWithConcurrency = async (items, workerFn, concurrency = 3) => {
     const results = [];
     let idx = 0;
@@ -578,35 +630,28 @@ export default function VCVerifierEthr({ onBack = () => { } }) {
           results[i] = { error: String(e) };
         } finally {
           active.delete(p);
-          // start next
           await next();
         }
       })();
       active.add(p);
-      // keep pool size
       if (active.size < concurrency && idx < items.length) {
         await next();
       }
       return p;
     };
 
-    // start initial concurrency
     const starters = [];
     for (let j = 0; j < Math.min(concurrency, items.length); j++) starters.push(next());
     await Promise.all(starters);
-    // wait for remaining active
     await Promise.all(Array.from(active));
     return results;
   };
 
-  // run checks for a single credential item, update statusMap
   const runChecksForCredential = async (credItem, opts = { ensureResolved: true }) => {
     const id = credItem.__uiId;
-    // mark running
     setStatusMap((m) => ({ ...m, [id]: { ...(m[id] || {}), running: true, lastError: null } }));
     try {
       let cred = credItem.credential || null;
-      // if ensureResolved, attempt to load remote IPFS if missing
       if ((!cred || Object.keys(cred).length === 0) && opts.ensureResolved) {
         setStatusMap((m) => ({ ...m, [id]: { ...(m[id] || {}), resolving: true } }));
         const resolved = await resolveCredentialIfNeeded(credItem);
@@ -617,7 +662,6 @@ export default function VCVerifierEthr({ onBack = () => { } }) {
         setStatusMap((m) => ({ ...m, [id]: { ...(m[id] || {}), resolving: false } }));
       }
 
-      // STRUCTURE check: prefer issuer.id
       const missing = [];
       if (!cred) {
         missing.push("credential (empty)");
@@ -625,15 +669,12 @@ export default function VCVerifierEthr({ onBack = () => { } }) {
         const issuerVal = (cred?.issuer && (typeof cred.issuer === "string" ? cred.issuer : cred.issuer?.id)) || cred?.iss || null;
         if (!issuerVal) missing.push("issuer / iss");
         if (!cred.issuanceDate && !cred.iat) missing.push("issuanceDate / iat");
-        // credentialSubject or sub, prefer credentialSubject.id
         const cs = cred.credentialSubject || cred.sub || null;
         if (!cs) missing.push("credentialSubject / sub");
-        // proof/jwt/jws/signature
         if (!cred.proof && !cred.jwt && !cred.jws && !cred.signature) missing.push("proof / jwt / jws / signature");
       }
       const struct = { ok: missing.length === 0, missing };
 
-      // ASSERTION detection
       const proof = cred?.proof || {};
       const assertion = { ok: false, details: {} };
       if (proof?.jwt || cred?.jwt) {
@@ -647,7 +688,6 @@ export default function VCVerifierEthr({ onBack = () => { } }) {
         assertion.details = { note: "No recognizable assertion/proof" };
       }
 
-      // REQUIRED: issuer, issuanceDate, credentialSubject.id
       const issuerId = (cred?.issuer && (typeof cred.issuer === "string" ? cred.issuer : cred.issuer?.id)) || cred?.iss || null;
       const subjectId =
         (cred?.credentialSubject && (typeof cred.credentialSubject === "string" ? cred.credentialSubject : cred.credentialSubject?.id)) ||
@@ -660,12 +700,8 @@ export default function VCVerifierEthr({ onBack = () => { } }) {
       };
       const requiredOk = required.issuer && required.issuanceDate && required.credentialSubject;
 
-      // --------------------------
-      // SIGNATURE verification (STAMP-ONLY POLICY)
-      // --------------------------
       let signature = { checked: false, ok: false, details: {} };
 
-      // Decode JWT payload for UI only (store per-credential)
       if (proof?.jwt || cred?.jwt) {
         const jwt = proof?.jwt || cred?.jwt;
         try {
@@ -680,12 +716,10 @@ export default function VCVerifierEthr({ onBack = () => { } }) {
         }
       }
 
-      // stamp-first: check stamp object presence and required fields
       const stamp = proof?.stamp || cred?.proof?.stamp || null;
       const requiredStampFields = ["signature", "signerAddress", "stampedAt", "method"];
       if (stamp && typeof stamp === "object") {
         const missingStampFields = requiredStampFields.filter((f) => {
-          // consider 0 a valid stampedAt, require non-null/undefined/empty for others
           if (!(f in stamp)) return true;
           const v = stamp[f];
           if (v === null || v === undefined) return true;
@@ -723,7 +757,6 @@ export default function VCVerifierEthr({ onBack = () => { } }) {
         };
       }
 
-      // EXPIRY
       let expiry = { ok: true, expired: false, details: null };
       try {
         const now = Date.now();
@@ -774,7 +807,6 @@ export default function VCVerifierEthr({ onBack = () => { } }) {
     }
   };
 
-  // verify selected with concurrency, update UI state
   const runBulkVerification = async () => {
     if (!selectedIds || selectedIds.size === 0) {
       alert("Select at least one credential to verify");
@@ -785,7 +817,6 @@ export default function VCVerifierEthr({ onBack = () => { } }) {
       const sel = Array.from(selectedIds);
       const items = sel.map((uiId) => stored.find((c) => c.__uiId === uiId)).filter(Boolean);
       await runWithConcurrency(items, async (item) => {
-        // ensure we fetch remote if needed
         await runChecksForCredential(item, { ensureResolved: true });
       }, BULK_CONCURRENCY);
     } finally {
@@ -793,7 +824,6 @@ export default function VCVerifierEthr({ onBack = () => { } }) {
     }
   };
 
-  // verify all stored credentials
   const runVerifyAll = async () => {
     if (!stored || stored.length === 0) {
       alert("No stored credentials to verify");
@@ -810,7 +840,6 @@ export default function VCVerifierEthr({ onBack = () => { } }) {
   };
 
   const runSingleVerify = async (cred) => {
-    // if credential hasn't been resolved fetch it first
     await runChecksForCredential(cred, { ensureResolved: true });
   };
 
@@ -907,7 +936,6 @@ export default function VCVerifierEthr({ onBack = () => { } }) {
             <span className="ml-2">Source: {loadedFrom}</span>
           </div>
 
-          {/* show stamp & decoded jwt info when available */}
           {s?.signature?.details?.stamp || s?.signature?.details?.signerAddressFromStamp || s?.signature?.details?.signerRecovered ? (
             <div className="text-xs text-gray-600 mt-2">
               <div>Stamp signer: <code className="font-mono">{s.signature.details.stamp?.signerAddress || s.signature.details.signerAddressFromStamp || s.signature.details.signerRecovered}</code></div>
@@ -924,7 +952,6 @@ export default function VCVerifierEthr({ onBack = () => { } }) {
             ) : null}
           </div>
 
-          {/* details section */}
           {isExpanded ? (
             <div className="mt-2 bg-gray-200 darkcard p-2 rounded text-xs text-gray-700 dark-text-yellow border border-blue-200 rounded-2xl">
               <div className="justify-center flex items-center gap-2 font-bold mb-8 mt-4"><CreditCard/>Verification details</div>

@@ -1,5 +1,5 @@
 // src/components/EthrVcManager.jsx
-import React, { use, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { jsPDF } from "jspdf";
 import QRCode from "qrcode";
@@ -12,7 +12,7 @@ import {
 } from "../services/ipfsService";
 import { useEthr } from "../contexts/EthrContext";
 import EthrABI from "../artifacts/contracts/UniversityVCV2.json";
-import { useEthersSigner } from "./useClientSigner";
+//import { useEthersSigner } from "./useClientSigner";
 import EthrPresentation from "./VcPresentationManager";
 import VCVerifierEthr from "./VCVerifierEthr";
 import { keccak256, toUtf8Bytes } from "ethers";
@@ -22,7 +22,10 @@ import {
   DownloadIcon,
   VerifiedIcon,
 } from "lucide-react";
-import * as secp from "@noble/secp256k1";
+
+import { useActiveAccount, useActiveWalletChain } from "thirdweb/react";
+import { ethers5Adapter } from "thirdweb/adapters/ethers5";
+import { client } from "../client.jsx";
 
 
 const API_BASE = "http://localhost:3000";
@@ -34,7 +37,10 @@ const VC_ABI = EthrABI.abi;
 
 const EthrVcManager = () => {
   const { walletAddress, walletDid, didLoading } = useEthr();
-  const signerPromise = useEthersSigner();
+  //const signerPromise = useEthersSigner();
+  const account = useActiveAccount();            // thirdweb active account object
+  const activeChain = useActiveWalletChain();    // thirdweb active wallet chain (slug, chainId, name)
+
 
   // Debug logging
   console.log("EthrVcManager render:", {
@@ -141,120 +147,75 @@ const EthrVcManager = () => {
     });
   }, []);
 
-  const getContractWithSigner = async () => {
-    if (typeof window === "undefined" || !window.ethereum)
-      throw new Error("No Web3 provider found (window.ethereum)");
 
-    // Check if wallet is connected
-    if (!walletAddress) {
-      throw new Error(
-        "Wallet not connected. Please connect your wallet first."
-      );
+  const getContractWithSigner = async () => {
+    // require a connected wallet address
+    if (!walletAddress && !account?.address) {
+      throw new Error("Wallet not connected. Please connect your wallet first.");
     }
 
+    // 1) Try thirdweb adapter -> ethers signer (recommended)
     try {
-      // Use the signer from the useEthersSigner hook
-      console.log("Attempting to get signer from hook...");
-      const signer = await signerPromise;
+      if (account) {
+        // toEthers returns an ethers Signer that maps to the active connector (smart wallets etc.)
+        const signer = await ethers5Adapter.signer.toEthers({
+          client,                 // your thirdweb client (imported above)
+          account,                // the activeThirdwebAccount (useActiveAccount())
+          chain: activeChain ?? undefined, // hint about which chain to use (optional)
+        });
 
-      if (!signer) {
-        console.log(
-          "Signer from hook is undefined, falling back to manual creation"
-        );
-        throw new Error("Signer from hook is undefined");
-      }
-
-      // Check network compatibility
-      try {
-        const signerAddress = await signer.getAddress();
-        console.log("Successfully got signer from hook:", signerAddress);
-
-        // Try to get network info
-        const provider = signer.provider;
-        if (provider && provider.getNetwork) {
-          const network = await provider.getNetwork();
-          console.log("Current network:", network);
+        if (signer) {
+          // return ethers.Contract bound to that signer
+          return new ethers.Contract(VC_ADDRESS, VC_ABI, signer);
         }
-
-        return new ethers.Contract(VC_ADDRESS, VC_ABI, signer);
-      } catch (addressError) {
-        console.error("Error getting signer address:", addressError);
-        throw new Error(
-          "Failed to get signer address: " + addressError.message
-        );
       }
-    } catch (error) {
-      console.error("getContractWithSigner error:", error);
+    } catch (err) {
+      console.warn("ethers5Adapter => toEthers failed, falling back to injected provider:", err);
+    }
 
-      // Fallback to manual provider creation if the hook fails
+    // 2) Fallback: use injected provider (MetaMask / walletconnect proxied provider)
+    if (typeof window !== "undefined" && window.ethereum) {
       try {
-        console.log("Falling back to manual provider creation...");
-
-        // Ethers v6: BrowserProvider
+        // ethers v6 BrowserProvider if available
         if (ethers?.BrowserProvider) {
           const provider = new ethers.BrowserProvider(window.ethereum);
-          try {
-            // Ensure accounts are connected
-            const accounts = await provider.send("eth_requestAccounts", []);
-            if (!accounts || accounts.length === 0) {
-              throw new Error("No accounts found. Please connect your wallet.");
-            }
-            console.log("Connected accounts:", accounts);
-          } catch (accountError) {
-            console.error("Account connection error:", accountError);
-            throw new Error(
-              "Failed to connect to wallet accounts: " + accountError.message
-            );
-          }
-
-          try {
-            const signer = await provider.getSigner();
-            console.log("Fallback signer obtained:", await signer.getAddress());
-            return new ethers.Contract(VC_ADDRESS, VC_ABI, signer);
-          } catch (signerError) {
-            console.error("Signer creation error:", signerError);
-            throw new Error("Failed to create signer: " + signerError.message);
-          }
+          // request accounts if needed
+          try { await provider.send("eth_requestAccounts", []); } catch (_) { }
+          const signer = await provider.getSigner();
+          return new ethers.Contract(VC_ADDRESS, VC_ABI, signer);
         }
 
-        // Ethers v5: providers.Web3Provider
+        // ethers v5 fallback
         if (ethers?.providers?.Web3Provider) {
           const provider = new ethers.providers.Web3Provider(window.ethereum);
-          try {
-            // Ensure accounts are connected
-            const accounts = await provider.send("eth_requestAccounts", []);
-            if (!accounts || accounts.length === 0) {
-              throw new Error("No accounts found. Please connect your wallet.");
-            }
-            console.log("Connected accounts:", accounts);
-          } catch (accountError) {
-            console.error("Account connection error:", accountError);
-            throw new Error(
-              "Failed to connect to wallet accounts: " + accountError.message
-            );
-          }
-
-          try {
-            const signer = provider.getSigner();
-            console.log("Fallback signer obtained:", await signer.getAddress());
-            return new ethers.Contract(VC_ADDRESS, VC_ABI, signer);
-          } catch (signerError) {
-            console.error("Signer creation error:", signerError);
-            throw new Error("Failed to create signer: " + signerError.message);
-          }
+          try { await provider.send("eth_requestAccounts", []); } catch (_) { }
+          const signer = provider.getSigner();
+          return new ethers.Contract(VC_ADDRESS, VC_ABI, signer);
         }
-
-        throw new Error(
-          "Unsupported ethers version: no BrowserProvider or providers.Web3Provider found"
-        );
-      } catch (fallbackError) {
-        console.error("Fallback provider creation failed:", fallbackError);
-        throw new Error(
-          "Failed to create contract with signer: " + error.message
-        );
+      } catch (fallbackErr) {
+        console.error("Fallback provider creation failed:", fallbackErr);
+        throw new Error("Failed to obtain signer from injected provider: " + String(fallbackErr));
       }
     }
+
+    // 3) Last-resort: try to get provider from the thirdweb account connector object
+    try {
+      const connector = account?.connector;
+      if (connector && typeof connector.getProvider === "function") {
+        const proxiedProvider = await connector.getProvider();
+        if (proxiedProvider) {
+          const provider = new ethers.providers.Web3Provider(proxiedProvider);
+          const signer = provider.getSigner();
+          return new ethers.Contract(VC_ADDRESS, VC_ABI, signer);
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to get provider via account.connector.getProvider():", e);
+    }
+
+    throw new Error("No signer/provider available for on-chain operations");
   };
+
 
   const getContractReadonly = async () => {
     if (typeof window !== "undefined" && window.ethereum) {
@@ -514,9 +475,6 @@ const EthrVcManager = () => {
 
         let txOrReceipt;
         try {
-          // Decide which issuance function to call:
-          // - Prefer issueCredentialWithDID when subject looks like a DID or an address string
-          // - Otherwise compute a salted/simple holderHash and call issueCredential(holderHash,...)
           const isDidLike =
             typeof subjectToStore === "string" &&
             (subjectToStore.startsWith("did:") || subjectToStore.startsWith("0x"));
@@ -3254,7 +3212,7 @@ const EthrVcManager = () => {
                 >
                   <span className="flex items-center gap-4">
                     Credential Verifier
-                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24"><path fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 12H4m10 0l-4 4m4-4l-4-4m10-4v16"/></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24"><path fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 12H4m10 0l-4 4m4-4l-4-4m10-4v16" /></svg>
                   </span>
                 </button>
               </div>

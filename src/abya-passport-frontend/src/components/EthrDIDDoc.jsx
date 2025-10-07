@@ -4,10 +4,11 @@ import { useEthr } from "../contexts/EthrContext";
 import { storeDidDocument, registerDidOnIpfs } from "../services/ipfsService";
 import { useActiveAccount, useActiveWalletChain } from "thirdweb/react";
 import { ethers } from "ethers";
+import { ethers5Adapter } from "thirdweb/adapters/ethers5";
+import { client } from "../client.jsx";
 
 const API_URL =
-  import.meta.env.VITE_APP_VERAMO_API_URL ||
-  "https://veramo-backend-service.onrender.com";
+  import.meta.env.VITE_APP_VERAMO_API_URL || "https://veramo-backend-service.onrender.com";
 
 const parseRegistryMap = () => {
   try {
@@ -19,7 +20,7 @@ const parseRegistryMap = () => {
   }
 };
 
-// Minimal ABI for a simple registry contract that has registerDid(did, cid)
+// Minimal ABI for a simple registry contract that has registerDid(string did, string cid)
 const registryAbi = [
   "function registerDid(string did, string cid) external",
 ];
@@ -49,10 +50,10 @@ export default function EthrDIDDoc() {
   const registryAddress = registryMap[networkSlug] || null;
 
   useEffect(() => {
-    console.log("Thirdweb account:", account?.address);
-    console.log("Active chain:", activeChain);
-    console.log("Registry map:", registryMap);
-    console.log("Registry address for chain:", registryAddress);
+    console.debug("Thirdweb account:", account?.address);
+    console.debug("Active chain:", activeChain);
+    console.debug("Registry map:", registryMap);
+    console.debug("Registry address for chain:", registryAddress);
   }, [account, activeChain, registryAddress]);
 
   // Sync did input when EthrContext updates
@@ -67,18 +68,31 @@ export default function EthrDIDDoc() {
     return `did:ethr:${slug}:${a}`;
   };
 
-  // Try to obtain an ethers.js Signer from available providers
+  // Recommended: use thirdweb adapters to obtain an ethers Signer when possible
   const getSigner = async () => {
-    // 1) Prefer window.ethereum (MetaMask / injected providers)
+    // 1) Try thirdweb -> ethers adapter (recommended)
+    try {
+      if (account) {
+        // pass the active chain (if available) so adapter can derive correct signer for that chain
+        const signer = await ethers5Adapter.signer.toEthers({
+          client,
+          chain: activeChain ?? undefined,
+          account,
+        });
+        if (signer) return signer;
+      }
+    } catch (e) {
+      console.warn("ethers5Adapter -> toEthers failed:", e);
+    }
+
+    // 2) Fallback to injected provider (MetaMask, etc.)
     if (typeof window !== "undefined" && window.ethereum) {
       try {
         const provider = new ethers.providers.Web3Provider(window.ethereum);
-        // If using walletconnect / injected it might require enabling
         try {
-          // request accounts if not already enabled - it's safe since user is connected
           await provider.send("eth_requestAccounts", []);
-        } catch (e) {
-          // ignore request error; signer may still be usable
+        } catch {
+          /* ignore */
         }
         return provider.getSigner();
       } catch (e) {
@@ -86,9 +100,8 @@ export default function EthrDIDDoc() {
       }
     }
 
-    // 2) Try to use thirdweb account connector provider (best-effort)
+    // 3) Last resort: try to get provider from account.connector (best-effort)
     try {
-      // account?.connector may expose getProvider (depends on connector)
       const connector = account?.connector;
       if (connector && typeof connector.getProvider === "function") {
         const proxied = await connector.getProvider();
@@ -101,7 +114,6 @@ export default function EthrDIDDoc() {
       console.warn("Failed to get provider from account.connector:", err);
     }
 
-    // 3) No signer available
     return null;
   };
 
@@ -112,10 +124,7 @@ export default function EthrDIDDoc() {
     if (!signer) throw new Error("No signer/provider available for on-chain anchoring");
 
     const contract = new ethers.Contract(registryAddr, registryAbi, signer);
-
-    // Call contract function (transaction)
     const tx = await contract.registerDid(canonicalDid, cid);
-    // wait for confirmation
     const receipt = await tx.wait();
     const hash = receipt?.transactionHash || tx.hash;
     return { hash, receipt };
@@ -131,7 +140,8 @@ export default function EthrDIDDoc() {
     setAnchorStatus(null);
 
     try {
-      const didToResolve = didInput || buildChainAwareDid(walletAddress) || buildChainAwareDid(account?.address);
+      const didToResolve =
+        didInput || buildChainAwareDid(walletAddress) || buildChainAwareDid(account?.address);
       if (!didToResolve) throw new Error("No DID available to resolve");
 
       // 1) Resolve via Veramo
@@ -162,28 +172,31 @@ export default function EthrDIDDoc() {
       const canonicalDid = didToResolve.startsWith("did:") ? didToResolve : buildChainAwareDid(walletAddress || account?.address);
 
       // 3) On-chain anchor if registry available
+      let onchainSucceeded = false;
       if (registryAddress) {
         try {
           setAnchorStatus("onchain");
           const result = await anchorOnChain(registryAddress, canonicalDid, cid);
+          // use the result immediately (do not rely on state for flow control)
           setRegistryCid(cid);
           setTxHash(result.hash);
+          onchainSucceeded = true;
+          setAnchorStatus("onchain");
         } catch (onchainErr) {
           console.error("On-chain anchor failed:", onchainErr);
           setAnchorStatus(null);
-          // fall through to IPFS registry fallback
+          onchainSucceeded = false;
         }
       }
 
-      // 4) Fallback to IPFS registry if no on-chain success
-      if (!txHash) {
+      // 4) Fallback to IPFS registry if on-chain did not succeed
+      if (!onchainSucceeded) {
         try {
           const regCid = await registerDidOnIpfs(canonicalDid, cid);
           setRegistryCid(regCid);
           setAnchorStatus("ipfs");
         } catch (regErr) {
           console.error("IPFS registry registration failed:", regErr);
-          // don't throw; main path succeeded (resolve+store)
         }
       }
     } catch (err) {
@@ -198,21 +211,15 @@ export default function EthrDIDDoc() {
   if (!account || !walletAddress) return <p>Please connect your wallet in the Navbar.</p>;
 
   const chainLabel = activeChain?.name || activeChain?.slug || networkSlug || "unknown";
+  const explorerBase = (activeChain?.blockExplorers && activeChain.blockExplorers[0]?.url) || activeChain?.explorer?.url || "";
 
   return (
     <div className="relative group bg-transparent border border-blue-200 rounded-2xl max-w-2xl mx-auto p-8 shadow-lg hover:shadow-2xl transition-all duration-200 overflow-hidden feature-card backdrop-blur-xl mt-12">
-      <div className="absolute -top-4 -right-4 opacity-10 group-hover:opacity-20 transition-opacity duration-200 pointer-events-none">
-        <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24">
-          <polygon points="12,2 19,12 12,22 5,12" fill="#0b5c85" />
-          <polygon points="12,2 12,22 19,12" fill="#f0ce00" />
-        </svg>
-      </div>
-
       <h2 className="text-3xl font-bold text-blue-900 dark-text-yellow mb-6 text-center">
         Ethereum DID Resolver
       </h2>
       <p className="text-xl text-gray-600 mb-8 text-center">
-        Resolve your DID and store/anchor it.
+        Resolve your DID and store/anchor it (chain: {chainLabel})
       </p>
 
       <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
@@ -265,7 +272,7 @@ export default function EthrDIDDoc() {
             <div className="flex flex-col gap-1">
               <span className="break-all">{registryCid || "–"}</span>
               {anchorStatus === "onchain" && txHash && (
-                <a className="text-sm underline" href={`${activeChain?.explorer?.url || ""}/tx/${txHash}`} target="_blank" rel="noreferrer">
+                <a className="text-sm underline" href={`${explorerBase}/tx/${txHash}`} target="_blank" rel="noreferrer">
                   View on {chainLabel} explorer
                 </a>
               )}
