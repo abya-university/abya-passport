@@ -5,19 +5,18 @@ import { PinataSDK } from "pinata-web3";
 // Debug environment variables
 console.log("IPFS Service Environment Check:", {
   PINATA_JWT:
-    import.meta.env.VITE_APP_PINATA_JWT || "b5de97e4d7f291fffa29"
+    import.meta.env.VITE_APP_PINATA_JWT
       ? "✓ Present"
       : "✗ Missing",
   PINATA_GATEWAY:
-    import.meta.env.VITE_APP_PINATA_GATEWAY ||
-    "indigo-able-aphid-853.mypinata.cloud"
+    import.meta.env.VITE_APP_PINATA_GATEWAY
       ? "✓ Present"
       : "✗ Missing",
   JWT_LENGTH: import.meta.env.VITE_APP_PINATA_JWT?.length || 0,
   JWT_FORMAT: import.meta.env.VITE_APP_PINATA_JWT
     ? "Starts with: " +
-      import.meta.env.VITE_APP_PINATA_JWT.substring(0, 10) +
-      "..."
+    import.meta.env.VITE_APP_PINATA_JWT.substring(0, 10) +
+    "..."
     : "N/A",
 });
 
@@ -27,11 +26,9 @@ let pinataInitError = null;
 
 try {
   const jwtToken =
-    import.meta.env.VITE_APP_PINATA_JWT ||
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySW5mb3JtYXRpb24iOnsiaWQiOiJiNzY5NDU5NS1mN2FjLTQ2ODYtOWQzNy1lYzY4Y2M1MmY4MzIiLCJlbWFpbCI6Imt5YWxlcGV0ZXIyMDAwQGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJwaW5fcG9saWN5Ijp7InJlZ2lvbnMiOlt7ImRlc2lyZWRSZXBsaWNhdGlvbkNvdW50IjoxLCJpZCI6IkZSQTEifSx7ImRlc2lyZWRSZXBsaWNhdGlvbkNvdW50IjoxLCJpZCI6Ik5ZQzEifV0sInZlcnNpb24iOjF9LCJtZmFfZW5hYmxlZCI6ZmFsc2UsInN0YXR1cyI6IkFDVElWRSJ9LCJhdXRoZW50aWNhdGlvblR5cGUiOiJzY29wZWRLZXkiLCJzY29wZWRLZXlLZXkiOiJiNWRlOTdlNGQ3ZjI5MWZmZmEyOSIsInNjb3BlZEtleVNlY3JldCI6IjNjMTg2ZmI1ODk4MDc3NzY5OGJhYjhlOTVmMDEwZjQwZmQwZDA0ZTE0ZGU4ZjQ5YjU1MTEwODM1MWFlZmFmMjgiLCJleHAiOjE3ODYyOTE1NDh9.4I210vbOit7J2OC0e9yiyq7QGkHIGq14CuS5v1t6zWQ";
+    import.meta.env.VITE_APP_PINATA_JWT;
   const gateway =
-    import.meta.env.VITE_APP_PINATA_GATEWAY ||
-    "indigo-able-aphid-853.mypinata.cloud";
+    import.meta.env.VITE_APP_PINATA_GATEWAY;
 
   if (!jwtToken || jwtToken.trim() === "") {
     pinataInitError =
@@ -229,7 +226,7 @@ export const fetchDidDocument = async (cid) => {
           }
         }
       } catch (parseError) {
-        console.warn("Failed to parse localStorage data for key:", key);
+        console.warn("Failed to parse localStorage data for key:", key, parseError);
       }
     }
 
@@ -531,8 +528,7 @@ const getDidRegistryCid = async () => {
     }
 
     const response = await fetch(
-      `${
-        import.meta.env.VITE_APP_PINATA_GATEWAY
+      `${import.meta.env.VITE_APP_PINATA_GATEWAY
       }/data/pinList?metadata[name]=did-registry.json`,
       {
         headers: {

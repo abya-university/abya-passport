@@ -1,4 +1,5 @@
 import { createThirdwebClient } from "thirdweb";
+import { sepolia, mainnet, polygon } from "thirdweb/chains";
 
 const CLIENT_ID =
   import.meta.env.VITE_APP_THIRDWEB_CLIENT_ID ||
@@ -11,6 +12,10 @@ if (!CLIENT_ID) {
 export const client = createThirdwebClient({
   clientId: CLIENT_ID,
   // Optional: Add domain whitelist for security
+
+  chain: sepolia,
+  chains: [sepolia, mainnet, polygon],
+
   domains: [
     "localhost:3000",
     "localhost:5173", // Vite default port

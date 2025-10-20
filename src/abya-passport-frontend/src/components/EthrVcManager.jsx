@@ -1,5 +1,5 @@
 // src/components/EthrVcManager.jsx
-import React, { use, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { jsPDF } from "jspdf";
 import QRCode from "qrcode";
@@ -12,53 +12,44 @@ import {
 } from "../services/ipfsService";
 import { useEthr } from "../contexts/EthrContext";
 import EthrABI from "../artifacts/contracts/UniversityVCV2.json";
-import { useEthersSigner } from "./useClientSigner";
+//import { useEthersSigner } from "./useClientSigner";
 import EthrPresentation from "./VcPresentationManager";
 import VCVerifierEthr from "./VCVerifierEthr";
 import { keccak256, toUtf8Bytes } from "ethers";
 import { CopyIcon, QrCodeIcon, DownloadIcon, VerifiedIcon } from "lucide-react";
 import * as secp from "@noble/secp256k1";
-import { defineChain, getContract, prepareContractCall } from "thirdweb";
+import {
+  getContract,
+  prepareContractCall,
+  readContract,
+  sendTransaction,
+} from "thirdweb";
 import {
   ConnectButton,
   darkTheme,
   lightTheme,
-  useSendTransaction,
+  useReadContract,
 } from "thirdweb/react";
-import { sepolia } from "thirdweb/chains";
-import { client } from "../client";
+import { defineChain } from "thirdweb/chains";
+import { client } from "../services/client";
 import { useInternetIdentity } from "../contexts/InternetContext";
 import { createWallet, inAppWallet } from "thirdweb/wallets";
 import AbyaLogo from "../assets/abya.png";
+
+import { useActiveAccount, useActiveWalletChain } from "thirdweb/react";
+import { ethers5Adapter } from "thirdweb/adapters/ethers5";
 
 const API_BASE = import.meta.env.VITE_APP_VERAMO_API_URL;
 const VC_ADDRESS = import.meta.env.VITE_VC_CONTRACT_ADDRESS;
 
 const VC_ABI = EthrABI.abi;
 
-const EthrVcManager = () => {
+const EthrVcManager = ({ isDark }) => {
   const { walletAddress, walletDid, didLoading } = useEthr();
-  const signerPromise = useEthersSigner();
-  const { mutate: sendTransaction } = useSendTransaction();
+  //const signerPromise = useEthersSigner();
+  const account = useActiveAccount(); // thirdweb active account object
+  const activeChain = useActiveWalletChain(); // thirdweb active wallet chain (slug, chainId, name)
   const { principal, identity } = useInternetIdentity();
-  const [showConnectOptions, setShowConnectOptions] = useState(false);
-
-  const [isDark, setIsDark] = useState(() =>
-    typeof window !== "undefined"
-      ? document.documentElement.classList.contains("dark")
-      : false
-  );
-
-  useEffect(() => {
-    const observer = new MutationObserver(() => {
-      setIsDark(document.documentElement.classList.contains("dark"));
-    });
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ["class"],
-    });
-    return () => observer.disconnect();
-  }, []);
 
   // Debug logging
   console.log("EthrVcManager render:", {
@@ -132,50 +123,6 @@ const EthrVcManager = () => {
     return new Date(datetimeLocal).toISOString();
   };
 
-  // ---------------- Network helpers ----------------
-  const SKALE_TITAN_CONFIG = {
-    chainId: "0xF80F4", // 1020352220 in hex
-    chainName: "SKALE Titan",
-    nativeCurrency: {
-      name: "sFUEL",
-      symbol: "sFUEL",
-      decimals: 18,
-    },
-    rpcUrls: ["https://testnet.skalenodes.com/v1/aware-fake-trim-testnet"],
-    blockExplorerUrls: [
-      "https://aware-fake-trim-testnet.explorer.testnet.skalenodes.com/api",
-    ],
-  };
-
-  // const switchToSkaleTitan = async () => {
-  //   if (!window.ethereum) return false;
-
-  //   try {
-  //     // Try switching to the network
-  //     await window.ethereum.request({
-  //       method: "wallet_switchEthereumChain",
-  //       params: [{ chainId: SKALE_TITAN_CONFIG.chainId }],
-  //     });
-  //     return true;
-  //   } catch (switchError) {
-  //     // This error code indicates that the chain has not been added to MetaMask.
-  //     if (switchError.code === 4902) {
-  //       try {
-  //         await window.ethereum.request({
-  //           method: "wallet_addEthereumChain",
-  //           params: [SKALE_TITAN_CONFIG],
-  //         });
-  //         return true;
-  //       } catch (addError) {
-  //         console.error("Failed to add network:", addError);
-  //         return false;
-  //       }
-  //     }
-  //     console.error("Failed to switch network:", switchError);
-  //     return false;
-  //   }
-  // };
-
   // ---------------- helpers for ethers / BigNumber handling ----------------
   const safeToString = (v) => {
     try {
@@ -199,118 +146,90 @@ const EthrVcManager = () => {
   }, []);
 
   const getContractWithSigner = async () => {
-    if (typeof window === "undefined" || !window.ethereum)
-      throw new Error("No Web3 provider found (window.ethereum)");
-
-    // Check if wallet is connected
-    if (!walletAddress) {
+    // require a connected wallet address
+    if (!walletAddress && !account?.address) {
       throw new Error(
         "Wallet not connected. Please connect your wallet first."
       );
     }
 
+    // 1) Try thirdweb adapter -> ethers signer (recommended)
     try {
-      // Use the signer from the useEthersSigner hook
-      console.log("Attempting to get signer from hook...");
-      const signer = await signerPromise;
+      if (account) {
+        // toEthers returns an ethers Signer that maps to the active connector (smart wallets etc.)
+        const signer = await ethers5Adapter.signer.toEthers({
+          client, // your thirdweb client (imported above)
+          account, // the activeThirdwebAccount (useActiveAccount())
+          chain: activeChain ?? undefined, // hint about which chain to use (optional)
+        });
 
-      if (!signer) {
-        console.log(
-          "Signer from hook is undefined, falling back to manual creation"
-        );
-        throw new Error("Signer from hook is undefined");
-      }
-
-      // Check network compatibility
-      try {
-        const signerAddress = await signer.getAddress();
-        console.log("Successfully got signer from hook:", signerAddress);
-
-        // Try to get network info
-        const provider = signer.provider;
-        if (provider && provider.getNetwork) {
-          const network = await provider.getNetwork();
-          console.log("Current network:", network);
+        if (signer) {
+          // return ethers.Contract bound to that signer
+          return new ethers.Contract(VC_ADDRESS, VC_ABI, signer);
         }
-
-        return new ethers.Contract(VC_ADDRESS, VC_ABI, signer);
-      } catch (addressError) {
-        console.error("Error getting signer address:", addressError);
-        throw new Error(
-          "Failed to get signer address: " + addressError.message
-        );
       }
-    } catch (error) {
-      console.error("getContractWithSigner error:", error);
+    } catch (err) {
+      console.warn(
+        "ethers5Adapter => toEthers failed, falling back to injected provider:",
+        err
+      );
+    }
 
-      // Fallback to manual provider creation if the hook fails
+    // 2) Fallback: use injected provider (MetaMask / walletconnect proxied provider)
+    if (typeof window !== "undefined" && window.ethereum) {
       try {
-        console.log("Falling back to manual provider creation...");
-
-        // Ethers v6: BrowserProvider
+        // ethers v6 BrowserProvider if available
         if (ethers?.BrowserProvider) {
           const provider = new ethers.BrowserProvider(window.ethereum);
+          // request accounts if needed
           try {
-            // Ensure accounts are connected
-            const accounts = await provider.send("eth_requestAccounts", []);
-            if (!accounts || accounts.length === 0) {
-              throw new Error("No accounts found. Please connect your wallet.");
-            }
-            console.log("Connected accounts:", accounts);
-          } catch (accountError) {
-            console.error("Account connection error:", accountError);
-            throw new Error(
-              "Failed to connect to wallet accounts: " + accountError.message
-            );
+            await provider.send("eth_requestAccounts", []);
+          } catch (e) {
+            console.log("Error: ", e);
           }
-
-          try {
-            const signer = await provider.getSigner();
-            console.log("Fallback signer obtained:", await signer.getAddress());
-            return new ethers.Contract(VC_ADDRESS, VC_ABI, signer);
-          } catch (signerError) {
-            console.error("Signer creation error:", signerError);
-            throw new Error("Failed to create signer: " + signerError.message);
-          }
+          const signer = await provider.getSigner();
+          return new ethers.Contract(VC_ADDRESS, VC_ABI, signer);
         }
 
-        // Ethers v5: providers.Web3Provider
+        // ethers v5 fallback
         if (ethers?.providers?.Web3Provider) {
           const provider = new ethers.providers.Web3Provider(window.ethereum);
           try {
-            // Ensure accounts are connected
-            const accounts = await provider.send("eth_requestAccounts", []);
-            if (!accounts || accounts.length === 0) {
-              throw new Error("No accounts found. Please connect your wallet.");
-            }
-            console.log("Connected accounts:", accounts);
-          } catch (accountError) {
-            console.error("Account connection error:", accountError);
-            throw new Error(
-              "Failed to connect to wallet accounts: " + accountError.message
-            );
+            await provider.send("eth_requestAccounts", []);
+          } catch (e) {
+            console.log("Error: ", e);
           }
-
-          try {
-            const signer = provider.getSigner();
-            console.log("Fallback signer obtained:", await signer.getAddress());
-            return new ethers.Contract(VC_ADDRESS, VC_ABI, signer);
-          } catch (signerError) {
-            console.error("Signer creation error:", signerError);
-            throw new Error("Failed to create signer: " + signerError.message);
-          }
+          const signer = provider.getSigner();
+          return new ethers.Contract(VC_ADDRESS, VC_ABI, signer);
         }
-
+      } catch (fallbackErr) {
+        console.error("Fallback provider creation failed:", fallbackErr);
         throw new Error(
-          "Unsupported ethers version: no BrowserProvider or providers.Web3Provider found"
-        );
-      } catch (fallbackError) {
-        console.error("Fallback provider creation failed:", fallbackError);
-        throw new Error(
-          "Failed to create contract with signer: " + error.message
+          "Failed to obtain signer from injected provider: " +
+            String(fallbackErr)
         );
       }
     }
+
+    // 3) Last-resort: try to get provider from the thirdweb account connector object
+    try {
+      const connector = account?.connector;
+      if (connector && typeof connector.getProvider === "function") {
+        const proxiedProvider = await connector.getProvider();
+        if (proxiedProvider) {
+          const provider = new ethers.providers.Web3Provider(proxiedProvider);
+          const signer = provider.getSigner();
+          return new ethers.Contract(VC_ADDRESS, VC_ABI, signer);
+        }
+      }
+    } catch (e) {
+      console.warn(
+        "Failed to get provider via account.connector.getProvider():",
+        e
+      );
+    }
+
+    throw new Error("No signer/provider available for on-chain operations");
   };
 
   const getContractReadonly = async () => {
@@ -319,14 +238,18 @@ const EthrVcManager = () => {
         const provider = new ethers.BrowserProvider(window.ethereum);
         try {
           await provider.send?.("eth_requestAccounts", []);
-        } catch (_) {}
+        } catch (e) {
+          console.log("Error: ", e);
+        }
         return new ethers.Contract(VC_ADDRESS, VC_ABI, provider);
       }
       if (ethers?.providers?.Web3Provider) {
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         try {
           await provider.send?.("eth_requestAccounts", []);
-        } catch (_) {}
+        } catch (e) {
+          console.log("Error: ", e);
+        }
         return new ethers.Contract(VC_ADDRESS, VC_ABI, provider);
       }
     }
@@ -408,7 +331,9 @@ const EthrVcManager = () => {
           ? ethers.getAddress(hex)
           : null;
         if (checksum) out.push(checksum);
-      } catch (e) {}
+      } catch (e) {
+        console.log("Error: ", e);
+      }
     }
 
     if (did.startsWith("did:ethr:")) {
@@ -475,13 +400,6 @@ const EthrVcManager = () => {
         );
       }
 
-      // Check if wallet is available
-      if (typeof window === "undefined" || !window.ethereum) {
-        throw new Error(
-          "Web3 wallet not available. Please install MetaMask or another Web3 wallet."
-        );
-      }
-
       const statusKey = idx ?? "latest";
       setIpfsStatus((s) => ({ ...s, [statusKey]: { uploading: true } }));
 
@@ -498,6 +416,7 @@ const EthrVcManager = () => {
             : hexMatch;
         } catch (e) {
           subjectToStore = hexMatch.toLowerCase();
+          console.log("Error: ", e);
         }
       }
 
@@ -530,15 +449,8 @@ const EthrVcManager = () => {
           address: VC_ADDRESS,
           abi: VC_ABI,
           client,
-          chain: defineChain(sepolia),
+          chain: defineChain(11155111), // sepolia
         });
-
-        // ensure contract has at least one of the expected functions
-        if (!contract.issueCredential && !contract.issueCredentialWithDID) {
-          throw new Error(
-            "Contract does not have expected issuance functions (issueCredential or issueCredentialWithDID). Please check the contract ABI."
-          );
-        }
 
         const credentialType = Array.isArray(cred?.type)
           ? cred.type[0]
@@ -579,13 +491,11 @@ const EthrVcManager = () => {
           }
         } catch (e) {
           expiresAt = 0;
+          console.log("Error: ", e);
         }
 
         let txOrReceipt;
         try {
-          // Decide which issuance function to call:
-          // - Prefer issueCredentialWithDID when subject looks like a DID or an address string
-          // - Otherwise compute a salted/simple holderHash and call issueCredential(holderHash,...)
           const isDidLike =
             typeof subjectToStore === "string" &&
             (subjectToStore.startsWith("did:") ||
@@ -600,7 +510,7 @@ const EthrVcManager = () => {
                 "function issueCredentialWithDID(string holderDID, string ipfsCID, bytes32 credentialJWT, uint256 expiresAt)",
               params: [subjectToStore, cid, credentialHash, expiresAt],
             });
-            const receipt = await sendTransaction(transaction);
+            const receipt = await sendTransaction({ transaction, account });
             console.log("Transaction confirmed:", receipt);
           } else if (
             contract.issueCredentialWithDID &&
@@ -613,7 +523,7 @@ const EthrVcManager = () => {
                 "function issueCredentialWithDID(string holderDID, string ipfsCID, bytes32 credentialJWT, uint256 expiresAt)",
               params: [subjectToStore, cid, credentialHash, expiresAt],
             });
-            const receipt = await sendTransaction(transaction);
+            const receipt = await sendTransaction({ transaction, account });
             console.log("Transaction confirmed:", receipt);
           } else {
             // Fallback: compute holderHash (bytes32) from subjectToStore (utf8)
@@ -1044,7 +954,7 @@ const EthrVcManager = () => {
             typeof ethers.utils.verifyMessage === "function"
           )
             maybeAddr = ethers.utils.verifyMessage(msgOrDigest, signature);
-        } catch (_) {
+        } catch (e) {
           maybeAddr = null;
         }
 
@@ -1214,7 +1124,7 @@ const EthrVcManager = () => {
       // 1) Try existing signerPromise (preferred)
       let signer = null;
       try {
-        signer = await signerPromise;
+        signer = await client;
       } catch (e) {
         signer = null;
       }
@@ -1226,7 +1136,9 @@ const EthrVcManager = () => {
             const provider = new ethers.BrowserProvider(window.ethereum);
             try {
               await provider.send("eth_requestAccounts", []);
-            } catch (_) {}
+            } catch (e) {
+              console.log("Error: ", e);
+            }
             try {
               signer = provider.getSigner ? provider.getSigner() : null;
               const addr = signer?.getAddress
@@ -1242,7 +1154,9 @@ const EthrVcManager = () => {
             const provider = new ethers.providers.Web3Provider(window.ethereum);
             try {
               await provider.send("eth_requestAccounts", []);
-            } catch (_) {}
+            } catch (e) {
+              console.log("Error: ", e);
+            }
             signer = provider.getSigner ? provider.getSigner() : null;
           }
         } catch (e) {
@@ -1393,44 +1307,65 @@ const EthrVcManager = () => {
   // ---------------- on-chain fetch helpers (unchanged) ----------------
   const getIdsForDid = async (did) => {
     try {
-      const readContract = await getContractReadonly();
-
-      if (!readContract.getCredentialsForDID) {
-        console.warn("Contract does not have getCredentialsForDID function");
-        setLastOnchainIds([]);
-        return [];
-      }
-
       const variants = normalizeDidVariants(did);
       let ids = [];
       let usedVariant = null;
 
       for (const v of variants) {
         try {
-          const res = await readContract.getCredentialsForDID(v);
-          const idStrings = Array.isArray(res)
-            ? res.map((x) => safeToString(x))
+          const contract = getContract({
+            address: VC_ADDRESS,
+            abi: VC_ABI,
+            client,
+            chain: defineChain(11155111), // sepolia
+          });
+
+          const result = await readContract({
+            contract,
+            method: "getCredentialsForDID",
+            params: [v],
+          });
+
+          const idStrings = Array.isArray(result)
+            ? result.map((x) => safeToString(x))
             : [];
+
           if (idStrings && idStrings.length > 0) {
             ids = idStrings;
             usedVariant = v;
             break;
           }
-        } catch (inner) {}
+        } catch (e) {
+          console.log("Error reading DID variants: ", e);
+        }
       }
 
-      // last fallback: try plain walletAddress as variant (if available)
+      // Fallback: try plain walletAddress as variant
       if ((!ids || ids.length === 0) && walletAddress) {
         try {
-          const res2 = await readContract.getCredentialsForDID(walletAddress);
-          const idStrings2 = Array.isArray(res2)
-            ? res2.map((x) => safeToString(x))
+          const contract = getContract({
+            address: VC_ADDRESS,
+            abi: VC_ABI,
+            client,
+            chain: defineChain(11155111), // sepolia
+          });
+          const result = await readContract({
+            contract,
+            method: "getCredentialsForDID",
+            params: [walletAddress],
+          });
+
+          const idStrings = Array.isArray(result)
+            ? result.map((x) => safeToString(x))
             : [];
-          if (idStrings2 && idStrings2.length > 0) {
-            ids = idStrings2;
+
+          if (idStrings && idStrings.length > 0) {
+            ids = idStrings;
             usedVariant = walletAddress;
           }
-        } catch (_) {}
+        } catch (e) {
+          console.log("Error reading wallet address: ", e);
+        }
       }
 
       setLastOnchainIds(ids);
@@ -1450,43 +1385,65 @@ const EthrVcManager = () => {
 
   const fetchOnChainCredentialsForDid = async (did) => {
     try {
-      const readContract = await getContractReadonly();
-
-      if (!readContract.getCredentialsForDID) {
-        console.warn("Contract missing getCredentialsForDID; aborting fetch.");
-        setLastOnchainRowsDebug([]);
-        return [];
-      }
-
       const variants = normalizeDidVariants(did);
       let idsRaw = [];
       let usedVariant = null;
 
+      // Get credential IDs for DID
       for (const v of variants) {
         try {
-          const res = await readContract.getCredentialsForDID(v);
-          const idList = Array.isArray(res)
-            ? res.map((x) => safeToString(x))
+          const contract = getContract({
+            address: VC_ADDRESS,
+            abi: VC_ABI,
+            client,
+            chain: defineChain(11155111), // sepolia
+          });
+          const result = await readContract({
+            contract,
+            method: "getCredentialsForDID",
+            params: [v],
+          });
+
+          const idList = Array.isArray(result)
+            ? result.map((x) => safeToString(x))
             : [];
+
           if (idList && idList.length > 0) {
             idsRaw = idList;
             usedVariant = v;
             break;
           }
-        } catch (inner) {}
+        } catch (e) {
+          console.log("Error reading DID variants: ", e);
+        }
       }
 
+      // Wallet address fallback
       if ((!idsRaw || idsRaw.length === 0) && walletAddress) {
         try {
-          const res2 = await readContract.getCredentialsForDID(walletAddress);
-          const idList2 = Array.isArray(res2)
-            ? res2.map((x) => safeToString(x))
+          const contract = getContract({
+            address: VC_ADDRESS,
+            abi: VC_ABI,
+            client,
+            chain: defineChain(11155111), // sepolia
+          });
+          const result = await readContract({
+            contract,
+            method: "getCredentialsForDID",
+            params: [walletAddress],
+          });
+
+          const idList = Array.isArray(result)
+            ? result.map((x) => safeToString(x))
             : [];
-          if (idList2 && idList2.length > 0) {
-            idsRaw = idList2;
+
+          if (idList && idList.length > 0) {
+            idsRaw = idList;
             usedVariant = walletAddress;
           }
-        } catch (_) {}
+        } catch (e) {
+          console.log("Error reading wallet address: ", e);
+        }
       }
 
       const idList = idsRaw;
@@ -1495,50 +1452,59 @@ const EthrVcManager = () => {
       const results = [];
       const rowsDebug = [];
 
+      // Fetch details for each credential ID
       for (const idStr of idList) {
         try {
-          // Prefer the summary view which returns latestCID directly
-          let summary;
-          if (readContract.getCredentialSummary) {
-            summary = await readContract.getCredentialSummary(idStr);
-          } else {
-            // fallback to raw credentials mapping (older ABI)
-            summary = await readContract.credentials(idStr);
-          }
+          const idNumber = parseInt(idStr);
+
+          const contract = getContract({
+            address: VC_ADDRESS,
+            abi: VC_ABI,
+            client,
+            chain: defineChain(11155111), // sepolia
+          });
+
+          // Get credential summary using thirdweb syntax
+          const summary = await readContract({
+            contract,
+            method: "getCredentialSummary",
+            params: [idNumber],
+          });
 
           rowsDebug.push({ idStr, summary });
 
-          const mappingCID = summary?.[2] ? safeToString(summary[2]) : "";
-          const holderHash = summary?.[1] ? safeToString(summary[1]) : "";
-          const credentialJWT = summary?.[3] ? safeToString(summary[3]) : "";
-          const issueDateRaw = summary?.[4];
-          const expiresAtRaw = summary?.[5];
+          // Destructure the summary tuple according to your contract
+          const [
+            // id,
+            holderHash,
+            latestCID,
+            credentialJWT,
+            issuedAt,
+            expiresAt,
+            valid,
+            revokedAt,
+            revocationReason,
+          ] = summary;
 
-          const issueDate =
-            issueDateRaw && typeof issueDateRaw?.toString === "function"
-              ? issueDateRaw.toNumber
-                ? new Date(issueDateRaw.toNumber() * 1000).toISOString()
-                : new Date(Number(issueDateRaw) * 1000).toISOString()
-              : undefined;
+          const mappingCID = latestCID || "";
+          const holderHashStr = holderHash ? holderHash.toString() : "";
+          const credentialJWTStr = credentialJWT
+            ? credentialJWT.toString()
+            : "";
 
-          const expiresAt =
-            expiresAtRaw && typeof expiresAtRaw?.toString === "function"
-              ? expiresAtRaw.toNumber
-                ? Number(expiresAtRaw.toNumber())
-                : Number(expiresAtRaw)
-              : 0;
+          const issueDate = issuedAt
+            ? new Date(Number(issuedAt) * 1000).toISOString()
+            : undefined;
+          const expiresAtNum = expiresAt ? Number(expiresAt) : 0;
 
-          const valid = !!summary?.[6];
-
-          // fetch IPFS json if mappingCID present
+          // Fetch IPFS JSON
           let ipfsJson = null;
           if (mappingCID) {
             try {
               ipfsJson = await fetchDidDocument(mappingCID);
             } catch (fetchErr) {
-              // fallback to public gateways
               console.warn(
-                "fetchDidDocument failed, falling back to public gateways",
+                "fetchDidDocument failed, trying public gateways",
                 fetchErr
               );
               const gateways = [
@@ -1569,26 +1535,28 @@ const EthrVcManager = () => {
             };
           } else {
             displayed = {
-              credentialSubject: { id: holderHash || idStr },
+              credentialSubject: { id: holderHashStr || idStr },
               issuer: { id: null },
               issuanceDate: issueDate,
-              expirationDate: expiresAt
-                ? new Date(expiresAt * 1000).toISOString()
+              expirationDate: expiresAtNum
+                ? new Date(expiresAtNum * 1000).toISOString()
                 : undefined,
-              credentialJWT: credentialJWT || undefined,
+              credentialJWT: credentialJWTStr || undefined,
             };
           }
 
           const credObj = {
             ...displayed,
             onchain: {
-              id: safeToString(summary?.[0] ?? idStr),
-              holderHash,
+              id: idStr,
+              holderHash: holderHashStr,
               mappingCID,
-              credentialJWT,
+              credentialJWT: credentialJWTStr,
               issueDate,
-              expiresAt,
-              valid,
+              expiresAt: expiresAtNum,
+              valid: Boolean(valid),
+              revokedAt: revokedAt ? Number(revokedAt) : 0,
+              revocationReason: revocationReason || "",
               usedVariant,
             },
           };
@@ -1610,23 +1578,45 @@ const EthrVcManager = () => {
 
   const fetchAllOnChainCredentials = async () => {
     try {
-      const readContract = await getContractReadonly();
-      const count = await readContract.credentialCount();
-      const n =
-        count && typeof count?.toString === "function"
-          ? Number(safeToString(count))
-          : Number(count || 0);
+      const contract = getContract({
+        address: VC_ADDRESS,
+        abi: VC_ABI,
+        client,
+        chain: defineChain(11155111), // sepolia
+      });
+      // Get total credential count
+      const count = await readContract({
+        contract,
+        method: "credentialCount",
+      });
+
+      const n = Number(count || 0);
       const out = [];
+
+      // Fetch each credential
       for (let i = 1; i <= n; i++) {
         try {
-          let summary;
-          if (readContract.getCredentialSummary) {
-            summary = await readContract.getCredentialSummary(i);
-          } else {
-            summary = await readContract.credentials(i);
-          }
-          const mappingCID = summary?.[2] ? safeToString(summary[2]) : "";
+          const summary = await readContract({
+            contract,
+            method: "getCredentialSummary",
+            params: [i],
+          });
+
+          const [
+            id,
+            holderHash,
+            latestCID,
+            credentialJWT,
+            issuedAt,
+            expiresAt,
+            valid,
+            revokedAt,
+            revocationReason,
+          ] = summary;
+
+          const mappingCID = latestCID || "";
           let ipfsJson = null;
+
           if (mappingCID) {
             try {
               ipfsJson = await fetchDidDocument(mappingCID);
@@ -1634,28 +1624,34 @@ const EthrVcManager = () => {
               try {
                 const res = await fetch(`https://dweb.link/ipfs/${mappingCID}`);
                 if (res.ok) ipfsJson = await res.json();
-              } catch (e) {}
+              } catch (e) {
+                console.log("IPFS fetch error: ", e);
+              }
             }
           }
-          const issueDateRaw = summary?.[4];
-          const issueDate = issueDateRaw
-            ? issueDateRaw.toNumber
-              ? new Date(issueDateRaw.toNumber() * 1000).toISOString()
-              : new Date(Number(issueDateRaw) * 1000).toISOString()
+
+          const issueDate = issuedAt
+            ? new Date(Number(issuedAt) * 1000).toISOString()
             : undefined;
+
           const credObj = {
             ...(ipfsJson || {}),
             issuanceDate: issueDate,
             onchain: {
-              id: safeToString(summary?.[0] ?? i),
-              holderHash: summary?.[1] ? safeToString(summary[1]) : "",
+              id: i.toString(),
+              holderHash: holderHash ? holderHash.toString() : "",
               mappingCID,
-              valid: !!summary?.[6],
+              valid: Boolean(valid),
+              expiresAt: expiresAt ? Number(expiresAt) : 0,
             },
           };
+
           out.push(credObj);
-        } catch (inner) {}
+        } catch (e) {
+          console.log("Error fetching credential", i, e);
+        }
       }
+
       return out;
     } catch (err) {
       console.warn("fetchAllOnChainCredentials error", err);
@@ -1885,7 +1881,7 @@ const EthrVcManager = () => {
             }
           }
         } catch (e) {
-          // ignore decode issues
+          console.log("Error: ", e);
         }
       }
     } catch (err) {
@@ -1942,7 +1938,7 @@ const EthrVcManager = () => {
         sponsorGas: true,
       },
       smartAccount: {
-        chain: sepolia,
+        chain: defineChain(11155111),
         sponsorGas: true,
       },
     }),
@@ -3726,6 +3722,193 @@ const EthrVcManager = () => {
                     </span>
                   </button>
                 </div>
+
+                {/* Verification Results */}
+                {verificationResult && (
+                  <div className="mt-6">
+                    <div
+                      className={`p-4 rounded-lg border-l-4 ${
+                        verificationResult.verified
+                          ? "bg-green-50 darkcard border-green-500"
+                          : "bg-red-50 border-red-500"
+                      }`}
+                    >
+                      <div className="flex items-center mb-3">
+                        {verificationResult.verified ? (
+                          <>
+                            <svg
+                              className="w-6 h-6 text-green-600 mr-2"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                              />
+                            </svg>
+                            <span className="text-green-800 font-semibold text-lg">
+                              Verification Successful ✅
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <svg
+                              className="w-6 h-6 text-red-600 mr-2"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                              />
+                            </svg>
+                            <span className="text-red-800 font-semibold text-lg">
+                              Verification Failed —{" "}
+                              {typeof verificationResult?.error === "object"
+                                ? JSON.stringify(verificationResult.error)
+                                : verificationResult?.error ?? "Unknown error"}
+                            </span>
+                          </>
+                        )}
+                      </div>
+
+                      {verificationResult.payload && (
+                        <div className="grid md:grid-cols-3 gap-4 mb-4">
+                          <div className="bg-white rounded-lg p-3">
+                            <label className="text-xs font-medium text-emerald-500 uppercase tracking-wide">
+                              Issuer
+                            </label>
+                            <p className="text-sm font-mono text-emerald-800 break-all">
+                              {verificationResult.payload?.iss ?? "N/A"}
+                            </p>
+                          </div>
+                          <div className="bg-white rounded-lg p-3">
+                            <label className="text-xs font-medium text-emerald-500 uppercase tracking-wide">
+                              Subject
+                            </label>
+                            <p className="text-sm font-mono text-emerald-800 break-all">
+                              {verificationResult.payload?.sub ?? "N/A"}
+                            </p>
+                          </div>
+                          <div className="bg-white rounded-lg p-3">
+                            <label className="text-xs font-medium text-emerald-500 uppercase tracking-wide">
+                              Expiry
+                            </label>
+                            <p className="text-sm text-emerald-800">
+                              {verificationResult.payload?.exp
+                                ? new Date(
+                                    verificationResult.payload.exp * 1000
+                                  ).toLocaleDateString()
+                                : "N/A"}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      <details className="mt-3">
+                        <summary className="cursor-pointer text-sm font-medium text-blue-900 dark-text-yellow hover:text-gray-900">
+                          View full verification details
+                        </summary>
+                        <div className="mt-2 bg-white rounded-lg p-3 max-h-64 overflow-y-auto">
+                          <pre className="text-xs text-gray-600 whitespace-pre-wrap">
+                            {JSON.stringify(verificationResult, null, 2)}
+                          </pre>
+                        </div>
+                      </details>
+                    </div>
+                  </div>
+                )}
+                {/* Stamp verification indicator */}
+                {stampStatus && (
+                  <div
+                    className={`mt-3 p-3 rounded-lg ${
+                      stampStatus.ok
+                        ? "bg-green-50 border-l-4 border-green-500"
+                        : "bg-red-50 border-l-4 border-red-500"
+                    }`}
+                  >
+                    <div className="flex items-center mb-1">
+                      <svg
+                        className={`w-5 h-5 mr-2 ${
+                          stampStatus.ok ? "text-green-600" : "text-red-600"
+                        }`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d={
+                            stampStatus.ok
+                              ? "M9 12l2 2 4-4"
+                              : "M6 18L18 6M6 6l12 12"
+                          }
+                        />
+                      </svg>
+                      <div className="text-sm font-medium">
+                        {stampStatus.ok
+                          ? "Stamp verified"
+                          : "Stamp verification failed"}
+                      </div>
+                    </div>
+                    <div className="text-xs text-gray-700">
+                      {stampStatus.ok ? (
+                        <>
+                          Signer:{" "}
+                          <code className="font-mono">
+                            {stampStatus.recoveredAddress}
+                          </code>
+                          {stampStatus.publicKey && (
+                            <>
+                              <br />
+                              Public key:{" "}
+                              <code className="font-mono break-all">
+                                {stampStatus.publicKey}
+                              </code>
+                            </>
+                          )}
+                        </>
+                      ) : (
+                        <div>
+                          {stampStatus.error ||
+                            "No valid stamp found or recovery failed."}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage("vcverifier")}
+                  className="bg-emerald-600 text-white px-6 py-3 rounded-lg hover:bg-emerald-700 transition-colors duration-200 font-medium"
+                >
+                  <span className="flex items-center gap-4">
+                    Credential Verifier
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="28"
+                      height="28"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        fill="none"
+                        stroke="#fff"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M14 12H4m10 0l-4 4m4-4l-4-4m10-4v16"
+                      />
+                    </svg>
+                  </span>
+                </button>
               </div>
             </div>
           )}

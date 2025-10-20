@@ -1,9 +1,8 @@
 import axios from "axios";
 import FormData from "form-data";
 
-const pinataApiKey = "b5de97e4d7f291fffa29";
-const pinataSecretApiKey =
-  "3c186fb58980777698bab8e95f010f40fd0d04e14de8f49b551108351aefaf28";
+const pinataApiKey = import.meta.env.VITE_APP_PINATA_API_KEY;
+const pinataSecretApiKey = import.meta.env.VITE_APP_PINATA_SECRET_KEY;
 
 const IPFS_GATEWAYS = [
   "https://gateway.pinata.cloud/ipfs/",

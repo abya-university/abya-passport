@@ -1,22 +1,24 @@
 // src/abya-passport-frontend/src/components/Navbar.jsx
-
 import React, { useState, useEffect, useRef } from "react";
 import { useInternetIdentity } from "../contexts/InternetContext";
 import { useEthr } from "../contexts/EthrContext";
 import AbyaLogo from "../assets/abya.png";
-import { Copy, CopyCheckIcon, CopyIcon, WalletMinimal } from "lucide-react";
+import { CopyCheckIcon, CopyIcon } from "lucide-react";
 import {
   ConnectButton,
   darkTheme,
   lightTheme,
   useActiveAccount,
+  useActiveWalletChain,
+  useSwitchActiveWalletChain,
 } from "thirdweb/react";
-import { client } from "../client.jsx";
+import { client } from "../services/client.js";
 import { sepolia } from "thirdweb/chains";
 import { inAppWallet, createWallet } from "thirdweb/wallets";
 
 const API_URL =
-  import.meta.env.VITE_APP_VERAMO_API_URL || "http://localhost:3000";
+  import.meta.env.VITE_APP_VERAMO_API_URL ||
+  "https://veramo-backend-service.onrender.com";
 
 function Navbar({ currentPage, setCurrentPage }) {
   // Detect dark mode from document root (set by App.jsx)
@@ -26,13 +28,17 @@ function Navbar({ currentPage, setCurrentPage }) {
       : false
   );
 
+  // thirdweb active account + wallet chain + switch hook
   const account = useActiveAccount();
+  const activeChain = useActiveWalletChain();
+  const switchChain = useSwitchActiveWalletChain();
+
+  // Helper to safely read chain id
+  const activeChainId = activeChain?.chainId ?? activeChain?.id ?? null;
+
   const isConnected = !!account;
   // const address = account?.address;
   const smartWallet = account?.address;
-
-  console.log("Smart Wallet:", smartWallet);
-  console.log("Principal: ", useInternetIdentity().principal);
 
   useEffect(() => {
     const observer = new MutationObserver(() => {
@@ -63,10 +69,6 @@ function Navbar({ currentPage, setCurrentPage }) {
     import.meta.env.VITE_APP_BACKEND_CANISTER_ID ||
     "uxrrr-q7777-77774-qaaaq-cai";
 
-  console.log("DID2:", did);
-  console.log("Principal:", principal);
-  console.log("Canister ID:", canisterId);
-
   // Shorteners
   const shortenAddress = (addr) =>
     addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : "";
@@ -78,7 +80,17 @@ function Navbar({ currentPage, setCurrentPage }) {
   const isInternetIdentityConnected = !!principal;
   const isAnyConnected = isWalletConnected || isInternetIdentityConnected;
 
-  // Fetch or create DID for connected wallet
+  // Helper: desired chain (you can change this default if needed)
+  const desiredChain = sepolia;
+  const desiredChainId = desiredChain?.chainId ?? null;
+
+  // Whether the user is on the wrong chain
+  const isChainMismatched =
+    isWalletConnected &&
+    activeChainId != null &&
+    activeChainId !== desiredChainId;
+
+  // Fetch or create DID for connected wallet (updated to include chain info)
   useEffect(() => {
     if (!isWalletConnected || walletDid) {
       if (!isWalletConnected) {
@@ -89,6 +101,14 @@ function Navbar({ currentPage, setCurrentPage }) {
       return;
     }
 
+    const networkSlug =
+      (activeChain &&
+        (activeChain.slug ||
+          activeChain.name?.toLowerCase().replace(/\s+/g, "-"))) ||
+      desiredChain?.slug ||
+      "sepolia";
+
+    // const alias = `issuer-${networkSlug}-${smartWallet}`;
     const alias = `issuer-wallet-${smartWallet}`;
 
     const fetchOrCreateDid = async () => {
@@ -107,6 +127,7 @@ function Navbar({ currentPage, setCurrentPage }) {
           }
         }
 
+        // include network info in the request body so backend can create chain-aware DID strings
         const createRes = await fetch(`${API_URL}/did/create`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -114,6 +135,7 @@ function Navbar({ currentPage, setCurrentPage }) {
             provider: "did:ethr",
             walletAddress: smartWallet,
             alias,
+            network: networkSlug,
           }),
         });
         const createJson = await createRes.json();
@@ -142,9 +164,8 @@ function Navbar({ currentPage, setCurrentPage }) {
 
     setWalletAddress(smartWallet);
     fetchOrCreateDid();
-  }, [isWalletConnected, smartWallet, walletDid]);
-
-  console.log("Wallet DID:", walletDid);
+    // include activeChainId so DID refresh runs when chain changes
+  }, [isWalletConnected, smartWallet, walletDid, activeChainId]);
 
   // Scroll effect
   useEffect(() => {
@@ -190,6 +211,7 @@ function Navbar({ currentPage, setCurrentPage }) {
       .catch(() => {});
   };
 
+  // wallets configuration
   const wallets = [
     inAppWallet({
       auth: {
@@ -251,6 +273,21 @@ function Navbar({ currentPage, setCurrentPage }) {
           walletSelectorButtonHoverBg: "hsl(41, 80%, 49%)",
         },
       });
+
+  // chain switch handler (UI)
+  const handleSwitchToDesired = async () => {
+    try {
+      if (!switchChain) {
+        console.warn("switchChain hook not available");
+        return;
+      }
+      await switchChain(desiredChain);
+      // Optionally close dropdown after switching
+      setTimeout(() => setShowConnectOptions(false), 800);
+    } catch (err) {
+      console.error("Failed to switch chain:", err);
+    }
+  };
 
   return (
     <nav
@@ -362,6 +399,12 @@ function Navbar({ currentPage, setCurrentPage }) {
                       ? shortenAddress(smartWallet)
                       : shortenAddress(principal)}
                   </span>
+
+                  {/* show active chain badge */}
+                  <span className="ml-2 text-xs px-2 py-0.5 bg-slate-100 dark:bg-slate-800 rounded-full text-slate-700 dark:text-slate-200">
+                    {activeChain?.name || "Unknown chain"}
+                  </span>
+
                   {principal && !isConnected && (
                     <span className="text-xs bg-purple-100 dark:bg-green-600 text-purple-700 dark:text-purple-200 px-2 py-0.5 rounded-full">
                       II
@@ -597,23 +640,34 @@ function Navbar({ currentPage, setCurrentPage }) {
                             </svg>
                             Refresh
                           </button>
-                          <button
-                            onClick={() => {
-                              logout();
-                              setShowConnectOptions(false);
-                            }}
-                            className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 darkcard px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2"
-                          >
-                            <svg
-                              width="14"
-                              height="14"
-                              viewBox="0 0 24 24"
-                              fill="currentColor"
+
+                          {/* When chain is mismatched, surface switch button */}
+                          {isChainMismatched ? (
+                            <button
+                              onClick={handleSwitchToDesired}
+                              className="flex-1 bg-yellow-50 hover:bg-yellow-100 text-yellow-800 border border-yellow-200 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200"
                             >
-                              <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.59L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z" />
-                            </svg>
-                            Disconnect
-                          </button>
+                              Switch to {desiredChain?.name || "Sepolia"}
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                logout();
+                                setShowConnectOptions(false);
+                              }}
+                              className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 darkcard px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2"
+                            >
+                              <svg
+                                width="14"
+                                height="14"
+                                viewBox="0 0 24 24"
+                                fill="currentColor"
+                              >
+                                <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.59L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z" />
+                              </svg>
+                              Disconnect
+                            </button>
+                          )}
                         </div>
                       </div>
                     )}
@@ -670,13 +724,6 @@ function Navbar({ currentPage, setCurrentPage }) {
                                 showThirdwebBranding: true,
                               }}
                               theme={customTheme}
-                              // onConnect={() => {
-                              //   // Optional: Close dropdown after successful connection
-                              //   setTimeout(
-                              //     () => setShowConnectOptions(false),
-                              //     5000
-                              //   );
-                              // }}
                             />
                           </div>
                         </div>
@@ -741,40 +788,6 @@ function Navbar({ currentPage, setCurrentPage }) {
                         </div>
                       </>
                     )}
-
-                    {/* Show Web3 Wallet option when only II is connected */}
-                    {/* {isInternetIdentityConnected && !isWalletConnected && (
-                      <>
-                        <div className="flex items-center gap-3">
-                          <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
-                          <span className="text-xs text-gray-500 font-medium">
-                            ALSO CONNECT
-                          </span>
-                          <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent"></div>
-                        </div>
-
-                        <div className="p-3 rounded-xl border border-blue-200">
-                          <div className="flex items-center gap-2 mb-2">
-                            <svg
-                              width="16"
-                              height="16"
-                              viewBox="0 0 24 24"
-                              fill="currentColor"
-                              className="text-blue-900 dark-text-yellow"
-                            >
-                              <path d="M21 18v1c0 1.1-.9 2-2 2H5c-1.11 0-2-.9-2-2V5c0-1.1.89-2 2-2h14c1.1 0 2 .9 2 2v1h-9c-1.11 0-2 .9-2 2v8c0 1.1.89 2 2 2h9zm-9-2h10V8H12v8zm4-2.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z" />
-                            </svg>
-                            <span className="text-sm font-medium text-blue-900 dark-text-yellow">
-                              Add Web3 Wallet
-                            </span>
-                          </div>
-                          <div
-                            className="flex justify-center items-center"
-                            onClick={(e) => e.stopPropagation()}
-                          ></div>
-                        </div>
-                      </>
-                    )} */}
 
                     {isWalletConnected && !isInternetIdentityConnected && (
                       <>
